@@ -1,22 +1,33 @@
-# Seguridad y Consideraciones Legales en Vapeupar
+# Seguridad y Cumplimiento Normativo - Vapeupar
 
 ## 1. Verificación de Mayoría de Edad (+18 / Age Gate)
-- **Marco Legal**: La legislación colombiana y estándares internacionales prohíben estrictamente la comercialización, suministro y promoción de productos de vapeo y tabaco a menores de 18 años (Ley 1335 de 2009 y normativas complementarias sobre cigarrillos electrónicos).
-- **Implementación Técnica**:
-  - Modal bloqueante en la primera visita (`AgeVerificationModal`).
-  - Persistencia en almacenamiento del navegador (`localStorage`) con opción de renovación periódica.
-  - Mensaje explícito de advertencia de salud en todas las vistas públicas y checkout.
-  - Validación física del documento de identidad (Cédula de Ciudadanía) por el domiciliario al momento de la entrega.
+- **Marco Legal**: La legislación colombiana (Ley 1335 de 2009 y normativas complementarias) y estándares internacionales prohíben estrictamente la comercialización, suministro y promoción de vaporizadores y productos con o sin nicotina a menores de 18 años.
+- **Implementación Técnica en Frontend**:
+  - Modal bloqueante en la primera visita (`AgeVerificationModal`) con soporte completo de accesibilidad WCAG (`role="dialog"`, `aria-modal="true"` y trampa de foco).
+  - **Expiración de 30 días (TTL)**: Almacena la marca temporal en milisegundos (`vapeupar_age_verified_at`) en `localStorage`. Si transcurren más de 30 días, la verificación expira automáticamente y vuelve a solicitarse.
+  - Bloqueo de navegación e interacción si el usuario declara ser menor de edad.
+  - Advertencia obligatoria de salud visible de manera permanente en el pie de página de la aplicación.
+  - **Validación Física en Terreno**: Protocolo de entrega local que instruye a los domiciliarios en Valledupar a solicitar la Cédula de Ciudadanía física antes de entregar cualquier paquete.
 
-## 2. Pasarelas de Pago y Categoría "High Risk"
-- **Restricción de Pasarelas**: Las plataformas globales (Stripe, PayPal, Mercado Pago) clasifican los vaporizadores y accesorios de nicotina como productos de alto riesgo o derechamente prohibidos en sus términos de uso.
-- **Estrategia Recomendada para Vapeupar**:
-  1. **Checkout Vía WhatsApp**: Permite coordinar pedidos directamente con el comprador, validando stock y preferencia de sabor.
-  2. **Transferencias Bancarias Locales**: Nequi, Daviplata, Bancolombia a la Mano, PSE (con comercio registrado debidamente).
-  3. **Pago Contra Entrega (COD)**: El cliente paga en efectivo o transferencia al recibir y verificar su producto.
-  4. **Pasarelas de Alto Riesgo Especializadas**: Si se desea cobro con tarjeta en la web, se debe tramitar una cuenta comercial clasificada para tabaco/vapeo con procesadores autorizados.
+## 2. Seguridad en la API Backend
+- **Cabeceras HTTP de Protección (Helmet)**:
+  - Mitigación de Clickjacking con `X-Frame-Options`.
+  - Prevención de ataques MIME-sniffing con `X-Content-Type-Options: nosniff`.
+  - Aislamiento de recursos entre orígenes (`cross-origin`).
+- **Limitación de Tasa (Rate Limiting)**:
+  - Protección de endpoints bajo `/api/*` con `express-rate-limit`: máximo 100 peticiones por ventana de 1 minuto por IP.
+- **Validación Estricta de Entradas con Zod**:
+  - Parámetros de consulta (`ProductQuerySchema`): `minPrice`, `maxPrice` (con verificación cruzada `min <= max`), `search` (máximo 100 caracteres sanitizados), `limit` (máximo 50 elementos por página) y categorías restringidas a enumeraciones estrictas.
+  - Parámetros de ruta (`ProductSlugSchema`): Expresión regular `^[a-z0-9-]+$` para prevenir inyección de caracteres especiales o manipulación de rutas.
+- **Prevención de SSRF en Frontend (`next.config.ts`)**:
+  - Se eliminaron los comodines de dominio remoto (`hostname: "**"`).
+  - Únicamente se autorizan orígenes conocidos y controlados (`images.unsplash.com`).
+- **Manejo Centralizado de Excepciones**:
+  - En entornos de producción, los detalles de errores de servidor o trazas internas jamás se exponen en las respuestas JSON a los clientes.
 
-## 3. Seguridad Técnica en Backend y Frontend
-- **CORS Estricto**: El backend solo responde a orígenes autorizados definidos en `FRONTEND_URL`.
-- **Variables de Entorno**: Nunca almacenar credenciales de producción o claves secretas en repositorios de código. Utilizar `.env.example` para documentar la estructura de variables.
-- **Validación de Datos**: Toda entrada que provenga del cliente debe ser validada con esquemas estrictos (Zod) antes de ser procesada por los servicios.
+## 3. Pasarelas de Pago y Categoría "High Risk"
+- **Restricción de Pasarelas Convencionales**: Plataformas como Stripe, PayPal y Mercado Pago aplican restricciones severas o bloqueos inmediatos a cuentas que comercialicen vaporizadores o accesorios de nicotina sin licencias corporativas específicas.
+- **Arquitectura de Venta Segura**:
+  1. **Checkout Asistido por WhatsApp**: Enlace cifrado en URL con detalles del producto seleccionado, precio en COP y confirmación de disponibilidad inmediata.
+  2. **Transferencias Electrónicas Locales**: Nequi, Daviplata, Bancolombia a la Mano.
+  3. **Pago Contra Entrega (COD)**: El cliente abona en efectivo o transferencia únicamente al recibir y verificar la originalidad del producto con su sello QR.

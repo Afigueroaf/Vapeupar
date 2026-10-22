@@ -20,11 +20,14 @@ body {
   font-feature-settings: "rlig" 1, "calt" 1;
 }
 
-/* Custom glow utility */
-.glow-accent {
-  box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.25);
-}
-
-.glow-cyan {
-  box-shadow: 0 0 25px -5px rgba(6, 182, 212, 0.25);
+/* Accessibility: Respect Reduced Motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

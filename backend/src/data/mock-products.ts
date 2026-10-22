@@ -125,8 +125,8 @@ export const MOCK_PRODUCTS: Product[] = [
     shortDescription: 'Resistencias de malla de alto rendimiento para Target, Luxe y Gen.',
     description: 'Pack de 5 resistencias Vaporesso GTX Mesh diseñadas para una producción de vapor densa y vida útil prolongada con algodón de lino antibacteriano.',
     price: 52000,
-    inStock: true,
-    stock: 15,
+    inStock: false,
+    stock: 0,
     imageUrl: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=600&q=80',
     featured: false,
     specs: {

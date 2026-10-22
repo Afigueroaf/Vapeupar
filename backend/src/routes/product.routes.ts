@@ -1,39 +1,46 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
 import { productService } from '../services/product.service.js';
-import { ProductCategory } from '../types/product.types.js';
+import { ProductQuerySchema, ProductSlugSchema } from '../schemas/product.schema.js';
 
 export const productRouter = Router();
 
 // GET /api/products
-productRouter.get('/', (req: Request, res: Response) => {
+productRouter.get('/', (req: Request, res: Response, next: NextFunction): void => {
   try {
-    const { category, brand, minPrice, maxPrice, search, featured } = req.query;
+    const parseResult = ProductQuerySchema.safeParse(req.query);
 
-    const products = productService.getAll({
-      category: category ? (category as ProductCategory) : undefined,
-      brand: brand ? String(brand) : undefined,
-      minPrice: minPrice ? Number(minPrice) : undefined,
-      maxPrice: maxPrice ? Number(maxPrice) : undefined,
-      search: search ? String(search) : undefined,
-      featured: featured !== undefined ? featured === 'true' : undefined
-    });
+    if (!parseResult.success) {
+      res.status(400).json({
+        success: false,
+        message: 'Parámetros de consulta inválidos',
+        errors: parseResult.error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
+      });
+      return;
+    }
+
+    const filters = parseResult.data;
+    const paginatedResult = productService.getAll(filters);
 
     res.json({
       success: true,
-      data: products,
-      total: products.length
+      data: paginatedResult.items,
+      pagination: {
+        total: paginatedResult.total,
+        page: paginatedResult.page,
+        limit: paginatedResult.limit,
+        totalPages: paginatedResult.totalPages
+      }
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error al obtener productos',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    next(error);
   }
 });
 
 // GET /api/products/categories
-productRouter.get('/categories', (_req: Request, res: Response) => {
+productRouter.get('/categories', (_req: Request, res: Response, next: NextFunction): void => {
   try {
     const categories = productService.getCategories();
     res.json({
@@ -41,24 +48,20 @@ productRouter.get('/categories', (_req: Request, res: Response) => {
       data: categories
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error al obtener categorías',
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    next(error);
   }
 });
 
-// GET /api/products/:slug
-productRouter.get('/:slug', (req: Request, res: Response) => {
+// GET /api/products/id/:id
+productRouter.get('/id/:id', (req: Request, res: Response, next: NextFunction): void => {
   try {
-    const slug = String(req.params.slug);
-    const product = productService.getBySlug(slug);
+    const id = String(req.params.id).trim();
+    const product = productService.getById(id);
 
     if (!product) {
       res.status(404).json({
         success: false,
-        message: `Producto '${slug}' no encontrado`
+        message: 'Producto no encontrado'
       });
       return;
     }
@@ -68,10 +71,43 @@ productRouter.get('/:slug', (req: Request, res: Response) => {
       data: product
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Error al consultar producto',
-      error: error instanceof Error ? error.message : 'Unknown error'
+    next(error);
+  }
+});
+
+// GET /api/products/:slug
+productRouter.get('/:slug', (req: Request, res: Response, next: NextFunction): void => {
+  try {
+    const parseResult = ProductSlugSchema.safeParse(req.params);
+
+    if (!parseResult.success) {
+      res.status(400).json({
+        success: false,
+        message: 'Formato de slug inválido',
+        errors: parseResult.error.errors.map(err => ({
+          field: err.path.join('.'),
+          message: err.message
+        }))
+      });
+      return;
+    }
+
+    const { slug } = parseResult.data;
+    const product = productService.getBySlug(slug);
+
+    if (!product) {
+      res.status(404).json({
+        success: false,
+        message: 'Producto no encontrado'
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: product
     });
+  } catch (error) {
+    next(error);
   }
 });

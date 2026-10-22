@@ -2,10 +2,11 @@ import { AgeVerificationModal } from "@/components/age-verification-modal";
 import { Navbar } from "@/components/navbar";
 import { Hero } from "@/components/hero";
 import { ProductCatalog } from "@/components/product-catalog";
+import { FAQ } from "@/components/faq";
 import { Footer } from "@/components/footer";
 import { Product } from "@/types/product";
 
-// Fallback products for SSR and initial load
+// Sincronizado idénticamente con backend/src/data/mock-products.ts (Fuente Única de Verdad)
 const FALLBACK_PRODUCTS: Product[] = [
   {
     id: "prod-001",
@@ -13,8 +14,8 @@ const FALLBACK_PRODUCTS: Product[] = [
     slug: "lost-mary-mo10000-watermelon-ice",
     brand: "Lost Mary",
     category: "disposables",
-    shortDescription: "10,000 Puffs con pantalla inteligente y sabor refrescante a sandía helada.",
-    description: "Vaporizador desechable con pantalla indicadora de batería y líquido.",
+    shortDescription: "10,000 Puffs con pantalla inteligente y sabor refrescante a sandía fresca.",
+    description: "El vaporizador desechable Lost Mary MO10000 ofrece hasta 10,000 caladas de puro sabor a sandía fresca con toque mentolado. Equipado con pantalla LED inteligente que indica porcentaje de líquido y batería en tiempo real.",
     price: 65000,
     compareAtPrice: 75000,
     inStock: true,
@@ -25,7 +26,7 @@ const FALLBACK_PRODUCTS: Product[] = [
     specs: {
       puffCount: 10000,
       nicotineStrength: "50mg (5%)",
-      flavorProfile: "Sandía Helada",
+      flavorProfile: "Sandía Helada / Mentol",
       liquidCapacity: "18ml",
       batteryCapacity: "600mAh USB-C",
       rechargeable: true
@@ -38,8 +39,8 @@ const FALLBACK_PRODUCTS: Product[] = [
     slug: "geekvape-wenax-q-pro",
     brand: "Geekvape",
     category: "pod-systems",
-    shortDescription: "Kit de Pod recargable con pantalla táctil hápitca y hasta 30W de potencia.",
-    description: "Pod recargable de alto rendimiento con batería de 1200mAh.",
+    shortDescription: "Kit de Pod recargable de alta precisión, potencia ajustable hasta 30W.",
+    description: "El Wenax Q Pro eleva la experiencia de pods recargables con pantalla táctil háptica, batería de 1200mAh de larga duración y compatibilidad total con toda la serie de cartuchos Geekvape Q.",
     price: 135000,
     compareAtPrice: 150000,
     inStock: true,
@@ -48,13 +49,13 @@ const FALLBACK_PRODUCTS: Product[] = [
     featured: true,
     isNewArrival: true,
     specs: {
-      nicotineStrength: "Variable según líquido",
+      nicotineStrength: "Variable según e-líquido",
       liquidCapacity: "2ml",
       batteryCapacity: "1200mAh USB-C",
       resistance: "0.6 / 0.8 / 1.2 ohm",
       rechargeable: true
     },
-    tags: ["pod system", "recargable", "geekvape"]
+    tags: ["pod system", "recargable", "geekvape", "30W"]
   },
   {
     id: "prod-003",
@@ -62,8 +63,8 @@ const FALLBACK_PRODUCTS: Product[] = [
     slug: "nasty-juice-cush-man-mango-salt-30ml",
     brand: "Nasty Juice",
     category: "salt-nic",
-    shortDescription: "El legendario mango tropical dulce en sales de nicotina.",
-    description: "E-líquido con sales de nicotina sabor mango dulce y jugoso.",
+    shortDescription: "El legendario mango maduro tropical en sales de nicotina.",
+    description: "Cush Man de Nasty Juice es mundialmente aclamado por recrear el sabor auténtico, dulce y jugoso del mango maduro con una sensación suave y satisfactoria de sales de nicotina.",
     price: 55000,
     inStock: true,
     stock: 35,
@@ -71,7 +72,7 @@ const FALLBACK_PRODUCTS: Product[] = [
     featured: true,
     specs: {
       nicotineStrength: "35mg (3.5%)",
-      flavorProfile: "Mango Tropical",
+      flavorProfile: "Mango Tropical Maduro",
       liquidCapacity: "30ml"
     },
     tags: ["sales de nicotina", "mango", "nasty juice"]
@@ -82,8 +83,8 @@ const FALLBACK_PRODUCTS: Product[] = [
     slug: "oxva-xlim-pro-pod-kit",
     brand: "OXVA",
     category: "pod-systems",
-    shortDescription: "El rey del sabor con pantalla RGB, 30W de potencia y 1000mAh.",
-    description: "Dispositivo ergonómico para sales y líquidos tradicionales.",
+    shortDescription: "El rey del sabor MTL / RDL con pantalla RGB y batería de 1000mAh.",
+    description: "El OXVA Xlim Pro destaca por su increíble entrega de sabor tanto en sales de nicotina como en líquidos base libre. Chasis de aleación de zinc y acabado brillante de fibra de carbono.",
     price: 140000,
     inStock: true,
     stock: 8,
@@ -96,7 +97,7 @@ const FALLBACK_PRODUCTS: Product[] = [
       batteryCapacity: "1000mAh USB-C",
       resistance: "0.6 / 0.8 ohm"
     },
-    tags: ["oxva", "xlim", "pod kit"]
+    tags: ["oxva", "xlim", "pod kit", "top fill"]
   },
   {
     id: "prod-005",
@@ -104,8 +105,8 @@ const FALLBACK_PRODUCTS: Product[] = [
     slug: "elf-bar-bc10000-strawberry-kiwi",
     brand: "Elf Bar",
     category: "disposables",
-    shortDescription: "10,000 Puffs con tecnología Quaq Mesh Coil sabor fresa kiwi.",
-    description: "Vape desechable con indicador luminoso y batería recargable.",
+    shortDescription: "10,000 Puffs con tecnología Quaq Mesh Coil.",
+    description: "Fusión perfecta de fresas dulces y kiwi ácido con la tecnología Quaq Mesh Coil que previene sabor a quemado hasta la última gota de e-líquido.",
     price: 60000,
     compareAtPrice: 70000,
     inStock: true,
@@ -128,33 +129,39 @@ const FALLBACK_PRODUCTS: Product[] = [
     slug: "vaporesso-gtx-coils-pack-5",
     brand: "Vaporesso",
     category: "coils-accessories",
-    shortDescription: "Pack de 5 resistencias de malla de alto rendimiento.",
-    description: "Resistencias originales para Target, Luxe y Gen.",
+    shortDescription: "Resistencias de malla de alto rendimiento para Target, Luxe y Gen.",
+    description: "Pack de 5 resistencias Vaporesso GTX Mesh diseñadas para una producción de vapor densa y vida útil prolongada con algodón de lino antibacteriano.",
     price: 52000,
-    inStock: true,
-    stock: 15,
+    inStock: false,
+    stock: 0,
     imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=600&q=80",
     featured: false,
     specs: {
       nicotineStrength: "N/A",
       resistance: "0.2 / 0.3 / 0.8 ohm"
     },
-    tags: ["resistencias", "coils", "vaporesso"]
+    tags: ["resistencias", "coils", "vaporesso", "repuesto"]
   }
 ];
 
 async function getProducts(): Promise<Product[]> {
   try {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+    const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
     const res = await fetch(`${apiUrl}/products`, {
-      cache: "no-store",
-      headers: { "Content-Type": "application/json" }
+      next: { revalidate: 60 },
+      headers: { "Accept": "application/json" }
     });
+
     if (!res.ok) {
       return FALLBACK_PRODUCTS;
     }
+
     const json = await res.json();
-    return json.data || FALLBACK_PRODUCTS;
+    if (json && json.success && Array.isArray(json.data)) {
+      return json.data;
+    }
+
+    return FALLBACK_PRODUCTS;
   } catch (_e) {
     // Si la API del backend está apagada, usa los productos de respaldo
     return FALLBACK_PRODUCTS;
@@ -165,12 +172,13 @@ export default async function HomePage() {
   const products = await getProducts();
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col">
+    <div className="min-h-screen flex flex-col">
       <AgeVerificationModal />
       <Navbar />
       <main className="flex-1">
         <Hero />
         <ProductCatalog initialProducts={products} />
+        <FAQ />
       </main>
       <Footer />
     </div>

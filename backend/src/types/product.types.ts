@@ -4,7 +4,7 @@ export type ProductCategory =
   | 'mods-tanks'       // Mods y tanques avanzados
   | 'salt-nic'         // Sales de nicotina
   | 'freebase-liquids' // E-líquidos base libre
-  | 'coils-accessories';// Resistencias, pods de repuesto, cargadores
+  | 'coils-accessories';// Resistencias, pods de repuesto, accesorios
 
 export interface Product {
   id: string;
@@ -44,4 +44,16 @@ export interface ProductFilters {
   maxPrice?: number;
   search?: string;
   featured?: boolean;
+  page?: number;
+  limit?: number;
+  sortBy?: 'price' | 'name' | 'puffCount';
+  sortOrder?: 'asc' | 'desc';
+}
+
+export interface PaginatedProductsResult {
+  items: Product[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
 }

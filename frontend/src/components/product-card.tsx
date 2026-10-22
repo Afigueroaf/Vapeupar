@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { MessageCircle, Zap, Shield, Check } from "lucide-react";
+import { MessageCircle, Check, XCircle } from "lucide-react";
 import { Product } from "@/types/product";
 import { formatPriceCOP } from "@/lib/utils";
 
@@ -9,12 +9,21 @@ interface ProductCardProps {
 
 export function ProductCard({ product }: ProductCardProps) {
   const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "573001234567";
-  const message = encodeURIComponent(
-    `Hola Vapeupar! Quiero pedir el producto: *${product.name}* (Precio: ${formatPriceCOP(product.price)}). ¿Tienen disponibilidad?`
+  const isAvailable = product.inStock && product.stock > 0;
+
+  const buyMessage = encodeURIComponent(
+    `Hola Vapeupar! Quiero pedir el producto: *${product.name}* (Precio: ${formatPriceCOP(product.price)}). ¿Tienen disponibilidad inmediata en Valledupar?`
+  );
+
+  const inquireMessage = encodeURIComponent(
+    `Hola Vapeupar! Me interesa el producto agotado: *${product.name}*. ¿Cuándo les llega nuevo stock?`
   );
 
   return (
-    <div className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 transition-all duration-300 hover:border-zinc-700 hover:bg-zinc-900/90 hover:shadow-xl hover:shadow-emerald-950/20">
+    <article 
+      aria-label={`${product.brand} ${product.name}`}
+      className="group relative flex flex-col justify-between overflow-hidden rounded-2xl border border-zinc-800 bg-zinc-900/60 p-4 transition-all duration-300 hover:border-zinc-700 hover:bg-zinc-900/90 hover:shadow-xl hover:shadow-emerald-950/20"
+    >
       <div>
         {/* Top Badges */}
         <div className="flex items-center justify-between gap-2 mb-3">
@@ -41,7 +50,7 @@ export function ProductCard({ product }: ProductCardProps) {
         <div className="relative mb-4 aspect-square w-full overflow-hidden rounded-xl bg-zinc-950/80">
           <Image
             src={product.imageUrl}
-            alt={product.name}
+            alt={`${product.name} - ${product.brand} (${product.specs.flavorProfile || product.category})`}
             fill
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             className="object-cover object-center transition-transform duration-500 group-hover:scale-105"
@@ -66,9 +75,11 @@ export function ProductCard({ product }: ProductCardProps) {
 
         {/* Specific Specs */}
         <div className="mt-3 flex flex-wrap gap-1.5">
-          <span className="rounded bg-zinc-800/80 px-2 py-0.5 text-[10px] text-zinc-300">
-            Nicotina: <strong className="text-zinc-100">{product.specs.nicotineStrength}</strong>
-          </span>
+          {product.specs.nicotineStrength && product.specs.nicotineStrength !== "N/A" && (
+            <span className="rounded bg-zinc-800/80 px-2 py-0.5 text-[10px] text-zinc-300">
+              Nicotina: <strong className="text-zinc-100">{product.specs.nicotineStrength}</strong>
+            </span>
+          )}
 
           {product.specs.flavorProfile && (
             <span className="rounded bg-zinc-800/80 px-2 py-0.5 text-[10px] text-zinc-300">
@@ -92,22 +103,43 @@ export function ProductCard({ product }: ProductCardProps) {
             )}
           </div>
 
-          <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-400">
-            <Check className="size-3" />
-            Disponible
-          </span>
+          {isAvailable ? (
+            <span className="flex items-center gap-1 text-[11px] font-medium text-emerald-400">
+              <Check className="size-3.5" aria-hidden="true" />
+              Disponible ({product.stock} un.)
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 text-[11px] font-medium text-zinc-500">
+              <XCircle className="size-3.5" aria-hidden="true" />
+              Agotado
+            </span>
+          )}
         </div>
 
-        <a
-          href={`https://wa.me/${whatsappNumber}?text=${message}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold text-zinc-950 transition hover:bg-emerald-400 active:scale-[0.98]"
-        >
-          <MessageCircle className="size-4" />
-          Pedir por WhatsApp
-        </a>
+        {isAvailable ? (
+          <a
+            href={`https://wa.me/${whatsappNumber}?text=${buyMessage}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Pedir por WhatsApp ${product.name}`}
+            className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-3 text-xs font-bold text-zinc-950 transition hover:bg-emerald-400 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-emerald-400"
+          >
+            <MessageCircle className="size-4" aria-hidden="true" />
+            Pedir por WhatsApp
+          </a>
+        ) : (
+          <a
+            href={`https://wa.me/${whatsappNumber}?text=${inquireMessage}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Consultar reposición de ${product.name}`}
+            className="flex w-full min-h-[44px] items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-xs font-medium text-zinc-400 transition hover:bg-zinc-800 hover:text-white"
+          >
+            <MessageCircle className="size-4" aria-hidden="true" />
+            Consultar Reposición
+          </a>
+        )}
       </div>
-    </div>
+    </article>
   );
 }

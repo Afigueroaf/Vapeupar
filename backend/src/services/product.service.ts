@@ -1,46 +1,84 @@
 import { MOCK_PRODUCTS } from '../data/mock-products.js';
-import { Product, ProductCategory, ProductFilters } from '../types/product.types.js';
+import { Product, ProductCategory, ProductFilters, PaginatedProductsResult } from '../types/product.types.js';
 
 export class ProductService {
   private products: Product[] = [...MOCK_PRODUCTS];
 
-  public getAll(filters?: ProductFilters): Product[] {
+  public getAll(filters?: ProductFilters): PaginatedProductsResult {
     let result = [...this.products];
 
-    if (!filters) return result;
+    if (filters) {
+      if (filters.category) {
+        result = result.filter(p => p.category === filters.category);
+      }
 
-    if (filters.category) {
-      result = result.filter(p => p.category === filters.category);
+      if (filters.brand) {
+        const brandLower = filters.brand.toLowerCase();
+        result = result.filter(p => p.brand.toLowerCase() === brandLower);
+      }
+
+      if (filters.nicotine) {
+        const nicLower = filters.nicotine.toLowerCase();
+        result = result.filter(p => p.specs.nicotineStrength.toLowerCase().includes(nicLower));
+      }
+
+      if (filters.featured !== undefined) {
+        result = result.filter(p => p.featured === filters.featured);
+      }
+
+      if (filters.minPrice !== undefined) {
+        result = result.filter(p => p.price >= filters.minPrice!);
+      }
+
+      if (filters.maxPrice !== undefined) {
+        result = result.filter(p => p.price <= filters.maxPrice!);
+      }
+
+      if (filters.search) {
+        const q = filters.search.toLowerCase();
+        result = result.filter(p => 
+          p.name.toLowerCase().includes(q) ||
+          p.brand.toLowerCase().includes(q) ||
+          p.description.toLowerCase().includes(q) ||
+          (p.specs.flavorProfile && p.specs.flavorProfile.toLowerCase().includes(q)) ||
+          p.tags.some(t => t.toLowerCase().includes(q))
+        );
+      }
+
+      // Sorting
+      if (filters.sortBy) {
+        const orderMultiplier = filters.sortOrder === 'desc' ? -1 : 1;
+        result.sort((a, b) => {
+          if (filters.sortBy === 'price') {
+            return (a.price - b.price) * orderMultiplier;
+          }
+          if (filters.sortBy === 'name') {
+            return a.name.localeCompare(b.name) * orderMultiplier;
+          }
+          if (filters.sortBy === 'puffCount') {
+            const puffsA = a.specs.puffCount ?? 0;
+            const puffsB = b.specs.puffCount ?? 0;
+            return (puffsA - puffsB) * orderMultiplier;
+          }
+          return 0;
+        });
+      }
     }
 
-    if (filters.brand) {
-      const brandLower = filters.brand.toLowerCase();
-      result = result.filter(p => p.brand.toLowerCase() === brandLower);
-    }
+    const total = result.length;
+    const page = filters?.page && filters.page > 0 ? filters.page : 1;
+    const limit = filters?.limit && filters.limit > 0 ? filters.limit : 20;
+    const totalPages = Math.ceil(total / limit) || 1;
+    const startIndex = (page - 1) * limit;
+    const paginatedItems = result.slice(startIndex, startIndex + limit);
 
-    if (filters.featured !== undefined) {
-      result = result.filter(p => p.featured === filters.featured);
-    }
-
-    if (filters.minPrice !== undefined) {
-      result = result.filter(p => p.price >= (filters.minPrice ?? 0));
-    }
-
-    if (filters.maxPrice !== undefined) {
-      result = result.filter(p => p.price <= (filters.maxPrice ?? Infinity));
-    }
-
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
-      result = result.filter(p => 
-        p.name.toLowerCase().includes(q) ||
-        p.brand.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q) ||
-        p.tags.some(t => t.toLowerCase().includes(q))
-      );
-    }
-
-    return result;
+    return {
+      items: paginatedItems,
+      total,
+      page,
+      limit,
+      totalPages
+    };
   }
 
   public getBySlug(slug: string): Product | undefined {

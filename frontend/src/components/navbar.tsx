@@ -1,17 +1,21 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { Flame, MessageCircle, ShoppingBag } from "lucide-react";
+import { Flame, MessageCircle, ShoppingBag, Menu, X } from "lucide-react";
 
 interface NavbarProps {
   cartCount?: number;
 }
 
 export function Navbar({ cartCount = 0 }: NavbarProps) {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "573001234567";
 
+  const closeMenu = () => setMobileMenuOpen(false);
+
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-zinc-800/80 bg-zinc-950/80 backdrop-blur-lg">
+    <header className="sticky top-0 z-40 w-full border-b border-zinc-800/80 bg-zinc-950/85 backdrop-blur-lg">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
         {/* Brand Logo */}
         <Link href="/" className="flex items-center gap-2 group">
@@ -28,7 +32,7 @@ export function Navbar({ cartCount = 0 }: NavbarProps) {
           </div>
         </Link>
 
-        {/* Links Navigation */}
+        {/* Desktop Links Navigation */}
         <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-zinc-400">
           <a href="#catalogo" className="hover:text-white transition">
             Catálogo
@@ -47,8 +51,8 @@ export function Navbar({ cartCount = 0 }: NavbarProps) {
           </a>
         </nav>
 
-        {/* Action Buttons */}
-        <div className="flex items-center gap-3">
+        {/* Action Buttons & Mobile Hamburger */}
+        <div className="flex items-center gap-2.5">
           <a
             href={`https://wa.me/${whatsappNumber}?text=Hola%20Vapeupar,%20quiero%20consultar%20sobre%20su%20cat%C3%A1logo`}
             target="_blank"
@@ -72,8 +76,68 @@ export function Navbar({ cartCount = 0 }: NavbarProps) {
               </span>
             )}
           </button>
+
+          {/* Mobile Menu Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden flex size-9 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:text-white transition"
+            aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú de navegación"}
+            aria-expanded={mobileMenuOpen}
+          >
+            {mobileMenuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+          </button>
         </div>
       </div>
+
+      {/* Mobile Menu Dropdown */}
+      {mobileMenuOpen && (
+        <div className="md:hidden border-t border-zinc-800/80 bg-zinc-950/95 px-4 pt-3 pb-6 space-y-3">
+          <nav className="flex flex-col space-y-2 text-sm font-medium text-zinc-300">
+            <a
+              href="#catalogo"
+              onClick={closeMenu}
+              className="rounded-lg px-3 py-2 hover:bg-zinc-900 hover:text-emerald-400 transition"
+            >
+              Catálogo Completo
+            </a>
+            <a
+              href="#desechables"
+              onClick={closeMenu}
+              className="rounded-lg px-3 py-2 hover:bg-zinc-900 hover:text-emerald-400 transition"
+            >
+              Vaporizadores Desechables
+            </a>
+            <a
+              href="#pods"
+              onClick={closeMenu}
+              className="rounded-lg px-3 py-2 hover:bg-zinc-900 hover:text-emerald-400 transition"
+            >
+              Pods Recargables & Kits
+            </a>
+            <a
+              href="#liquidos"
+              onClick={closeMenu}
+              className="rounded-lg px-3 py-2 hover:bg-zinc-900 hover:text-emerald-400 transition"
+            >
+              Líquidos & Sales de Nicotina
+            </a>
+            <a
+              href="#faq"
+              onClick={closeMenu}
+              className="rounded-lg px-3 py-2 hover:bg-zinc-900 hover:text-emerald-400 transition"
+            >
+              Preguntas Frecuentes
+            </a>
+          </nav>
+
+          <div className="pt-2 border-t border-zinc-800/60">
+            <p className="text-[11px] text-zinc-500">
+              Envíos rápidos en Valledupar • Pago contra entrega
+            </p>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

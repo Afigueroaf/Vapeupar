@@ -1,16 +1,21 @@
 import { ArrowDown, Zap, ShieldCheck, Truck, Sparkles } from "lucide-react";
 
 export function Hero() {
+  const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "573001234567";
+
   return (
-    <section className="relative overflow-hidden border-b border-zinc-800/60 bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 py-16 sm:py-24">
+    <section 
+      aria-label="Bienvenida y propuesta de valor"
+      className="relative overflow-hidden border-b border-zinc-800/60 bg-gradient-to-b from-zinc-950 via-zinc-900 to-zinc-950 py-16 sm:py-24"
+    >
       {/* Background ambient glow */}
-      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 size-96 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
-      <div className="absolute top-1/3 right-10 size-80 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
+      <div aria-hidden="true" className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 size-96 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none" />
+      <div aria-hidden="true" className="absolute top-1/3 right-10 size-80 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-6 text-center">
         {/* Top pill badge */}
         <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-400 mb-6 shadow-sm">
-          <Sparkles className="size-3.5" />
+          <Sparkles className="size-3.5" aria-hidden="true" />
           <span>Vape Shop Líder en Valledupar • Domicilios Inmediatos</span>
         </div>
 
@@ -33,11 +38,11 @@ export function Hero() {
             className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 px-6 py-3.5 text-sm font-bold text-zinc-950 shadow-lg shadow-emerald-500/25 transition hover:opacity-95 active:scale-[0.98]"
           >
             Explorar Catálogo
-            <ArrowDown className="size-4" />
+            <ArrowDown className="size-4" aria-hidden="true" />
           </a>
 
           <a
-            href="https://wa.me/573001234567?text=Hola,%20necesito%20asesor%C3%ADa%20para%20elegir%20mi%20vape"
+            href={`https://wa.me/${whatsappNumber}?text=Hola,%20necesito%20asesor%C3%ADa%20para%20elegir%20mi%20vape`}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900/80 px-6 py-3.5 text-sm font-semibold text-zinc-200 transition hover:bg-zinc-800 hover:text-white"
@@ -49,7 +54,7 @@ export function Hero() {
         {/* Value props badges */}
         <div className="mt-14 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto pt-8 border-t border-zinc-800/60">
           <div className="flex items-center justify-center gap-3 rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-3">
-            <Truck className="size-5 text-emerald-400 shrink-0" />
+            <Truck className="size-5 text-emerald-400 shrink-0" aria-hidden="true" />
             <div className="text-left">
               <p className="text-xs font-bold text-white">Domicilio en Valledupar</p>
               <p className="text-[11px] text-zinc-400">Entrega rápida en tu puerta</p>
@@ -57,7 +62,7 @@ export function Hero() {
           </div>
 
           <div className="flex items-center justify-center gap-3 rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-3">
-            <ShieldCheck className="size-5 text-cyan-400 shrink-0" />
+            <ShieldCheck className="size-5 text-cyan-400 shrink-0" aria-hidden="true" />
             <div className="text-left">
               <p className="text-xs font-bold text-white">Productos 100% Originales</p>
               <p className="text-[11px] text-zinc-400">Verificables con código QR</p>
@@ -65,7 +70,7 @@ export function Hero() {
           </div>
 
           <div className="flex items-center justify-center gap-3 rounded-xl border border-zinc-800/60 bg-zinc-900/40 p-3">
-            <Zap className="size-5 text-emerald-400 shrink-0" />
+            <Zap className="size-5 text-emerald-400 shrink-0" aria-hidden="true" />
             <div className="text-left">
               <p className="text-xs font-bold text-white">Pago Contra Entrega</p>
               <p className="text-[11px] text-zinc-400">Efectivo, Nequi y Daviplata</p>
