@@ -46,7 +46,7 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
   }, [initialProducts]);
 
   const filteredProducts = useMemo(() => {
-    let result = initialProducts.filter(product => {
+    const result = initialProducts.filter(product => {
       // Category match
       if (selectedCategory !== "all" && product.category !== selectedCategory) {
         return false;
@@ -123,10 +123,11 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
       </div>
 
       {/* Category Filter Buttons */}
-      <div 
-        role="group" 
+      <div
+        id="colecciones"
+        role="group"
         aria-label="Filtro de categorías"
-        className="flex items-center gap-2 overflow-x-auto pb-4 scrollbar-none"
+        className="flex items-center gap-2 overflow-x-auto pb-4 scroll-mt-24 scrollbar-none"
       >
         {CATEGORIES.map((cat) => (
           <button

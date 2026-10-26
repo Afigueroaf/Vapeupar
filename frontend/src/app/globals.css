@@ -1,26 +1,141 @@
 @import "tailwindcss";
 
-:root {
-  --background: #09090b;
-  --foreground: #fafafa;
-  --card: #121217;
-  --card-foreground: #fafafa;
-  --primary: #10b981;
-  --primary-foreground: #000000;
-  --accent: #06b6d4;
-  --accent-foreground: #000000;
-  --muted: #27272a;
-  --muted-foreground: #a1a1aa;
-  --border: #27272a;
+/* ============================================================================
+   TOKENS DEL SISTEMA VP
+   ----------------------------------------------------------------------------
+   Tailwind v4 genera utilidades a partir de este bloque: `--color-action`
+   produce `bg-action` / `text-action` / `border-action`, `--font-display`
+   produce `font-display`, etc.
+
+   REGLA: ningún componente escribe `zinc-*`, `emerald-*` ni un hex literal.
+   Todo color pasa por un rol semántico de aquí.
+
+   Ver `docs/design-reset-inventory.md` §2 y `docs/design-execution-plan.md` §V1.
+   ========================================================================== */
+@theme {
+  /* --- Paleta de marca --- */
+  --color-vp-black: #080808;
+  --color-vp-white: #f5f5f5;
+  --color-vp-lime: #d7ff00;
+  --color-vp-violet: #8b35ff;
+  --color-vp-panel: #202020;
+
+  /* --- Roles semánticos (lo que consumen los componentes) --- */
+  --color-background: var(--color-vp-black);
+  --color-foreground: var(--color-vp-white);
+  --color-surface: var(--color-vp-panel);
+  --color-action: var(--color-vp-lime);
+  --color-action-ink: var(--color-vp-black);
+  --color-accent: var(--color-vp-violet);
+  --color-line: var(--color-vp-white);
+  /* Gris de apoyo: 7.1:1 sobre #080808 → AAA, apto para texto secundario */
+  --color-muted: #9a9a9a;
+
+  /* --- Tipografía --- */
+  --font-display: var(--font-oxanium), system-ui, sans-serif;
+  --font-pixel: var(--font-press-start), monospace;
+
+  /* --- Geometría: VP es angular. Radio cero por defecto. --- */
+  --radius-vp: 0px;
+  --radius-vp-chamfer: 2px;
+
+  /* --- Movimiento --- */
+  --ease-vp: cubic-bezier(0.2, 0, 0, 1);
 }
 
+/* ============================================================================
+   BASE DEL DOCUMENTO
+   ========================================================================== */
 body {
-  background-color: var(--background);
-  color: var(--foreground);
-  font-feature-settings: "rlig" 1, "calt" 1;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-display);
 }
 
-/* Accessibility: Respect Reduced Motion preference */
+h1,
+h2,
+h3,
+h4,
+nav,
+button {
+  font-family: var(--font-display);
+}
+
+/* ============================================================================
+   ETIQUETA PIXEL
+   ----------------------------------------------------------------------------
+   Único uso autorizado de Press Start 2P. Máximo ~16 caracteres.
+   Mínimo 10px con tracking positivo: por debajo de eso la fuente pixelada
+   deja de ser legible. Nunca en párrafos, nombres de producto, precios
+   ni formularios. Ver `docs/design-reset-inventory.md` §11.
+   ========================================================================== */
+.vp-label {
+  font-family: var(--font-pixel);
+  font-size: 0.625rem; /* 10px — mínimo del sistema */
+  line-height: 1.8;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* ============================================================================
+   FOCO VISIBLE
+   ----------------------------------------------------------------------------
+   Lima sobre negro da 17.4:1. Un solo tratamiento de foco en todo el sistema.
+   ========================================================================== */
+:focus-visible {
+  outline: 2px solid var(--color-action);
+  outline-offset: 2px;
+}
+
+/* ============================================================================
+   GLITCH RGB DE PÁGINA
+   ----------------------------------------------------------------------------
+   Dos capas: el filtro SVG `#vp-rgb-glitch` separa los canales R/B del
+   contenido, y un velo de scanlines fijo sobre el viewport acompaña el burst.
+
+   `<PageGlitch />` escribe `--glitch-shift` (0–14, sin unidad) y alterna
+   `html.glitch-active` en cada frame. En reposo no hay filtro aplicado: el
+   coste de repintado existe solo durante el burst, no en cada scroll.
+
+   El modal +18 queda FUERA de `.vp-glitch` a propósito: `filter` sobre un
+   ancestro lo convierte en bloque contenedor de sus descendientes
+   `position: fixed`, lo que rompería el overlay a pantalla completa.
+   ========================================================================== */
+html.glitch-active .vp-glitch {
+  filter: url(#vp-rgb-glitch);
+}
+
+.vp-glitch-scanlines {
+  position: fixed;
+  inset: 0;
+  z-index: 45; /* sobre el navbar (40), bajo el modal +18 (50) */
+  pointer-events: none;
+  opacity: calc(var(--glitch-shift, 0) / 14);
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 3px,
+    color-mix(in srgb, var(--color-vp-black) 8%, transparent) 4px
+  );
+}
+
+html.glitch-active .vp-glitch-scanlines {
+  animation: vp-glitch-scan 0.12s steps(1) infinite;
+}
+
+@keyframes vp-glitch-scan {
+  0%,
+  100% {
+    opacity: calc(var(--glitch-shift, 0) / 14);
+  }
+  50% {
+    opacity: calc(var(--glitch-shift, 0) / 14 * 0.6);
+  }
+}
+
+/* ============================================================================
+   ACCESIBILIDAD: respetar la preferencia de movimiento reducido
+   ========================================================================== */
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,

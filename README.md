@@ -51,7 +51,21 @@ Puedes iniciar ambos servicios en terminales separadas o con los scripts dedicad
   - `docs/backend.md`: Endpoints y modelo del servicio.
   - `docs/catalog-domain.md`: Taxonomía y especificaciones del mundo del vapeo.
   - `docs/security.md`: Normativa legal +18 y pasarelas de pago.
+  - `docs/design-reset-inventory.md`: **Inventario de todo lo que debe cambiar en el diseño.**
+  - `docs/design-execution-plan.md`: **Plan de ejecución de los primeros cambios visuales.**
   - `docs/decisions/`: ADRs del proyecto.
+
+---
+
+## 🎨 Estado del Diseño
+
+> ⚠️ **La capa visual actual es un lienzo de trabajo, no el diseño final.**
+> Fuentes, colores, formas, iconos, imágenes y copy provienen de los valores por defecto del
+> template y se reemplazan por completo. La lógica, la accesibilidad y el cumplimiento legal
+> sí se conservan.
+>
+> - Qué se reemplaza y por qué → [`docs/design-reset-inventory.md`](docs/design-reset-inventory.md)
+> - Cómo se ejecutan los primeros cambios → [`docs/design-execution-plan.md`](docs/design-execution-plan.md)
 
 ---
 

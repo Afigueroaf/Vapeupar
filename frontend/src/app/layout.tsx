@@ -1,15 +1,26 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Oxanium, Press_Start_2P } from "next/font/google";
+import { PageGlitch } from "@/components/page-glitch";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+/**
+ * Sistema tipográfico VP.
+ * Oxanium: 85-90% de la interfaz (títulos, productos, precios, nav, botones, texto).
+ * Press Start 2P: 10-15%, exclusivamente en etiquetas cortas vía `.vp-label`.
+ * Ver `docs/design-execution-plan.md` §V1.
+ */
+const oxanium = Oxanium({
   subsets: ["latin"],
+  weight: ["400", "600", "700"],
+  variable: "--font-oxanium",
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const pressStart = Press_Start_2P({
   subsets: ["latin"],
+  weight: "400",
+  variable: "--font-press-start",
+  display: "swap",
 });
 
 export const viewport: Viewport = {
@@ -68,9 +79,13 @@ export default function RootLayout({
     <html
       lang="es"
       dir="ltr"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
+      className={`${oxanium.variable} ${pressStart.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-zinc-950 text-zinc-100">{children}</body>
+      {/* Fondo y color de texto se declaran una sola vez en globals.css sobre tokens */}
+      <body className="min-h-full flex flex-col">
+        <PageGlitch />
+        {children}
+      </body>
     </html>
   );
 }

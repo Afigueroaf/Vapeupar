@@ -1,7 +1,9 @@
 import { ShieldAlert, Flame, MapPin, Phone, Clock } from "lucide-react";
+import { formatPhoneCO, storePhone, telLink } from "@/lib/contact";
 
 export function Footer() {
-  const currentYear = 2026;
+  const currentYear = new Date().getFullYear();
+  const phoneHref = telLink();
 
   return (
     <footer className="border-t border-zinc-800/80 bg-zinc-950 pt-12 pb-8 text-xs text-zinc-400">
@@ -23,8 +25,8 @@ export function Footer() {
       </div>
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 grid grid-cols-1 md:grid-cols-4 gap-8 pb-10 border-b border-zinc-900">
-        {/* Col 1: Brand Info */}
-        <div className="space-y-3">
+        {/* Col 1: Brand Info — destino del enlace "Nosotros" del navbar */}
+        <div id="nosotros" className="space-y-3 scroll-mt-24">
           <div className="flex items-center gap-2">
             <div className="flex size-7 items-center justify-center rounded-lg bg-emerald-500 text-zinc-950 font-black">
               <Flame className="size-4 fill-zinc-950" aria-hidden="true" />
@@ -63,15 +65,17 @@ export function Footer() {
             Atención al Cliente
           </h3>
           <ul className="space-y-2 text-zinc-400">
-            <li className="flex items-center gap-2">
-              <Phone className="size-3.5 text-emerald-400 shrink-0" aria-hidden="true" />
-              <a 
-                href="tel:+573001234567" 
-                className="hover:text-emerald-400 transition underline underline-offset-2"
-              >
-                Llamadas: +57 300 123 4567
-              </a>
-            </li>
+            {phoneHref && storePhone && (
+              <li className="flex items-center gap-2">
+                <Phone className="size-3.5 text-emerald-400 shrink-0" aria-hidden="true" />
+                <a
+                  href={phoneHref}
+                  className="hover:text-emerald-400 transition underline underline-offset-2"
+                >
+                  Llamadas: {formatPhoneCO(storePhone)}
+                </a>
+              </li>
+            )}
             <li>Envíos locales express en moto</li>
             <li>Envíos a todo el departamento del Cesar</li>
             <li>Métodos: Nequi, Daviplata, Contra Entrega</li>

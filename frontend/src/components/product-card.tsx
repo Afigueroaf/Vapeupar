@@ -1,23 +1,25 @@
 import Image from "next/image";
 import { MessageCircle, Check, XCircle } from "lucide-react";
 import { Product } from "@/types/product";
-import { formatPriceCOP } from "@/lib/utils";
+import { formatNumberCO, formatPriceCOP } from "@/lib/utils";
+import { waLink } from "@/lib/contact";
 
 interface ProductCardProps {
   product: Product;
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "573001234567";
   const isAvailable = product.inStock && product.stock > 0;
 
-  const buyMessage = encodeURIComponent(
+  const buyHref = waLink(
     `Hola Vapeupar! Quiero pedir el producto: *${product.name}* (Precio: ${formatPriceCOP(product.price)}). ¿Tienen disponibilidad inmediata en Valledupar?`
   );
 
-  const inquireMessage = encodeURIComponent(
+  const inquireHref = waLink(
     `Hola Vapeupar! Me interesa el producto agotado: *${product.name}*. ¿Cuándo les llega nuevo stock?`
   );
+
+  const actionHref = isAvailable ? buyHref : inquireHref;
 
   return (
     <article 
@@ -34,7 +36,7 @@ export function ProductCard({ product }: ProductCardProps) {
           <div className="flex items-center gap-1.5">
             {product.specs.puffCount && (
               <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 text-[11px] font-bold text-emerald-400">
-                {product.specs.puffCount.toLocaleString()} Puffs
+                {formatNumberCO(product.specs.puffCount)} Puffs
               </span>
             )}
 
@@ -116,9 +118,9 @@ export function ProductCard({ product }: ProductCardProps) {
           )}
         </div>
 
-        {isAvailable ? (
+        {actionHref && (isAvailable ? (
           <a
-            href={`https://wa.me/${whatsappNumber}?text=${buyMessage}`}
+            href={actionHref}
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`Pedir por WhatsApp ${product.name}`}
@@ -129,7 +131,7 @@ export function ProductCard({ product }: ProductCardProps) {
           </a>
         ) : (
           <a
-            href={`https://wa.me/${whatsappNumber}?text=${inquireMessage}`}
+            href={actionHref}
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`Consultar reposición de ${product.name}`}
@@ -138,7 +140,7 @@ export function ProductCard({ product }: ProductCardProps) {
             <MessageCircle className="size-4" aria-hidden="true" />
             Consultar Reposición
           </a>
-        )}
+        ))}
       </div>
     </article>
   );

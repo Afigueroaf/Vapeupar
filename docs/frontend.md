@@ -3,6 +3,15 @@
 ## Propósito
 El frontend de Vapeupar es la interfaz web del cliente y catálogo interactivo construido con **Next.js 16** (App Router), **React 19**, **Tailwind CSS v4** y **TypeScript**.
 
+> ⚠️ **Nota sobre el alcance de este documento.**
+> Lo que sigue describe la **funcionalidad, accesibilidad y resiliencia** ya implementadas,
+> que se conservan. **No describe el diseño final.** La capa visual actual (fuentes Geist,
+> paleta `zinc`/`emerald`/`cyan`, esquinas redondeadas, iconos Lucide, imágenes de Unsplash,
+> copy de validación) es un lienzo de trabajo y se reemplaza en su totalidad.
+>
+> - Inventario de reemplazo: [`design-reset-inventory.md`](./design-reset-inventory.md)
+> - Plan de ejecución visual: [`design-execution-plan.md`](./design-execution-plan.md)
+
 ## Principales Funcionalidades y Mejoras de Resiliencia
 
 1. **Modal de Control de Edad (+18) con TTL y Accesibilidad WCAG**:

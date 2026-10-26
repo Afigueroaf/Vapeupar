@@ -1,140 +1,152 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { Flame, MessageCircle, ShoppingBag, Menu, X } from "lucide-react";
+import { Menu, ShoppingBag, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { PixelLabel } from "@/components/ui/pixel-label";
+import { waLink } from "@/lib/contact";
 
 interface NavbarProps {
   cartCount?: number;
 }
 
+/**
+ * Navegación principal VP.
+ *
+ * Los destinos apuntan a secciones de la página única actual. Se convierten
+ * en rutas reales (`/tienda`, `/coleccion/[categoria]`, `/nosotros`) en una
+ * fase posterior (`docs/design-reset-inventory.md` §5.6).
+ */
+const NAV_LINKS = [
+  { href: "#catalogo", label: "Tienda" },
+  { href: "#colecciones", label: "Colecciones" },
+  { href: "#nosotros", label: "Nosotros" },
+];
+
+const MOBILE_COLLECTIONS = [
+  { href: "#desechables", label: "Desechables" },
+  { href: "#pods", label: "Pods recargables" },
+  { href: "#liquidos", label: "Sales de nicotina" },
+  { href: "#faq", label: "Preguntas frecuentes" },
+];
+
 export function Navbar({ cartCount = 0 }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "573001234567";
+  const whatsappHref = waLink("Hola Vapeupar, quiero consultar sobre su catálogo");
 
   const closeMenu = () => setMobileMenuOpen(false);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b border-zinc-800/80 bg-zinc-950/85 backdrop-blur-lg">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6">
-        {/* Brand Logo */}
-        <Link href="/" className="flex items-center gap-2 group">
-          <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-tr from-emerald-500 to-cyan-400 text-zinc-950 font-black shadow-md shadow-emerald-500/20 group-hover:scale-105 transition-transform">
-            <Flame className="size-5 fill-zinc-950" />
-          </div>
-          <div className="flex flex-col">
-            <span className="text-xl font-extrabold tracking-tight text-white flex items-center gap-1.5">
-              VAPEUPAR
-              <span className="text-[10px] uppercase font-bold tracking-widest text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                Valledupar
-              </span>
-            </span>
-          </div>
+    <header className="sticky top-0 z-40 w-full border-b-2 border-line bg-background">
+      <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-4 sm:px-6">
+        <Link href="/" className="flex items-center" aria-label="Vapeupar, inicio">
+          <Image
+            src="/logo-detalle.png"
+            alt="Vapeupar"
+            width={1371}
+            height={563}
+            priority
+            className="h-10 w-auto sm:h-12"
+          />
         </Link>
 
-        {/* Desktop Links Navigation */}
-        <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-zinc-400">
-          <a href="#catalogo" className="hover:text-white transition">
-            Catálogo
-          </a>
-          <a href="#desechables" className="hover:text-white transition">
-            Desechables
-          </a>
-          <a href="#pods" className="hover:text-white transition">
-            Pods Recargables
-          </a>
-          <a href="#liquidos" className="hover:text-white transition">
-            Líquidos & Sales
-          </a>
-          <a href="#faq" className="hover:text-white transition">
-            Preguntas
-          </a>
+        {/* Navegación de escritorio */}
+        <nav aria-label="Navegación principal" className="hidden md:block">
+          <ul className="flex items-center gap-4 text-[0.9375rem] font-semibold uppercase tracking-[0.04em]">
+            {NAV_LINKS.map((link, index) => (
+              <li key={link.href} className="flex items-center gap-4">
+                {index > 0 && (
+                  <span aria-hidden="true" className="text-muted">
+                    ·
+                  </span>
+                )}
+                <a href={link.href} className="transition-colors hover:text-action">
+                  {link.label}
+                </a>
+              </li>
+            ))}
+          </ul>
         </nav>
 
-        {/* Action Buttons & Mobile Hamburger */}
-        <div className="flex items-center gap-2.5">
-          <a
-            href={`https://wa.me/${whatsappNumber}?text=Hola%20Vapeupar,%20quiero%20consultar%20sobre%20su%20cat%C3%A1logo`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-2 rounded-xl bg-emerald-500 px-3.5 py-2 text-xs font-bold text-zinc-950 transition hover:bg-emerald-400 shadow-sm shadow-emerald-500/20"
-          >
-            <MessageCircle className="size-4" />
-            <span className="hidden sm:inline">Pedir por WhatsApp</span>
-            <span className="sm:hidden">WhatsApp</span>
-          </a>
+        {/* Acciones */}
+        <div className="flex items-center gap-3">
+          {whatsappHref && (
+            <Button
+              variant="secondary"
+              href={whatsappHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 text-xs sm:text-[0.9375rem] sm:px-6"
+            >
+              WhatsApp
+            </Button>
+          )}
 
-          <button 
+          <button
             type="button"
-            className="relative flex size-9 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:text-white hover:border-zinc-700 transition"
+            className="relative flex size-11 items-center justify-center rounded-vp border-2 border-muted transition-colors hover:border-line"
             aria-label="Carrito de compras"
           >
-            <ShoppingBag className="size-4" />
+            <ShoppingBag className="size-5" aria-hidden="true" />
             {cartCount > 0 && (
-              <span className="absolute -top-1.5 -right-1.5 flex size-4 items-center justify-center rounded-full bg-emerald-500 text-[10px] font-bold text-zinc-950">
+              <span className="vp-label absolute -right-2 -top-2 flex size-5 items-center justify-center rounded-vp bg-action text-action-ink">
                 {cartCount}
               </span>
             )}
           </button>
 
-          {/* Mobile Menu Toggle Button */}
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden flex size-9 items-center justify-center rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-300 hover:text-white transition"
+            className="flex size-11 items-center justify-center rounded-vp border-2 border-muted transition-colors hover:border-line md:hidden"
             aria-label={mobileMenuOpen ? "Cerrar menú" : "Abrir menú de navegación"}
             aria-expanded={mobileMenuOpen}
           >
-            {mobileMenuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+            {mobileMenuOpen ? (
+              <X className="size-5" aria-hidden="true" />
+            ) : (
+              <Menu className="size-5" aria-hidden="true" />
+            )}
           </button>
         </div>
       </div>
 
-      {/* Mobile Menu Dropdown */}
+      {/* Panel móvil */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-zinc-800/80 bg-zinc-950/95 px-4 pt-3 pb-6 space-y-3">
-          <nav className="flex flex-col space-y-2 text-sm font-medium text-zinc-300">
-            <a
-              href="#catalogo"
-              onClick={closeMenu}
-              className="rounded-lg px-3 py-2 hover:bg-zinc-900 hover:text-emerald-400 transition"
-            >
-              Catálogo Completo
-            </a>
-            <a
-              href="#desechables"
-              onClick={closeMenu}
-              className="rounded-lg px-3 py-2 hover:bg-zinc-900 hover:text-emerald-400 transition"
-            >
-              Vaporizadores Desechables
-            </a>
-            <a
-              href="#pods"
-              onClick={closeMenu}
-              className="rounded-lg px-3 py-2 hover:bg-zinc-900 hover:text-emerald-400 transition"
-            >
-              Pods Recargables & Kits
-            </a>
-            <a
-              href="#liquidos"
-              onClick={closeMenu}
-              className="rounded-lg px-3 py-2 hover:bg-zinc-900 hover:text-emerald-400 transition"
-            >
-              Líquidos & Sales de Nicotina
-            </a>
-            <a
-              href="#faq"
-              onClick={closeMenu}
-              className="rounded-lg px-3 py-2 hover:bg-zinc-900 hover:text-emerald-400 transition"
-            >
-              Preguntas Frecuentes
-            </a>
+        <div className="border-t-2 border-line bg-background px-4 pb-8 pt-6 md:hidden">
+          <nav aria-label="Navegación móvil">
+            <ul className="flex flex-col gap-1">
+              {NAV_LINKS.map((link) => (
+                <li key={link.href}>
+                  <a
+                    href={link.href}
+                    onClick={closeMenu}
+                    className="flex min-h-[44px] items-center text-2xl font-bold uppercase tracking-[-0.01em] transition-colors hover:text-action"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
           </nav>
 
-          <div className="pt-2 border-t border-zinc-800/60">
-            <p className="text-[11px] text-zinc-500">
-              Envíos rápidos en Valledupar • Pago contra entrega
-            </p>
+          <div className="mt-6 border-t-2 border-muted pt-6">
+            <PixelLabel variant="outline">Colecciones</PixelLabel>
+            <ul className="mt-4 flex flex-col gap-1">
+              {MOBILE_COLLECTIONS.map((link) => (
+                <li key={link.href}>
+                  <a
+                    href={link.href}
+                    onClick={closeMenu}
+                    className="flex min-h-[44px] items-center text-base font-semibold text-muted transition-colors hover:text-action"
+                  >
+                    {link.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       )}
