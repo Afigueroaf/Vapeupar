@@ -38,3 +38,6 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Lanzador local de Claude Code con config aislada (ruta especifica de la maquina)
+claude-vp.cmd
