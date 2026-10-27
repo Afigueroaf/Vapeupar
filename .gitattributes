@@ -1,0 +1,3 @@
+# Las migraciones de Prisma se validan por checksum: deben conservar LF en
+# cualquier sistema operativo, o una migración aplicada aparecería como modificada.
+backend/prisma/migrations/**/*.sql text eol=lf
