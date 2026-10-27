@@ -580,19 +580,113 @@ viewport y lo único que queda es el gutter. Es el precio de que el texto no toq
 | # | Pendiente | Bloqueado por |
 |---|---|---|
 | 1 | **Revisión visual** a 375 / 768 / 1440 px y recorrido con `Tab` | Extensión de Chrome |
-| 2 | `logo-detalle.png` pesa **355 KB** y ahora se carga en navbar y footer. Convertirlo a SVG, o al menos a WebP | Nada; es la optimización más barata que queda |
+| 2 | ~~`logo-detalle.png` pesa **355 KB**~~ | ✅ **Resuelto** (2026-10-26): `logo-detalle.svg`, 3,2 KB |
 | 3 | Fotografía real y renders 3D de producto | Assets del negocio |
-| 4 | Imagen de OpenGraph propia (sigue apuntando a Unsplash) | Diseño del lockup |
+| 4 | ~~Imagen de OpenGraph propia~~ | ✅ **Resuelto** (2026-10-26): `app/opengraph-image.png`, compuesta con el logo vectorial |
 | 5 | Set de iconografía definitivo (§4.5): quedan 6 iconos de Lucide, todos funcionales | Decisión de diseño |
 | 6 | Escala de espaciado en tokens (§3.7): los `py-16`, `p-5`, `gap-6` siguen siendo ad-hoc | Decisión de diseño |
 | 7 | Teléfono, WhatsApp y horarios reales | Confirmación del negocio |
 | 8 | Rutas `/producto/[slug]`, `/coleccion/[categoria]`, `/nosotros` | Fase V8 |
-| 9 | Error de lint `set-state-in-effect` en `age-verification-modal.tsx` | Es lógica conservada (§9.1); requiere decisión aparte |
+| 9 | ~~Error de lint `set-state-in-effect`~~ | ✅ **Resuelto** (2026-10-26): `useSyncExternalStore`; ESLint queda en 0 problemas |
 
-**Resuelto desde V3**: el logo (#1 de la tabla anterior). Existe
-`frontend/public/logo-detalle.png` y lo consumen navbar y footer, así que el lockup
-tipográfico `VP®` solo queda como placeholder en el hero. El SVG definitivo pasa de ser un
-bloqueo a ser la optimización #2. El `favicon.ico` del directorio `app/` ya no es el del
-template (3,7 KB frente a los ~26 KB del archivo por defecto de `create-next-app`), pero no
-se ha verificado que sea el icono VP definitivo ni existe aún el icon set completo
-(`apple-icon`, versión maskable) que pedía §4.3.
+**Resuelto desde V3**: el logo (#1 de la tabla anterior). Navbar y footer consumen
+`frontend/public/logo-detalle.svg`, así que el lockup tipográfico `VP®` solo queda como
+placeholder en el hero. El `favicon.ico` del directorio `app/` ya no es el del template
+(3,7 KB frente a los ~26 KB del archivo por defecto de `create-next-app`), pero no se ha
+verificado que sea el icono VP definitivo ni existe aún el icon set completo
+(`apple-icon`, versión maskable) que pedía §4.3. **Ese icon set ya no está bloqueado**: el
+vector del que sale está en el repositorio (ver el registro siguiente).
+
+---
+
+# Registro de ejecución — pendientes #2, #4 y #9 (2026-10-26)
+
+Tres pendientes de la tabla anterior que no dependían de la revisión visual.
+
+## #2 — El logo pasa a vectorial
+
+`assets/logo/` ya contenía cinco SVG de marca, pero cuatro pesan ~845 KB porque
+Inkscape conservó dentro una **capa de calco oculta** (`display:none`) con el PNG
+original en base64: el trazado vectorial real ocupa 3 KB de esos archivos.
+
+De `logodetalleblanco.svg` se obtuvo `frontend/public/logo-detalle.svg`
+(**847.963 → 3.238 bytes**) quitando esa capa, los restos del editor
+(`sodipodi:namedview`, atributos `inkscape:*`) y las dimensiones en milímetros,
+para que escale solo por `viewBox`.
+
+Dos correcciones sobre el asset, ambas verificadas contra el PNG aprobado:
+
+- **La estrella venía a `fill-opacity:0.501961`**, resto de cuando se calcó sobre
+  la referencia. En el PNG es lima pleno; se normalizó a opaca.
+- **El asset traía dos limas fuera de la paleta**, `#ccff00` en los destellos y
+  `#aad400` en la estrella. Los dos pasan a `#d7ff00`, que es `--color-vp-lime`
+  (§2). Si el doble tono fuese deliberado, esto es lo que habría que revertir.
+
+El `viewBox` del vector (2,008:1) es más ajustado que el recorte del PNG
+(2,435:1), que traía aire a los lados. Con `h-10 w-auto` el monograma se ve del
+mismo tamaño; solo desaparece ese margen vacío. `width`/`height` en navbar y
+footer pasan a `1860 × 926`, la proporción exacta del `viewBox`.
+
+`frontend/public/logo-detalle.png` se elimina: el SVG lo sustituye en los dos
+únicos sitios que lo cargaban.
+
+## #4 — Imagen de OpenGraph propia
+
+`frontend/src/app/opengraph-image.png` (1200 × 630, 30 KB) se compuso a partir
+del mismo vector: fondo `--color-vp-black`, marco blanco de 4 px, el logo
+centrado y una franja lima inferior. Sin texto a propósito: la tipografía del
+lockup sigue sin decidirse (#5 y §4.3), y una tarjeta con Oxanium a medias sería
+peor que una sin texto. Se rasterizó a 4x y se redujo, para que el vector no
+quede dentado.
+
+Va por **convención de archivo**, no por `metadata`: Next emite `og:image`, su
+tamaño, su tipo, el `og:image:alt` que toma de `opengraph-image.alt.txt` y
+además `twitter:image` con su propio alt. Por eso `layout.tsx` ya no declara
+`images` ni en `openGraph` ni en `twitter`.
+
+En el mismo paso se añadió **`metadataBase`**, que faltaba: sin él Next resuelve
+las URL de OpenGraph contra `localhost` y ningún cliente de WhatsApp o de X
+puede recuperar la imagen. Verificado en el HTML compilado:
+`og:image` sale como `https://vapeupar.com/opengraph-image.png`.
+
+Las fotos de producto siguen siendo de Unsplash (pendiente #3), así que
+`images.unsplash.com` se queda en `remotePatterns` hasta A8.
+
+## #9 — El modal +18 sin `set-state-in-effect`
+
+El efecto de montaje que leía `localStorage` y llamaba a `setIsOpen` se
+reemplaza por **`useSyncExternalStore`**, que es la forma de leer un sistema
+externo sin encadenar un render de más.
+
+**Lo que no cambia**: el TTL de 30 días, los atributos ARIA, el foco inicial en
+el botón de confirmación, el bloqueo de scroll, la pantalla de rechazo y el
+texto legal palabra por palabra.
+
+**Lo que sí cambia, y a mejor**: el primer fotograma. Antes el componente
+devolvía `null` hasta que corría el efecto, así que un visitante sin verificar
+alcanzaba a ver el catálogo detrás. Ahora el servidor pinta la puerta cerrada
+(`getServerSnapshot` devuelve `true`). El contrapeso es que un visitante ya
+verificado ve la puerta un instante mientras hidrata, y que sin JavaScript la
+puerta no se puede cerrar. En una puerta legal, ese es el lado correcto del
+fallo.
+
+El cierre tras confirmar lo lleva un estado local (`confirmedNow`), porque el
+evento `storage` no se emite en la pestaña que escribe; a las demás pestañas sí
+llega, y por eso el componente se suscribe.
+
+## Verificado
+
+| Comprobación | Resultado |
+|---|---|
+| `npx tsc --noEmit` | ✅ Sin errores |
+| `npx eslint` | ✅ **0 problemas** (antes 1 error y 1 aviso; el aviso era un `_e` sin usar en `page.tsx`, corregido con `catch {}` sin ligadura) |
+| `npm run build:frontend` | ✅ Compila; `/opengraph-image.png` aparece como ruta estática |
+| Metadatos en el HTML compilado | ✅ `og:image`, `og:image:alt`, `twitter:image` y `twitter:image:alt` absolutos contra `https://vapeupar.com`; ninguna URL de Unsplash en las etiquetas OG |
+| Render del SVG limpio frente al PNG aprobado | ✅ Mismo trazo, estrella y franjas |
+
+## No verificado
+
+Lo mismo que seguía abierto: **nada de esto se ha visto renderizado en un
+navegador** (pendiente #1). En concreto, del trabajo de hoy falta mirar el logo
+vectorial a 375 / 768 / 1440 px en navbar y footer, y el primer fotograma del
+modal +18 con y sin verificación previa.

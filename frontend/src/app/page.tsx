@@ -26,7 +26,7 @@ async function getProducts(): Promise<Product[]> {
     }
 
     return FALLBACK_PRODUCTS;
-  } catch (_e) {
+  } catch {
     // Si la API del backend está apagada, usa los productos de respaldo
     return FALLBACK_PRODUCTS;
   }

@@ -43,10 +43,10 @@ export function Navbar({ cartCount = 0 }: NavbarProps) {
       <div className="mx-auto flex max-w-vp items-center justify-between gap-6 px-4 py-4 sm:px-6 xl:px-10">
         <Link href="/" className="flex items-center" aria-label="Vapeupar, inicio">
           <Image
-            src="/logo-detalle.png"
+            src="/logo-detalle.svg"
             alt="Vapeupar"
-            width={1371}
-            height={563}
+            width={1860}
+            height={926}
             priority
             className="h-10 w-auto sm:h-12"
           />

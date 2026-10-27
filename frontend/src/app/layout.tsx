@@ -30,6 +30,9 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  // Sin `metadataBase`, Next resuelve las URL de OpenGraph contra localhost y
+  // ningún cliente de WhatsApp ni de X puede recuperar la imagen.
+  metadataBase: new URL("https://vapeupar.com"),
   title: "Vapeupar | Tienda de Vaporizadores & Catálogo en Valledupar",
   description: "Catálogo exclusivo de vaporizadores desechables, pods recargables, sales de nicotina y accesorios en Valledupar. Envíos express contra entrega en moto.",
   keywords: [
@@ -53,20 +56,17 @@ export const metadata: Metadata = {
     siteName: "Vapeupar",
     locale: "es_CO",
     type: "website",
-    images: [
-      {
-        url: "https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=1200&q=80",
-        width: 1200,
-        height: 630,
-        alt: "Vapeupar Valledupar - Vaporizadores y Accesorios",
-      },
-    ],
+    // La imagen la aporta `app/opengraph-image.png` por convención de archivo:
+    // Next emite `og:image`, su tamaño y su tipo, y toma el texto alternativo de
+    // `opengraph-image.alt.txt`. Antes apuntaba a una foto de Unsplash.
   },
   twitter: {
     card: "summary_large_image",
     title: "Vapeupar | Vaporizadores en Valledupar",
     description: "Catálogo de vaporizadores con envíos inmediatos contra entrega en Valledupar.",
-    images: ["https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=1200&q=80"],
+    // Sin `images` aquí a propósito: de `app/opengraph-image.png` Next deriva
+    // también `twitter:image`, su alt y su tamaño. Una `app/twitter-image.png`
+    // solo haría falta para un recorte distinto del de OpenGraph.
   },
 };
 

@@ -113,7 +113,7 @@
 | # | Estado actual | Archivo | Acción | Destino |
 |---|---|---|---|---|
 | 7.1 | **Las 6 imágenes de producto son fotos de stock de Unsplash que no corresponden a los productos** (`images.unsplash.com/photo-1527661591475…`, etc.) | `page.tsx`, `backend/src/data/mock-products.ts` | 🔴 Reemplazar | Fotografía real del inventario + **renders 3D** de dispositivos |
-| 7.2 | Imagen de OpenGraph/Twitter apunta a la misma foto de Unsplash | `layout.tsx` | 🔴 Reemplazar | OG image propia con el lockup VP |
+| 7.2 | ~~Imagen de OpenGraph/Twitter apunta a la misma foto de Unsplash~~ | `layout.tsx`, `app/opengraph-image.png` | ✅ Resuelto (2026-10-26) | OG propia con el logo VP, por convención de archivo; falta el texto del lockup |
 | 7.3 | `remotePatterns` solo autoriza `images.unsplash.com` | `next.config.ts` | 🔴 Reemplazar | Dominio del CDN/almacenamiento real de VP |
 | 7.4 | Tratamiento de imagen: `object-cover` en contenedor `aspect-square` con `bg-zinc-950/80` | `product-card.tsx` | 🔴 Reemplazar | Tratamiento de producto definido (fondo, recorte, sombra, ángulo) |
 | 7.5 | No existe infraestructura ni espacio de layout para modelos 3D, que son un pilar de la dirección visual | — | 🔴 Añadir | Decisión técnica (secuencia de imágenes, `<model-viewer>` o React Three Fiber) + presupuesto de peso |

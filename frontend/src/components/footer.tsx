@@ -43,10 +43,10 @@ export function Footer() {
         {/* Col 1: Brand Info — destino del enlace "Nosotros" del navbar */}
         <div id="nosotros" className="scroll-mt-24">
           <Image
-            src="/logo-detalle.png"
+            src="/logo-detalle.svg"
             alt="Vapeupar"
-            width={1371}
-            height={563}
+            width={1860}
+            height={926}
             className="h-9 w-auto"
           />
 

@@ -1,11 +1,49 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { Button, buttonStyles } from "@/components/ui/button";
 import { PixelLabel } from "@/components/ui/pixel-label";
 
 const VERIFICATION_KEY = "vapeupar_age_verified_at";
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * `localStorage` es un sistema externo a React, así que se lee con
+ * `useSyncExternalStore` y no con un efecto que llame a `setState`: eso último
+ * encadenaba un render de más y era el error `react-hooks/set-state-in-effect`
+ * que arrastraba el proyecto (pendiente #9 del plan visual).
+ *
+ * El TTL de 30 días y el comportamiento observable no cambian. Sí cambia el
+ * primer fotograma, y a mejor: antes el componente devolvía `null` hasta que
+ * corría el efecto, de modo que un visitante sin verificar alcanzaba a ver el
+ * catálogo detrás. Ahora el servidor pinta la puerta cerrada.
+ */
+function subscribe(onStoreChange: () => void) {
+  // `storage` solo avisa a las OTRAS pestañas: si el visitante se verifica en
+  // una, las demás se enteran por aquí.
+  window.addEventListener("storage", onStoreChange);
+  return () => window.removeEventListener("storage", onStoreChange);
+}
+
+function readNeedsVerification() {
+  try {
+    const verifiedTimestampStr = localStorage.getItem(VERIFICATION_KEY);
+    if (!verifiedTimestampStr) return true;
+    const timestamp = parseInt(verifiedTimestampStr, 10);
+    // Vigente solo si la verificación cae dentro de los últimos 30 días.
+    return isNaN(timestamp) || Date.now() - timestamp >= THIRTY_DAYS_MS;
+  } catch {
+    // Acceso a localStorage denegado o modo incógnito: se vuelve a preguntar.
+    return true;
+  }
+}
+
+/**
+ * En el servidor no hay almacenamiento. La puerta se pinta cerrada: quien ya
+ * está verificado la ve un instante mientras hidrata, pero quien no lo está no
+ * ve el catálogo nunca. En una puerta legal, ese es el lado correcto del fallo.
+ */
+const readNeedsVerificationOnServer = () => true;
 
 /**
  * Puerta de verificación +18 (fase V7).
@@ -25,28 +63,15 @@ const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
  * el bloque de glitch de `globals.css`).
  */
 export function AgeVerificationModal() {
-  const [isOpen, setIsOpen] = useState(false);
+  const needsVerification = useSyncExternalStore(
+    subscribe,
+    readNeedsVerification,
+    readNeedsVerificationOnServer
+  );
+  const [confirmedNow, setConfirmedNow] = useState(false);
   const [hasRejected, setHasRejected] = useState(false);
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    try {
-      const verifiedTimestampStr = localStorage.getItem(VERIFICATION_KEY);
-      if (verifiedTimestampStr) {
-        const timestamp = parseInt(verifiedTimestampStr, 10);
-        const now = Date.now();
-        // If not expired within 30 days
-        if (!isNaN(timestamp) && (now - timestamp) < THIRTY_DAYS_MS) {
-          setIsOpen(false);
-          return;
-        }
-      }
-      setIsOpen(true);
-    } catch {
-      // LocalStorage access denied or incognito
-      setIsOpen(true);
-    }
-  }, []);
+  const isOpen = needsVerification && !confirmedNow;
 
   useEffect(() => {
     if (isOpen) {
@@ -68,7 +93,10 @@ export function AgeVerificationModal() {
     } catch {
       // fallback if storage disabled
     }
-    setIsOpen(false);
+    // `storage` no se emite en la pestaña que escribe, así que el cierre lo
+    // lleva este estado local; si localStorage está denegado, es lo único que
+    // sostiene la puerta abierta durante la visita.
+    setConfirmedNow(true);
   };
 
   const handleRejectAge = () => {
