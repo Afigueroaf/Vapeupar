@@ -518,13 +518,23 @@ falta de A4* al final de este registro.
   `Path=/api/admin`, así que el sitio público nunca las recibe. `Secure` queda
   atado a producción: `next dev` se sirve por HTTP a otros equipos de la red
   Wi-Fi (`allowedDevOrigins`), donde una cookie `Secure` no llegaría.
-- **Hace falta guardar el nombre de usuario real.** El pool usa el correo como
-  alias (`signInAliases: { email: true }`), de modo que el nombre de usuario es
-  otro: con alias de correo, Cognito **no admite nombres de usuario en formato
-  de correo**, así que la invitación crea el usuario con un UUID. El
-  `SECRET_HASH` de `REFRESH_TOKEN_AUTH` se calcula con ese nombre real y no con
-  el alias, y por eso viaja en su propia cookie, tomada del claim `username` del
-  access token.
+- **Hace falta guardar el nombre de usuario real.** El `SECRET_HASH` de
+  `REFRESH_TOKEN_AUTH` se calcula con el nombre de usuario del pool, que no es
+  el correo, y por eso viaja en su propia cookie, tomada del claim `username`
+  del access token.
+
+  > ⚠️ **El razonamiento de esta nota estaba al revés y se corrigió el
+  > 2026-10-27**, en el primer intento real de invitar a alguien. Decía que
+  > «con alias de correo Cognito no admite nombres de usuario en formato de
+  > correo», y por eso la invitación creaba el usuario con un UUID. Eso vale
+  > para un pool de **alias** (`AliasAttributes`), que es lo que da
+  > `signInAliases: { username: true, email: true }`. El pool desplegado tiene
+  > `signInAliases: { email: true }` **sin** `username`, que es
+  > `UsernameAttributes: ['email']`: ahí el correo *es* el nombre de usuario y
+  > `AdminCreateUser` rechaza un UUID con «Username should be an email». La
+  > invitación manda ahora el correo y guarda el nombre real que devuelve
+  > Cognito, que sigue siendo un UUID. El resto del flujo no cambia: entrar
+  > siempre fue con el correo.
 - **401 y 403 significan cosas distintas.** Cognito responde por la identidad
   (401 si el token no verifica ni se puede renovar); la tabla `User` responde
   por el acceso (403 si no hay fila activa para ese `sub`, porque reintentar el

@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 import {
   AdminCreateUserCommand,
   AdminDisableUserCommand,
@@ -199,18 +199,27 @@ export interface InvitedUser {
 }
 
 /**
- * Invita a alguien a la consola. El nombre de usuario es un UUID y no el
- * correo: con el correo como alias, Cognito no admite nombres de usuario en
- * formato de correo. La contraseña temporal la genera y la envía Cognito, y
- * vence en 3 días (`tempPasswordValidity` del pool).
+ * Invita a alguien a la consola. La contraseña temporal la genera y la envía
+ * Cognito, y vence en 3 días (`tempPasswordValidity` del pool).
+ *
+ * **El nombre de usuario que se manda es el correo.** El pool se creó con
+ * `signInAliases: { email: true }` y sin `username`, que en Cognito significa
+ * `UsernameAttributes: ['email']`: el correo *es* el nombre de usuario, y
+ * `AdminCreateUser` rechaza cualquier otra cosa con «Username should be an
+ * email». Es lo contrario de un pool de alias (`AliasAttributes`), donde el
+ * nombre de usuario va aparte y no puede tener forma de correo.
+ *
+ * El nombre real que asigna Cognito —un UUID— viene en la respuesta, y es el
+ * que hay que guardar: el `SECRET_HASH` de `REFRESH_TOKEN_AUTH` se calcula con
+ * él. En el flujo normal lo pone el claim `username` del access token; aquí se
+ * devuelve para que el script de invitación pueda enseñarlo.
  */
 export async function inviteUser(email: string): Promise<InvitedUser> {
   const { userPoolId } = getCognitoConfig();
-  const username = randomUUID();
   try {
     const response = await getClient().send(new AdminCreateUserCommand({
       UserPoolId: userPoolId,
-      Username: username,
+      Username: email,
       UserAttributes: [
         { Name: 'email', Value: email },
         { Name: 'email_verified', Value: 'true' }
@@ -219,7 +228,7 @@ export async function inviteUser(email: string): Promise<InvitedUser> {
     }));
     const sub = response.User?.Attributes?.find(a => a.Name === 'sub')?.Value;
     if (!sub) throw new AuthError('UPSTREAM', 'Cognito no devolvió el sub del usuario creado');
-    return { sub, email, username };
+    return { sub, email, username: response.User?.Username ?? sub };
   } catch (error) {
     throw error instanceof AuthError ? error : translate(error);
   }
