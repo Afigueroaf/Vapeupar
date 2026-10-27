@@ -4,12 +4,21 @@
   "description": "Backend API in TypeScript for Vapeupar Landing & Vape Catalog",
   "main": "dist/index.js",
   "scripts": {
+    "prebuild": "prisma generate",
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "tsx watch src/index.ts",
-    "test": "vitest run src"
+    "test": "vitest run src",
+    "db:generate": "prisma generate",
+    "db:status": "prisma migrate status",
+    "db:migrate": "prisma migrate deploy",
+    "db:migrate:create": "prisma migrate dev --create-only",
+    "db:sync-app-role": "tsx prisma/sync-app-role.ts",
+    "db:seed": "prisma db seed"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
@@ -21,6 +30,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
     "@types/node": "^22.13.9",
+    "prisma": "7.10.1",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",
     "vitest": "^5.0.5"

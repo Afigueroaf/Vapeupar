@@ -2,6 +2,7 @@ import { Duration, Stack, StackProps } from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as rds from 'aws-cdk-lib/aws-rds';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { EnvConfig, paramName, resourceName } from './config.js';
@@ -75,6 +76,21 @@ export class DataStack extends Stack {
 
     this.db.connections.allowDefaultPortFrom(bastion, 'Tunel SSM desde el bastion');
 
+    // Credencial del rol de aplicación `vapeupar_app` (permisos mínimos, sin
+    // DDL). El rol lo crea la migración inicial; la contraseña la aplica
+    // `npm run db:sync-app-role` en backend/. El usuario maestro queda solo
+    // para migraciones y mantenimiento.
+    const appSecret = new secretsmanager.Secret(this, 'AppDbSecret', {
+      secretName: `vapeupar/${config.envName}/rds-app`,
+      description: 'Credencial del rol vapeupar_app que usa el backend en runtime',
+      generateSecretString: {
+        secretStringTemplate: JSON.stringify({ username: 'vapeupar_app' }),
+        generateStringKey: 'password',
+        passwordLength: 32,
+        excludePunctuation: true,
+      },
+    });
+
     // Valores no secretos para scripts y para el backend, con la misma
     // convención de rutas que usa DeliPan (/delipan/staging/*).
     const params: Record<string, string> = {
@@ -82,6 +98,7 @@ export class DataStack extends Stack {
       DB_PORT: this.db.dbInstanceEndpointPort,
       DB_NAME: 'vapeupar',
       DB_SECRET_ARN: this.db.secret!.secretArn,
+      DB_APP_SECRET_ARN: appSecret.secretArn,
       BASTION_INSTANCE_ID: bastion.instanceId,
     };
     for (const [key, value] of Object.entries(params)) {

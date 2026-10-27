@@ -40,8 +40,36 @@ backend/
 │   └── index.ts         # Punto de entrada de la aplicación Express
 ├── tsconfig.json        # Configuración TypeScript NodeNext / ES2022 (strict: true)
 ├── package.json         # Scripts y dependencias
-└── .env                 # Variables de entorno locales
+├── prisma/
+│   ├── schema.prisma    # Modelo de datos (ADR-002 §3)
+│   ├── migrations/      # Migraciones SQL versionadas
+│   ├── seed.ts          # Semilla idempotente desde assets/brands/
+│   └── sync-app-role.ts # Contraseña del rol vapeupar_app desde Secrets Manager
+├── prisma.config.ts     # Configuración del CLI de Prisma 7
+└── .env                 # Variables de entorno locales (ver .env.example)
 ```
+
+`src/db/prisma.ts` crea el cliente de Prisma bajo demanda y `src/catalog/` agrupa
+utilidades del catálogo. El cliente generado vive en `src/generated/prisma`
+(ignorado por git; `npm run db:generate` o `prebuild` lo regeneran).
+
+## Base de Datos (PostgreSQL en AWS RDS + Prisma 7)
+
+La base solo es alcanzable por túnel (`docs/infrastructure-aws.md`). Desde la raíz:
+
+```bash
+npm run infra:env-backend   # escribe DATABASE_URL y MIGRATE_DATABASE_URL en backend/.env
+npm run infra:db-tunnel     # en otra terminal; dejarla abierta
+npm run db:migrate          # aplica migraciones pendientes (usuario maestro)
+npm run db:sync-app-role    # habilita el login de vapeupar_app
+npm run db:seed             # catálogo inicial desde assets/brands/
+```
+
+- **Dos credenciales.** `DATABASE_URL` usa el rol `vapeupar_app` (runtime, sin DDL);
+  `MIGRATE_DATABASE_URL` usa el maestro y solo la lee el CLI de Prisma.
+- **Nueva migración:** `npm run db:migrate:create --workspace=backend -- --name <nombre>`
+  una sola vez, revisar el SQL y aplicar con `npm run db:migrate`. Si crea una
+  tabla, la misma migración debe conceder sus permisos a `vapeupar_app`.
 
 ## Endpoints Disponibles
 

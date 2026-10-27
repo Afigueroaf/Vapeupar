@@ -72,8 +72,16 @@ Reglas de red y acceso:
 - Sin pooler: con un solo proceso de backend, Prisma conecta directo. Si en el
   futuro el backend escala horizontalmente o pasa a funciones, se añade RDS Proxy.
 
-Los arrays actuales no se borran: se degradan a **semilla** (`prisma/seed.ts`) y a
-**fallback de presentación** en el frontend para el caso de API caída.
+La semilla (`backend/prisma/seed.ts`) sale de los archivos reales de
+`assets/brands/`, no de los arrays actuales. Esos arrays son datos de muestra
+(marcas que no se venden, fotos de Unsplash): quedan como **fixture de tests** y
+como **fallback de presentación** del frontend hasta que el catálogo con
+variantes (A6) los sustituya.
+
+El backend en runtime conecta con el rol `vapeupar_app`, sin DDL y con permisos
+que refuerzan el modelo en la propia base: sin borrado físico y con el libro de
+inventario y la auditoría en solo inserción. El usuario maestro queda para
+migraciones.
 
 ### 2. El stock es un libro de movimientos, no un entero mutable
 

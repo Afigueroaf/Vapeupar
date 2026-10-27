@@ -21,7 +21,10 @@
     "infra:diff": "npm run diff --workspace=infra",
     "infra:deploy": "npm run deploy --workspace=infra",
     "infra:db-tunnel": "npm run db:tunnel --workspace=infra",
-    "infra:env-backend": "npm run env:backend --workspace=infra"
+    "infra:env-backend": "npm run env:backend --workspace=infra",
+    "db:migrate": "npm run db:migrate --workspace=backend",
+    "db:seed": "npm run db:seed --workspace=backend",
+    "db:sync-app-role": "npm run db:sync-app-role --workspace=backend"
   },
   "keywords": [
     "vape",

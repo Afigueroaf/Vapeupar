@@ -17,7 +17,7 @@ V4 y V5.
 | Fase | Objetivo | Archivos | Estado |
 |---|---|---|---|
 | **A0** | Decisiones y entorno AWS dev | `infra/`, `docs/infrastructure-aws.md` | 🟡 **En curso**: entorno dev desplegado, 3 decisiones de producto abiertas |
-| **A1** | Esquema Prisma + migración + semilla desde `assets/` | `backend/prisma/`, `backend/src/repositories/` | ⬜ Pendiente |
+| **A1** | Esquema Prisma + migración + semilla desde `assets/` | `backend/prisma/`, `backend/src/db/` | ✅ **Ejecutada** (2026-10-26) |
 | **A2** | Desacoplar `ProductService` y reescribir sus tests | `backend/src/services/`, `*.test.ts` | ⬜ Pendiente |
 | **A3** | Dominio de inventario: movimientos, idempotencia, auditoría | `backend/src/services/stock.service.ts` | ⬜ Pendiente |
 | **A4** | Autenticación y superficie `/api/admin/*` | `backend/src/routes/admin/`, `backend/src/middleware/` | ⬜ Pendiente |
@@ -75,7 +75,8 @@ que el backend necesita, leído de SSM y Secrets Manager:
 
 ```
 AWS_REGION=                   # us-east-1
-DATABASE_URL=                 # postgresql://...@localhost:15432/vapeupar?sslmode=require (vía túnel)
+DATABASE_URL=                 # rol vapeupar_app, localhost:15432 (vía túnel), sslmode=no-verify
+MIGRATE_DATABASE_URL=         # usuario maestro: solo migraciones y db:sync-app-role
 S3_CATALOG_BUCKET=            # vapeupar-dev-catalog-<cuenta>
 CDN_DOMAIN=                   # dxxxx.cloudfront.net
 COGNITO_USER_POOL_ID=
@@ -84,9 +85,13 @@ COGNITO_CLIENT_SECRET=        # Del cliente confidencial; solo backend
 REVALIDATE_SECRET=            # Generado una vez; compartido con el frontend (A7)
 ```
 
-`DATABASE_URL` apunta a `localhost:15432` porque la base solo es alcanzable con el
-túnel abierto (`npm run infra:db-tunnel`). Pendiente en A1: crear
-`backend/.env.example` con estas claves y sin valores.
+Las URLs apuntan a `localhost:15432` porque la base solo es alcanzable con el
+túnel abierto (`npm run infra:db-tunnel`). Por el túnel el certificado de RDS no
+coincide con `localhost`, así que se cifra sin verificar el certificado
+(`sslmode=no-verify`); el tramo portátil–bastión ya va cifrado y autenticado por
+Session Manager. En prod, dentro de la VPC, debe usarse `verify-full` con el
+bundle de CA de RDS (`docs/infrastructure-aws.md` §8). `backend/.env.example`
+documenta estas claves sin valores.
 
 En el frontend solo se añadirá `REVALIDATE_SECRET` (mismo valor), junto a
 `NEXT_PUBLIC_API_URL`, que ya existe. **Ninguna credencial de AWS en el frontend**
@@ -103,9 +108,9 @@ abierto, `psql "$DATABASE_URL" -c 'select version()'` responde PostgreSQL 18.
 ### A1.1 — Instalar y declarar el esquema
 
 - `prisma` + `@prisma/client` como dependencias de **`backend/` únicamente**.
-- `backend/prisma/schema.prisma` con las entidades de ADR-002 §3 y el
-  `datasource` usando `url = env("DATABASE_URL")`. RDS no usa pooler, así que no
-  hace falta `directUrl`.
+- `backend/prisma/schema.prisma` con las entidades de ADR-002 §3. En Prisma 7 la
+  URL no va en el esquema: el CLI la toma de `prisma.config.ts`
+  (`MIGRATE_DATABASE_URL`) y el runtime de `DATABASE_URL`. RDS no usa pooler.
 - Las migraciones se ejecutan desde el portátil con el túnel abierto. En
   producción, desde el pipeline de despliegue dentro de la VPC, nunca abriendo la
   base a internet.
@@ -120,13 +125,23 @@ abierto, `psql "$DATABASE_URL" -c 'select version()'` responde PostgreSQL 18.
 - `Product.estado` y `Variant.activa` con valores por defecto conservadores
   (`borrador`, `true`).
 
-### A1.2 — Capa de repositorio
+### A1.2 — Capa de repositorio → se reparte entre las fases que la consumen
 
-Crear `backend/src/repositories/` con `product.repository.ts`,
-`brand.repository.ts`, `supplier.repository.ts`, `stock.repository.ts`,
-`content.repository.ts`. Los servicios dependen de interfaces de repositorio, no
-de Prisma: es lo que hace posible A2 (tests con fixture en memoria, sin base de
-datos).
+Los servicios dependen de interfaces de repositorio, no de Prisma: es lo que
+hace posible probarlos con fixtures en memoria. Pero cada interfaz se diseña
+junto al servicio que la usa, no por adelantado, para no fijar firmas que
+todavía nadie necesita:
+
+| Repositorio | Fase |
+|---|---|
+| `product.repository.ts` | A2 (lo consume `ProductService`) |
+| `stock.repository.ts` | A3 |
+| `brand.repository.ts`, `supplier.repository.ts` | A5.2 |
+| `content.repository.ts` | A7 |
+
+A1 deja el acceso a datos listo: `backend/src/db/prisma.ts` crea el cliente
+bajo demanda, así que importar el módulo no abre conexiones y los tests no
+necesitan base de datos.
 
 ### A1.3 — Semilla desde `assets/`
 
@@ -154,6 +169,61 @@ Conteo esperado tras la semilla: 1 marca, 4 productos, **79 variantes**
 idempotente (ejecutarlo dos veces no duplica nada); los conteos coinciden con los
 esperados; `grep -r "prisma" frontend/` no devuelve nada; el backend conecta con
 `vapeupar_app`, no con el usuario maestro.
+
+### Registro de ejecución A1 (2026-10-26)
+
+**Archivos**
+
+| Archivo | Rol |
+|---|---|
+| `backend/prisma.config.ts` | Configuración del CLI de Prisma 7: esquema, migraciones, semilla y `MIGRATE_DATABASE_URL` |
+| `backend/prisma/schema.prisma` | Las 10 entidades de ADR-002 §3, con identificadores en inglés (como el contrato de la API) y tablas en `snake_case` |
+| `backend/prisma/migrations/*_init` | Tablas, enums e índices |
+| `backend/prisma/migrations/*_app_role` | Rol `vapeupar_app` y sus permisos mínimos |
+| `backend/prisma/sync-app-role.ts` | Aplica la contraseña de Secrets Manager al rol (`npm run db:sync-app-role`) |
+| `backend/prisma/seed.ts` | Semilla idempotente desde `assets/brands/` (`npm run db:seed`) |
+| `backend/src/db/prisma.ts` | Cliente de runtime, perezoso, con `@prisma/adapter-pg` |
+| `backend/src/catalog/image-keys.ts` | Claves de imagen del bucket, `slugify` y `humanize`; compartido con A8 |
+| `backend/.env.example` | Claves de entorno sin valores |
+| `infra/lib/data-stack.ts` | Nuevo secreto `vapeupar/dev/rds-app` y parámetro `DB_APP_SECRET_ARN` |
+
+**Decisiones tomadas durante la ejecución**
+
+- **Prisma 7.10.1 fijado exacto.** El tag `latest` del CLI apunta a una release
+  candidate de Prisma 8. Prisma 7 exige `prisma.config.ts` y adaptador de driver
+  (`@prisma/adapter-pg`); el cliente se genera en `src/generated/prisma`
+  (ignorado por git, regenerado en `prebuild`).
+- **Permisos que refuerzan el modelo en la base**, no solo en el código:
+  `vapeupar_app` no puede hacer DDL; no tiene `DELETE` salvo en
+  `brand_suppliers` (nada se borra físicamente); `stock_movements` y
+  `audit_logs` son de solo inserción; de `site_content` solo puede actualizar
+  `published_at`. Verificado: `CREATE TABLE`, `DELETE FROM stock_movements` y
+  `DELETE FROM products` responden *permission denied*. **Toda migración futura
+  que cree una tabla debe conceder sus permisos de forma explícita.**
+- **La semilla no sobrescribe.** `upsert` con `update: {}`: volver a ejecutarla
+  solo añade lo nuevo y nunca pisa lo editado desde la consola.
+- **La semilla no carga los productos de muestra** (Lost Mary, Geekvape...). Son
+  datos ficticios con fotos de Unsplash; quedan como fixture de tests (A2) y como
+  fallback del frontend hasta A6.
+- **Categorías provisionales**, deducidas de las imágenes de línea: ONE →
+  `pod-systems` (dispositivo por color); ECO 3, ECO PRO y FIT → `disposables`
+  (precargados por sabor). **Confirmar con el catálogo del proveedor** y
+  corregir desde la consola.
+
+**Verificado**
+
+| Comprobación | Resultado |
+|---|---|
+| Migraciones aplicadas | ✅ `init` y `app_role` |
+| Semilla | ✅ 1 marca, 4 productos, 79 variantes (23 + 49 + 7 + 0); segunda ejecución: 0 nuevos |
+| Rol de aplicación | ✅ Conecta como `vapeupar_app`; DDL y borrados denegados |
+| Build y tests del backend | ✅ `tsc` sin errores; 17/17 tests |
+
+**Incidencia.** `prisma migrate dev --create-only` aplica antes las migraciones
+pendientes: al repetirlo se aplicó `init` y se generó una migración vacía
+(`20261027015135_init`). Se conserva porque ya está registrada en la base; es
+inocua. Para crear migraciones: `npm run db:migrate:create -- --name <nombre>`
+**una sola vez**, editar el SQL si hace falta, y aplicar con `npm run db:migrate`.
 
 ---
 

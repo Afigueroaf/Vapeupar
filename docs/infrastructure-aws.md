@@ -57,7 +57,7 @@ Decisión de origen: [ADR-002](decisions/002-consola-de-administracion-y-persist
 |---|---|
 | `CDKToolkit-Vapeupar` | Toolkit de CDK propio (qualifier `vapeupar`): bucket de assets y roles `cdk-vapeupar-*` |
 | `Vapeupar-dev-Network` | VPC, 2 subredes públicas + 2 aisladas, Internet Gateway, endpoint S3, grupo de seguridad por defecto cerrado |
-| `Vapeupar-dev-Data` | RDS `vapeupar-dev-db`, bastión `vapeupar-dev-bastion`, grupo de seguridad `vapeupar-dev-rds`, secreto `vapeupar/dev/rds-master` |
+| `Vapeupar-dev-Data` | RDS `vapeupar-dev-db`, bastión `vapeupar-dev-bastion`, grupo de seguridad `vapeupar-dev-rds`, secretos `vapeupar/dev/rds-master` (maestro) y `vapeupar/dev/rds-app` (rol `vapeupar_app`) |
 | `Vapeupar-dev-Storage` | Bucket `vapeupar-dev-catalog-342284838697`, distribución CloudFront con OAC |
 | `Vapeupar-dev-Auth` | User Pool `vapeupar-dev-admins`, cliente `vapeupar-dev-backend`, secreto `vapeupar/dev/cognito-backend-client` |
 | `Vapeupar-dev-Ops` | Presupuesto `vapeupar-dev-monthly` (30 USD), grupo de recursos `vapeupar-dev-resources` |
@@ -71,7 +71,8 @@ se actualiza solo.
 | Parámetro | Contenido |
 |---|---|
 | `DB_HOST`, `DB_PORT`, `DB_NAME` | Endpoint de RDS |
-| `DB_SECRET_ARN` | ARN del secreto con usuario y contraseña maestros |
+| `DB_SECRET_ARN` | ARN del secreto con usuario y contraseña maestros (solo migraciones) |
+| `DB_APP_SECRET_ARN` | ARN del secreto del rol `vapeupar_app` (runtime del backend) |
 | `BASTION_INSTANCE_ID` | Instancia destino del túnel |
 | `S3_CATALOG_BUCKET`, `CDN_DOMAIN` | Bucket de imágenes y dominio de CloudFront |
 | `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID` | Pool y cliente del backend |
@@ -182,9 +183,12 @@ npm run infra:db-tunnel       # en una terminal aparte; dejarla abierta
 npm run dev:backend
 ```
 
+Primera vez con una base nueva (migraciones, rol de aplicación y semilla):
+ver `docs/backend.md` § Base de Datos.
+
 `infra:env-backend` conserva las variables que ya hubiera en `backend/.env`
 (`PORT`, `NODE_ENV`, `FRONTEND_URL`) y reescribe un bloque marcado con:
-`AWS_REGION`, `DATABASE_URL`, `S3_CATALOG_BUCKET`, `CDN_DOMAIN`,
+`AWS_REGION`, `DATABASE_URL` (rol `vapeupar_app`), `MIGRATE_DATABASE_URL` (maestro, solo migraciones), `S3_CATALOG_BUCKET`, `CDN_DOMAIN`,
 `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID`, `COGNITO_CLIENT_SECRET` y
 `REVALIDATE_SECRET` (este último se genera una vez y se conserva).
 

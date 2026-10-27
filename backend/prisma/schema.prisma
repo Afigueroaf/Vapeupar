@@ -1,0 +1,245 @@
+// Modelo de datos de Vapeupar (ADR-002 §3).
+//
+// Identificadores en inglés, igual que los tipos y el contrato de la API; las
+// tablas y columnas en snake_case. Los valores de enum se guardan en minúsculas
+// y con guiones donde el contrato de la API ya los usa (`pod-systems`).
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  moduleFormat        = "cjs"
+  importFileExtension = "js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Taxonomía de la API (`backend/src/types/product.types.ts`). Se mantienen las 6.
+enum ProductCategory {
+  disposables
+  pod_systems       @map("pod-systems")
+  mods_tanks        @map("mods-tanks")
+  salt_nic          @map("salt-nic")
+  freebase_liquids  @map("freebase-liquids")
+  coils_accessories @map("coils-accessories")
+
+  @@map("product_category")
+}
+
+enum ProductStatus {
+  draft
+  published
+
+  @@map("product_status")
+}
+
+/// Una línea tiene variantes de sabor (ECO PRO) o de color (ONE).
+enum VariantKind {
+  flavor
+  color
+
+  @@map("variant_kind")
+}
+
+/// Tipos del libro de inventario. El signo de `quantity` lo impone stock.service.
+enum StockMovementType {
+  inbound    // ingreso de mercancía (suma)
+  sale       // venta (resta)
+  adjustment // ajuste por conteo físico (signo explícito, exige motivo)
+  shrinkage  // merma (resta)
+  return     // devolución de cliente (suma)
+
+  @@map("stock_movement_type")
+}
+
+enum UserRole {
+  owner
+  operator
+
+  @@map("user_role")
+}
+
+model Supplier {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  name         String
+  taxId        String?  @map("tax_id")
+  contactName  String?  @map("contact_name")
+  whatsapp     String?
+  paymentTerms String?  @map("payment_terms")
+  notes        String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  brands    BrandSupplier[]
+  movements StockMovement[]
+
+  @@map("suppliers")
+}
+
+/// Marca que ve el cliente. `isPartner` = marca aliada: aparece en la landing y en la FAQ.
+model Brand {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  name      String
+  slug      String   @unique
+  /// Clave en el bucket de imágenes (ej. `marcas/lifepod/logo.svg`), no URL.
+  logoKey   String?  @map("logo_key")
+  isPartner Boolean  @default(false) @map("is_partner")
+  sortOrder Int      @default(0) @map("sort_order")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  products  Product[]
+  suppliers BrandSupplier[]
+
+  @@map("brands")
+}
+
+/// Marca y proveedor son entidades distintas: un distribuidor puede traer varias marcas.
+model BrandSupplier {
+  brandId    String @map("brand_id") @db.Uuid
+  supplierId String @map("supplier_id") @db.Uuid
+
+  brand    Brand    @relation(fields: [brandId], references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@id([brandId, supplierId])
+  @@index([supplierId])
+  @@map("brand_suppliers")
+}
+
+/// Una línea de producto (LifePod ECO PRO). El precio es de la línea, no de la variante.
+model Product {
+  id               String          @id @default(uuid(7)) @db.Uuid
+  /// Inmutable una vez publicado: renombrarlo exige redirección 301.
+  slug             String          @unique
+  brandId          String          @map("brand_id") @db.Uuid
+  category         ProductCategory
+  name             String
+  description      String          @default("")
+  shortDescription String          @default("") @map("short_description")
+  /// Ficha técnica: puffCount, nicotineStrength, liquidCapacity, batteryCapacity, resistance, rechargeable.
+  specs            Json            @default("{}")
+  /// Pesos colombianos, entero. Nulo en borrador; obligatorio para publicar.
+  price            Int?
+  /// Precio tachado de la etiqueta «Oferta».
+  compareAtPrice   Int?            @map("compare_at_price")
+  status           ProductStatus   @default(draft)
+  /// Imagen de la línea (clave en el bucket).
+  imageKey         String?         @map("image_key")
+  featured         Boolean         @default(false)
+  isNewArrival     Boolean         @default(false) @map("is_new_arrival")
+  isBestSeller     Boolean         @default(false) @map("is_best_seller")
+  tags             String[]        @default([])
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt        DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  brand    Brand     @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  variants Variant[]
+
+  @@index([brandId])
+  @@index([status, category])
+  @@map("products")
+}
+
+/// Sabor o color de una línea. `active = false` la retira del sitio; agotada no es inactiva.
+model Variant {
+  id         String      @id @default(uuid(7)) @db.Uuid
+  productId  String      @map("product_id") @db.Uuid
+  kind       VariantKind
+  name       String
+  slug       String
+  imageKey   String?     @map("image_key")
+  active     Boolean     @default(true)
+  sortOrder  Int         @default(0) @map("sort_order")
+  /// Caché del disponible. La autoridad es la suma del libro (stock_movements);
+  /// solo stock.service la escribe.
+  stockCache Int         @default(0) @map("stock_cache")
+  createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  product   Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  movements StockMovement[]
+
+  @@unique([productId, slug])
+  @@map("variants")
+}
+
+/// Libro de inventario, solo inserción: el rol de la aplicación no puede
+/// modificar ni borrar filas (ver la migración inicial).
+model StockMovement {
+  id           String            @id @default(uuid(7)) @db.Uuid
+  variantId    String            @map("variant_id") @db.Uuid
+  type         StockMovementType
+  /// Con signo: positivo suma, negativo resta.
+  quantity     Int
+  reason       String?
+  supplierId   String?           @map("supplier_id") @db.Uuid
+  /// Costo unitario en pesos, para ingresos.
+  unitCost     Int?              @map("unit_cost")
+  lot          String?
+  userId       String            @map("user_id") @db.Uuid
+  /// Idempotencia: un reintento con la misma clave no duplica el movimiento.
+  operationKey String            @unique @map("operation_key")
+  createdAt    DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  variant  Variant   @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  supplier Supplier? @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([variantId, createdAt])
+  @@index([supplierId])
+  @@map("stock_movements")
+}
+
+/// Contenido editable del sitio (FAQ, hero, SEO...), versionado por clave.
+model SiteContent {
+  id          String    @id @default(uuid(7)) @db.Uuid
+  key         String
+  value       Json
+  version     Int
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+  userId      String    @map("user_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([key, version])
+  @@map("site_content")
+}
+
+/// Auditoría de escrituras, solo inserción para el rol de la aplicación.
+model AuditLog {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  userId    String?  @map("user_id") @db.Uuid
+  entity    String
+  entityId  String   @map("entity_id")
+  action    String
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+/// Usuario de la consola. `id` es el `sub` de Cognito: sin fila activa aquí no hay acceso.
+model User {
+  id        String   @id @db.Uuid
+  email     String   @unique
+  role      UserRole @default(operator)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  movements StockMovement[]
+  contents  SiteContent[]
+  audits    AuditLog[]
+
+  @@map("users")
+}

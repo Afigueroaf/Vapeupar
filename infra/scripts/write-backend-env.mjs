@@ -4,9 +4,13 @@
 //
 //   npm run infra:env-backend          -> entorno dev
 //
-// DATABASE_URL apunta a localhost porque la base solo es alcanzable por el
-// túnel (npm run infra:db-tunnel). `sslmode=require` cifra la conexión; la
-// verificación de nombre del certificado no aplica a través del túnel.
+// Las URLs apuntan a localhost porque la base solo es alcanzable por el túnel
+// (npm run infra:db-tunnel). Por el túnel el nombre del certificado de RDS no
+// coincide con localhost, así que se cifra sin verificar el certificado; el
+// tramo portátil-bastión ya va cifrado y autenticado por Session Manager.
+//
+//   DATABASE_URL          rol vapeupar_app: lo usa el backend en runtime.
+//   MIGRATE_DATABASE_URL  usuario maestro: solo migraciones y db:sync-app-role.
 import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -18,14 +22,15 @@ const localPort = localDbPort;
 const MARKER_PREFIX = '# --- Generado por infra/scripts/write-backend-env.mjs';
 const marker = `${MARKER_PREFIX} (${envName}); no editar a mano ---`;
 
-const db = getSecretJson(getParam('DB_SECRET_ARN'));
-const databaseUrl =
-  `postgresql://${encodeURIComponent(db.username)}:${encodeURIComponent(db.password)}` +
-  `@localhost:${localPort}/${getParam('DB_NAME')}?sslmode=require`;
+const dbName = getParam('DB_NAME');
+const pgUrl = ({ username, password }) =>
+  `postgresql://${encodeURIComponent(username)}:${encodeURIComponent(password)}` +
+  `@localhost:${localPort}/${dbName}?sslmode=no-verify`;
 
 const managed = {
   AWS_REGION: 'us-east-1',
-  DATABASE_URL: databaseUrl,
+  DATABASE_URL: pgUrl(getSecretJson(getParam('DB_APP_SECRET_ARN'))),
+  MIGRATE_DATABASE_URL: pgUrl(getSecretJson(getParam('DB_SECRET_ARN'))),
   S3_CATALOG_BUCKET: getParam('S3_CATALOG_BUCKET'),
   CDN_DOMAIN: getParam('CDN_DOMAIN'),
   COGNITO_USER_POOL_ID: getParam('COGNITO_USER_POOL_ID'),

@@ -41,3 +41,6 @@ Thumbs.db
 
 # Lanzador local de Claude Code con config aislada (ruta especifica de la maquina)
 claude-vp.cmd
+
+# Cliente de Prisma generado (npm run db:generate)
+backend/src/generated/
