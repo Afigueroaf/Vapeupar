@@ -69,8 +69,8 @@
 |---|---|---|---|---|
 | 4.1 | **El logo es un icono genérico**: `Flame` de Lucide dentro de un cuadrado con gradiente | `navbar.tsx`, `footer.tsx` | 🔴 Reemplazar | Logo **VP®** real como SVG en `public/` |
 | 4.2 | Bloque de marca "VAPEUPAR" + pill "Valledupar" en verde | `navbar.tsx` | 🔴 Reemplazar | Lockup tipográfico VP definido por el sistema de marca |
-| 4.3 | `favicon.ico` por defecto del template de Next.js | `src/app/favicon.ico` | 🔴 Reemplazar | Favicon + icon set VP (incluye `apple-icon` y versión maskable) |
-| 4.4 | Basura del template en `public/`: `next.svg`, `vercel.svg`, `file.svg`, `globe.svg`, `window.svg` | `frontend/public/` | 🔴 Eliminar | Solo assets VP |
+| 4.3 | ~~`favicon.ico` por defecto del template de Next.js~~ | `app/favicon.ico`, `app/icon.svg`, `app/apple-icon.png`, `app/manifest.ts`, `public/icon-*.png` | ✅ Resuelto (2026-10-26) | Set completo sobre teja lima con el monograma macizo de `logomini.svg`, maskable incluido |
+| 4.4 | ~~Basura del template en `public/`: `next.svg`, `vercel.svg`, `file.svg`, `globe.svg`, `window.svg`~~ | `frontend/public/` | ✅ Resuelto (V0.2; verificado el 2026-10-26) | Solo assets VP: el logo y los tres iconos del manifiesto |
 | 4.5 | **22 iconos de Lucide** con estilo lineal redondeado neutro: `Flame`, `MessageCircle`, `ShoppingBag`, `Menu`, `X`, `ArrowDown`, `Zap`, `ShieldCheck`, `Truck`, `Sparkles`, `Check`, `XCircle`, `Search`, `SlidersHorizontal`, `PackageSearch`, `ChevronDown`, `HelpCircle`, `ShieldAlert`, `MapPin`, `Phone`, `Clock`, `CheckCircle`, `Ban`, `AlertTriangle` | todos los componentes | 🟡 Rediseñar | Decisión de set: iconografía angular/geométrica coherente con Oxanium (o Lucide con `strokeWidth` y tamaños normalizados por token). Ningún icono se deja "porque venía incluido" |
 | 4.6 | Iconos decorativos dentro de etiquetas (`Sparkles` en el badge del hero, `HelpCircle` en FAQ) | `hero.tsx`, `faq.tsx` | 🔴 Eliminar | La etiqueta pixel sustituye al icono decorativo |
 

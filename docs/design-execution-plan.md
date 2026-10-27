@@ -594,8 +594,8 @@ viewport y lo único que queda es el gutter. Es el precio de que el texto no toq
 placeholder en el hero. El `favicon.ico` del directorio `app/` ya no es el del template
 (3,7 KB frente a los ~26 KB del archivo por defecto de `create-next-app`), pero no se ha
 verificado que sea el icono VP definitivo ni existe aún el icon set completo
-(`apple-icon`, versión maskable) que pedía §4.3. **Ese icon set ya no está bloqueado**: el
-vector del que sale está en el repositorio (ver el registro siguiente).
+(`apple-icon`, versión maskable) que pedía §4.3. ~~**Ese icon set ya no está bloqueado**~~
+→ ✅ **Resuelto** (2026-10-26), ver el registro del icon set más abajo.
 
 ---
 
@@ -690,3 +690,65 @@ Lo mismo que seguía abierto: **nada de esto se ha visto renderizado en un
 navegador** (pendiente #1). En concreto, del trabajo de hoy falta mirar el logo
 vectorial a 375 / 768 / 1440 px en navbar y footer, y el primer fotograma del
 modal +18 con y sin verificación previa.
+
+---
+
+# Registro de ejecución — icon set VP (2026-10-26)
+
+§4.3 pedía «favicon + icon set VP (incluye `apple-icon` y versión maskable)».
+Estaba anotado como bloqueado por el diseño del lockup; dejó de estarlo al
+aparecer el vector limpio (pendiente #2).
+
+## De qué vector sale
+
+No del mismo que el logo del navbar. `logosimpleblanco.svg` y
+`logodetalleblanco.svg` dibujan el monograma **en contorno**, y un contorno de
+trazo fino desaparece por debajo de los 32 px. `logomini.svg` (el único de los
+cinco que ya venía sin capa de calco, 3 KB) tiene la letra **maciza** en tres
+trazos negros: eso es lo que sobrevive a 16 px.
+
+## La teja
+
+**Lima `--color-vp-lime` con el monograma en `--color-vp-black`**, y no al revés.
+El negro de marca sobre la barra de pestañas de un navegador en tema oscuro es
+casi invisible; el lima resalta en claro y en oscuro, y es el color de acción del
+sistema. El monograma ocupa el 86 % del ancho de la teja.
+
+| Archivo | Tamaño | Nota |
+|---|---|---|
+| `app/icon.svg` | vectorial, 1,3 KB | Lo que usan los navegadores modernos |
+| `app/favicon.ico` | 1,8 KB | 16, 32 y 48 px, con carga útil PNG |
+| `app/apple-icon.png` | 180 px, 2,6 KB | Opaco y con más aire: iOS redondea las esquinas |
+| `public/icon-192.png` · `public/icon-512.png` | 3,2 y 9,9 KB | `purpose: "any"` del manifiesto |
+| `public/icon-maskable-512.png` | 8,1 KB | `purpose: "maskable"` |
+| `app/manifest.ts` | — | Existe sobre todo para poder declarar el maskable |
+
+## Dos ajustes ópticos
+
+- **A 16 px el monograma se empastaba**: la ranura interior de la P y el corte
+  diagonal caen por debajo del píxel. Ese tamaño, y solo ese, se genera con el
+  94 % de caja en lugar del 86 %. A 32 y 48 px se distinguen V y P sin ayuda.
+- **El maskable va al 66 % del ancho** (340 px de 512). Android recorta a la
+  forma del lanzador y solo garantiza el 80 % central: con una caja de 1,75:1, el
+  ancho máximo que cabe en ese círculo es 355 px.
+
+Todo se rasteriza a 4x y se reduce, para que las diagonales no queden dentadas.
+
+## Verificado
+
+| Comprobación | Resultado |
+|---|---|
+| `npx tsc --noEmit` y `npx eslint` | ✅ Sin errores ni avisos |
+| `npm run build:frontend` | ✅ `/icon.svg`, `/apple-icon.png` y `/manifest.webmanifest` salen como rutas estáticas |
+| Etiquetas en el HTML compilado | ✅ `rel="icon"` (ico y svg), `rel="apple-touch-icon"` 180x180 y `rel="manifest"` |
+| `manifest.webmanifest` servido | ✅ Los tres iconos con su `purpose`; colores de marca en `background_color` y `theme_color` |
+| Lectura del propio `.ico` | ✅ Las tres entradas (16, 32, 48) se extraen y se ven; a 16 px, legible tras el ajuste |
+| Recorte circular simulado sobre el maskable | ✅ El monograma queda dentro con margen |
+
+## No verificado
+
+- **Ningún icono se ha visto en un navegador, una pestaña real o una pantalla de
+  inicio** (pendiente #1). Las comprobaciones son sobre los archivos generados.
+- Queda fuera, y sigue siendo decisión de diseño, el set de **iconografía de
+  interfaz** (§4.5, pendiente #5): son los 6 iconos de Lucide que quedan dentro
+  de los componentes, un asunto distinto del icono de la aplicación.
