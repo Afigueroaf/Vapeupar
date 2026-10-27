@@ -19,7 +19,7 @@ V4 y V5.
 | **A0** | Decisiones y entorno AWS dev | `infra/`, `docs/infrastructure-aws.md` | 🟡 **En curso**: entorno dev desplegado, 3 decisiones de producto abiertas |
 | **A1** | Esquema Prisma + migración + semilla desde `assets/` | `backend/prisma/`, `backend/src/db/` | ✅ **Ejecutada** (2026-10-26) |
 | **A2** | Desacoplar `ProductService` y reescribir sus tests | `backend/src/services/`, `*.test.ts` | ✅ **Ejecutada** (2026-10-26) |
-| **A3** | Dominio de inventario: movimientos, idempotencia, auditoría | `backend/src/services/stock.service.ts` | ⬜ Pendiente |
+| **A3** | Dominio de inventario: movimientos, idempotencia, auditoría | `backend/src/services/stock.service.ts` | ✅ **Ejecutada** (2026-10-26) |
 | **A4** | Autenticación y superficie `/api/admin/*` | `backend/src/routes/admin/`, `backend/src/middleware/` | ⬜ Pendiente |
 | **A5** | Consola `/admin` en Next | `frontend/src/app/(admin)/` | ⬜ Pendiente |
 | **A6** | Catálogo público con variantes | `product-card.tsx`, `product-catalog.tsx`, tipos | ⬜ Pendiente |
@@ -346,6 +346,72 @@ precio, stock, estado de publicación y contenido.
 de movimiento, el rechazo por `operationKey` repetida, el rechazo de `ajuste` sin
 motivo, y que `reconciliar()` devuelve `stockCache` al valor del libro tras
 corromperlo a propósito en el test.
+
+### Registro de ejecución A3 (2026-10-26)
+
+**Archivos**
+
+| Archivo | Rol |
+|---|---|
+| `backend/src/services/stock.service.ts` | `StockService`: `recordMovement`, `getAvailable`, `getKardex`, `reconcile`, `findLowStock`; `StockError` con código |
+| `backend/src/services/audit.service.ts` | `recordAudit(sink, entry)`: normaliza antes/después a JSON y escribe en el destino de la transacción |
+| `backend/src/repositories/stock.repository.ts` | Interfaz con unidad de trabajo (`transaction`) y `DuplicateOperationKeyError` |
+| `backend/src/repositories/prisma-stock.repository.ts` | Implementación con `SELECT … FOR UPDATE` sobre la variante |
+| `backend/src/repositories/in-memory-stock.repository.ts` | Implementación para tests: transacciones en serie y con reversión |
+| `backend/src/types/stock.types.ts` | `StockMovement`, `Kardex`, `LowStockVariant` |
+| `backend/src/db/uuid.ts` | `isUuid`, compartido con el repositorio de productos |
+
+**Decisiones tomadas durante la ejecución**
+
+- **Identificadores en inglés**, como el esquema: `recordMovement`, `getKardex`,
+  `reconcile`, `findLowStock` (el plan los nombraba en español).
+- **Las reglas viven en el servicio; la atomicidad, en el repositorio.** El
+  repositorio expone una unidad de trabajo; el servicio bloquea la variante,
+  valida, inserta, actualiza la caché y audita dentro de ella. Así las reglas se
+  prueban en memoria y la base solo garantiza que todo se confirme junto.
+- **Bloqueo de fila por variante** (`SELECT … FOR UPDATE`) antes de leer la
+  caché: dos ventas simultáneas no pueden llevar el stock a negativo, y un doble
+  clic encuentra el movimiento del primero.
+- **Idempotencia con reintento, no con rechazo.** La misma `operationKey` con
+  los mismos datos devuelve el movimiento original (`replayed: true`) sin
+  escribir nada: es lo que necesita el cliente que reintenta tras un timeout.
+  Con datos distintos, o sobre otra variante, es `OPERATION_KEY_CONFLICT`.
+  Una clave repetida en paralelo sobre otra variante la detecta el índice único
+  (`P2002` → mismo conflicto).
+- **La cantidad llega siempre en positivo** y el tipo pone el signo; solo
+  `adjustment` admite signo explícito. Una venta con `-3` es un error, no una
+  devolución.
+- **Proveedor y costo unitario solo en ingresos**, para que el costo promedio por
+  proveedor no se contamine. Relajable si aparece un caso real (devolución a
+  proveedor).
+- **`operationKey` de 8 a 100 caracteres**: la genera el cliente (UUID por
+  formulario abierto).
+- **`getAvailable` lee la caché**; el libro solo se suma en `reconcile` y en el
+  kardex. La caché es fiable porque solo este servicio la escribe y siempre bajo
+  bloqueo.
+- **`reconcile` solo audita si había descuadre**, y acepta `userId` nulo para
+  ejecutarlo desde un comando.
+- **`findLowStock(threshold)` recibe el umbral**: la decisión #5 (global o por
+  variante) sigue abierta. Lista variantes activas de cualquier estado de
+  publicación, porque a la consola le importa también lo que aún no se publica.
+- **`StockError` con código** (`VALIDATION`, `NOT_FOUND`, `INSUFFICIENT_STOCK`,
+  `OPERATION_KEY_CONFLICT`): A4 lo traduce a 400 / 404 / 409.
+- **El repositorio de Prisma recibe cliente y transacción por constructor**
+  (`PrismaDbHandle`). Además de inyectar, permite verificar contra RDS dentro de
+  una transacción externa que se revierte: el libro y la auditoría son de solo
+  inserción y lo escrito no se podría limpiar.
+
+**Verificado**
+
+| Comprobación | Resultado |
+|---|---|
+| `tsc` (incluidos los tests) | ✅ Sin errores |
+| `npm run test:backend` | ✅ 51/51: 22 de `stock.service` (los cinco tipos, ajuste sin motivo, negativos, idempotencia secuencial y concurrente, conflicto de clave, reversión ante fallo, `reconcile` tras corromper la caché, kardex con saldo de apertura, bajo stock), 3 de auditoría |
+| `StockService` + `PrismaStockRepository` contra RDS dev, como `vapeupar_app`, en transacción revertida | ✅ Ingreso, reintento (`replayed`, mismo id), conflicto de clave, venta, stock insuficiente, id no UUID → `NOT_FOUND`, `reconcile` 999 → 7, kardex, bajo stock y 3 filas de auditoría. Conteos de movimientos, auditoría y usuarios: 0 antes y 0 después |
+
+**No verificado contra la base**: la traducción de `P2002` a conflicto (clave
+repetida en paralelo sobre otra variante). Probarla exige dos transacciones que
+confirman, y el libro no admite limpieza; queda cubierta solo en memoria.
 
 ---
 

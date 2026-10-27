@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { getPrisma } from '../db/prisma.js';
+import { isUuid } from '../db/uuid.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { Product, ProductCategory } from '../types/product.types.js';
 import { ProductRepository } from './product.repository.js';
@@ -26,8 +27,6 @@ const SpecsSchema = z.object({
   resistance: z.string().optional().catch(undefined),
   rechargeable: z.boolean().optional().catch(undefined)
 }).catch({ nicotineStrength: '' });
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** El enum de Prisma usa `pod_systems`; el contrato de la API, `pod-systems`. */
 function toApiCategory(category: string): ProductCategory {
@@ -83,8 +82,7 @@ export class PrismaProductRepository implements ProductRepository {
   }
 
   public async findById(id: string): Promise<Product | undefined> {
-    // La columna es uuid: un id con otro formato haría fallar la consulta.
-    if (!UUID.test(id)) return undefined;
+    if (!isUuid(id)) return undefined;
     const row = await getPrisma().product.findFirst({
       where: { ...PUBLIC_WHERE, id },
       include: PRODUCT_INCLUDE

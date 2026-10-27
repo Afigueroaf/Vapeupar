@@ -37,7 +37,7 @@ backend/
 │   ├── repositories/    # Acceso a datos: interfaz + Prisma + memoria (tests)
 │   ├── routes/          # Rutas Express (product.routes.ts)
 │   ├── schemas/         # Esquemas de validación Zod (product.schema.ts)
-│   ├── services/        # Lógica de negocio y filtrado (product.service.ts)
+│   ├── services/        # Lógica de negocio: catálogo, inventario (stock.service.ts) y auditoría
 │   ├── types/           # Interfaces y tipos TypeScript compartidos (product.types.ts)
 │   └── index.ts         # Punto de entrada de la aplicación Express
 ├── tsconfig.json        # Configuración TypeScript NodeNext / ES2022 (strict: true)
@@ -53,7 +53,13 @@ backend/
 
 Los servicios reciben su repositorio por constructor: en runtime el de Prisma, en
 los tests uno en memoria con un fixture propio. Las etiquetas de categoría solo se
-declaran en `src/catalog/categories.ts`. El cliente generado vive en `src/generated/prisma`
+declaran en `src/catalog/categories.ts`.
+
+**Inventario.** `stock.service.ts` es el único código que escribe movimientos y
+`Variant.stockCache`: cada operación bloquea la variante, valida signo, motivo,
+negativos e idempotencia (`operationKey`), y escribe movimiento, caché y
+auditoría en una sola transacción. Ver el registro de A3 en
+`docs/admin-console-execution-plan.md`. El cliente generado vive en `src/generated/prisma`
 (ignorado por git; `npm run db:generate` o `prebuild` lo regeneran).
 
 ## Base de Datos (PostgreSQL en AWS RDS + Prisma 7)
