@@ -32,7 +32,9 @@ El backend de Vapeupar es un servicio REST desarrollado en **TypeScript** con **
 ```
 backend/
 ├── src/
-│   ├── data/            # Mock dataset inicial con tipado estricto
+│   ├── catalog/         # Etiquetas de categoría y claves de imagen
+│   ├── db/              # Cliente de Prisma bajo demanda
+│   ├── repositories/    # Acceso a datos: interfaz + Prisma + memoria (tests)
 │   ├── routes/          # Rutas Express (product.routes.ts)
 │   ├── schemas/         # Esquemas de validación Zod (product.schema.ts)
 │   ├── services/        # Lógica de negocio y filtrado (product.service.ts)
@@ -49,8 +51,9 @@ backend/
 └── .env                 # Variables de entorno locales (ver .env.example)
 ```
 
-`src/db/prisma.ts` crea el cliente de Prisma bajo demanda y `src/catalog/` agrupa
-utilidades del catálogo. El cliente generado vive en `src/generated/prisma`
+Los servicios reciben su repositorio por constructor: en runtime el de Prisma, en
+los tests uno en memoria con un fixture propio. Las etiquetas de categoría solo se
+declaran en `src/catalog/categories.ts`. El cliente generado vive en `src/generated/prisma`
 (ignorado por git; `npm run db:generate` o `prebuild` lo regeneran).
 
 ## Base de Datos (PostgreSQL en AWS RDS + Prisma 7)
@@ -65,6 +68,10 @@ npm run db:sync-app-role    # habilita el login de vapeupar_app
 npm run db:seed             # catálogo inicial desde assets/brands/
 ```
 
+- **El catálogo público sale de la base.** Solo se sirven productos `published`
+  con precio; tras la semilla todos están en borrador, así que `/api/products`
+  devuelve una lista vacía hasta que se publiquen desde la consola (A5.3). Sin
+  túnel la API responde 500 y el frontend usa `FALLBACK_PRODUCTS`.
 - **Dos credenciales.** `DATABASE_URL` usa el rol `vapeupar_app` (runtime, sin DDL);
   `MIGRATE_DATABASE_URL` usa el maestro y solo la lee el CLI de Prisma.
 - **Nueva migración:** `npm run db:migrate:create --workspace=backend -- --name <nombre>`
@@ -131,7 +138,7 @@ Obtiene la lista de productos filtrables y paginados.
 Obtiene las categorías disponibles con su conteo de productos.
 
 ### 4. `GET /api/products/id/:id`
-Obtiene un producto por su identificador único interno (ej. `prod-001`).
+Obtiene un producto por su identificador único interno (UUID). Un id con otro formato, o de un producto en borrador, responde 404.
 
 ### 5. `GET /api/products/:slug`
-Obtiene los detalles completos de un producto por su slug alfanumérico amigable (ej. `lost-mary-mo10000-watermelon-ice`).
+Obtiene los detalles completos de un producto por su slug alfanumérico amigable (ej. `lifepod-eco-pro`).

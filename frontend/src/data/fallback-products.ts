@@ -3,8 +3,8 @@ import { Product } from "@/types/product";
 /**
  * Datos de respaldo usados cuando la API del backend no responde.
  *
- * Sincronizado idénticamente con `backend/src/data/mock-products.ts`
- * (Fuente Única de Verdad). Si cambias uno, cambia el otro.
+ * Los mismos datos de muestra que servía el backend antes de la persistencia
+ * real (A1); se retiran del backend en A2 y quedan solo aquí hasta A6.
  *
  * NOTA DE DISEÑO: las `imageUrl` son fotografías de stock que NO corresponden
  * a los productos reales. Se reemplazan en una fase posterior del rediseño.

@@ -1,11 +1,13 @@
-import { MOCK_PRODUCTS } from '../data/mock-products.js';
+import { CATEGORY_LABELS, PRODUCT_CATEGORIES } from '../catalog/categories.js';
+import { ProductRepository } from '../repositories/product.repository.js';
+import { PrismaProductRepository } from '../repositories/prisma-product.repository.js';
 import { Product, ProductCategory, ProductFilters, PaginatedProductsResult } from '../types/product.types.js';
 
 export class ProductService {
-  private products: Product[] = [...MOCK_PRODUCTS];
+  constructor(private readonly repository: ProductRepository) {}
 
-  public getAll(filters?: ProductFilters): PaginatedProductsResult {
-    let result = [...this.products];
+  public async getAll(filters?: ProductFilters): Promise<PaginatedProductsResult> {
+    let result = await this.repository.findAll();
 
     if (filters) {
       if (filters.category) {
@@ -81,39 +83,18 @@ export class ProductService {
     };
   }
 
-  public getBySlug(slug: string): Product | undefined {
-    return this.products.find(p => p.slug === slug);
+  public async getBySlug(slug: string): Promise<Product | undefined> {
+    return this.repository.findBySlug(slug);
   }
 
-  public getById(id: string): Product | undefined {
-    return this.products.find(p => p.id === id);
+  public async getById(id: string): Promise<Product | undefined> {
+    return this.repository.findById(id);
   }
 
-  public getCategories(): { id: ProductCategory; name: string; count: number }[] {
-    const counts: Record<ProductCategory, number> = {
-      'disposables': 0,
-      'pod-systems': 0,
-      'mods-tanks': 0,
-      'salt-nic': 0,
-      'freebase-liquids': 0,
-      'coils-accessories': 0
-    };
-
-    for (const p of this.products) {
-      if (counts[p.category] !== undefined) {
-        counts[p.category]++;
-      }
-    }
-
-    return [
-      { id: 'disposables', name: 'Desechables (Puffs)', count: counts['disposables'] },
-      { id: 'pod-systems', name: 'Pods Recargables', count: counts['pod-systems'] },
-      { id: 'salt-nic', name: 'Sales de Nicotina', count: counts['salt-nic'] },
-      { id: 'freebase-liquids', name: 'E-Líquidos Freebase', count: counts['freebase-liquids'] },
-      { id: 'mods-tanks', name: 'Mods y Tanques', count: counts['mods-tanks'] },
-      { id: 'coils-accessories', name: 'Resistencias y Accesorios', count: counts['coils-accessories'] }
-    ];
+  public async getCategories(): Promise<{ id: ProductCategory; name: string; count: number }[]> {
+    const counts = await this.repository.countByCategory();
+    return PRODUCT_CATEGORIES.map(id => ({ id, name: CATEGORY_LABELS[id], count: counts[id] ?? 0 }));
   }
 }
 
-export const productService = new ProductService();
+export const productService = new ProductService(new PrismaProductRepository());

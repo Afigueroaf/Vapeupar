@@ -18,7 +18,7 @@ V4 y V5.
 |---|---|---|---|
 | **A0** | Decisiones y entorno AWS dev | `infra/`, `docs/infrastructure-aws.md` | 🟡 **En curso**: entorno dev desplegado, 3 decisiones de producto abiertas |
 | **A1** | Esquema Prisma + migración + semilla desde `assets/` | `backend/prisma/`, `backend/src/db/` | ✅ **Ejecutada** (2026-10-26) |
-| **A2** | Desacoplar `ProductService` y reescribir sus tests | `backend/src/services/`, `*.test.ts` | ⬜ Pendiente |
+| **A2** | Desacoplar `ProductService` y reescribir sus tests | `backend/src/services/`, `*.test.ts` | ✅ **Ejecutada** (2026-10-26) |
 | **A3** | Dominio de inventario: movimientos, idempotencia, auditoría | `backend/src/services/stock.service.ts` | ⬜ Pendiente |
 | **A4** | Autenticación y superficie `/api/admin/*` | `backend/src/routes/admin/`, `backend/src/middleware/` | ⬜ Pendiente |
 | **A5** | Consola `/admin` en Next | `frontend/src/app/(admin)/` | ⬜ Pendiente |
@@ -253,6 +253,59 @@ backend y por `CATEGORIES` del catálogo, para bajar de cinco declaraciones a do
 
 **Verificación A2**: `npm run test:backend` en verde; `MOCK_PRODUCTS` ya no se
 importa en ningún servicio, solo en el seed y en los fixtures.
+
+### Registro de ejecución A2 (2026-10-26)
+
+**Archivos**
+
+| Archivo | Rol |
+|---|---|
+| `backend/src/repositories/product.repository.ts` | Interfaz: `findAll`, `findBySlug`, `findById`, `countByCategory` |
+| `backend/src/repositories/prisma-product.repository.ts` | Implementación sobre Prisma y mapeo fila → contrato (`toProduct`) |
+| `backend/src/repositories/in-memory-product.repository.ts` | Implementación sobre un arreglo, para tests |
+| `backend/src/catalog/categories.ts` | `CATEGORY_LABELS` y `PRODUCT_CATEGORIES`: única declaración de la taxonomía en el backend |
+| `backend/src/services/product.service.ts` | Recibe el repositorio por constructor; métodos `async` |
+| `backend/src/routes/product.routes.ts` | Handlers `async` (los errores siguen yendo a `next`) |
+| `backend/src/data/mock-products.ts` | **Eliminado**: ya no lo usaba nadie |
+
+**Decisiones tomadas durante la ejecución**
+
+- **El repositorio solo ve el catálogo público** (`published` y con precio). Los
+  borradores no existen para `/api/products`, tampoco por id. La consola (A4/A5)
+  tendrá su propio acceso.
+- **Filtros, orden y paginación siguen en el servicio, en memoria.** Con 4
+  líneas, llevarlos a SQL es prematuro; el filtro de nicotina además lee `specs`
+  (JSON). Revisar cuando el catálogo crezca.
+- **`stock` de la línea = suma de `stockCache` de sus variantes activas**;
+  `inStock = stock > 0`. Es el contrato actual, sin variantes; A6 lo amplía.
+- **`imageUrl` = `https://${CDN_DOMAIN}/${imageKey}`**, o vacío si falta
+  cualquiera de los dos. Hasta A8 el bucket no tiene las imágenes.
+- **`specs` se sanea con Zod**: se conserva lo que encaja con el contrato y se
+  descarta el resto, en vez de romper la respuesta por un JSON mal editado.
+- **`getById` descarta ids que no son UUID** antes de consultar: la columna es
+  `uuid` y Postgres rechazaría la consulta.
+- **`MOCK_PRODUCTS` se elimina** en lugar de quedar como fixture: la suite usa
+  un fixture propio de 5 productos, y el frontend conserva su copia en
+  `FALLBACK_PRODUCTS` hasta A6.
+- **Dos declaraciones de etiquetas**, no una: el frontend no importa del backend
+  (paquetes separados), así que `CATEGORIES` de `product-catalog.tsx` es el
+  espejo, con textos más cortos a propósito.
+
+**Verificado**
+
+| Comprobación | Resultado |
+|---|---|
+| `tsc` (incluidos los tests) | ✅ Sin errores |
+| `npm run test:backend` | ✅ 26/26 (14 del servicio sobre fixture, 5 de `toProduct`, 7 de esquemas) |
+| `MOCK_PRODUCTS` en el backend | ✅ Ninguna referencia |
+| API contra RDS dev (túnel) | ✅ `/api/products` → `[]` (todo en borrador); `/categories` → 6 con conteo 0; slug e id de un borrador real → 404 |
+| `toProduct` sobre las 4 filas reales | ✅ `pod_systems` → `pod-systems`, URL de imagen compuesta, `specs` vacío → `{ nicotineStrength: '' }` |
+
+**Consecuencia visible.** Con el backend conectado, el catálogo de la landing
+queda **vacío** hasta publicar al menos una línea con precio (A5.3), porque el
+frontend solo usa el fallback cuando la API falla, no cuando devuelve una lista
+vacía. Sin túnel, la API responde 500 y la landing sigue mostrando los datos de
+muestra.
 
 ---
 

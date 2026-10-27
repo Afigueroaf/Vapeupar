@@ -1,13 +1,7 @@
 import { z } from 'zod';
+import { PRODUCT_CATEGORIES } from '../catalog/categories.js';
 
-export const CategoryEnum = z.enum([
-  'disposables',
-  'pod-systems',
-  'mods-tanks',
-  'salt-nic',
-  'freebase-liquids',
-  'coils-accessories'
-]);
+export const CategoryEnum = z.enum(PRODUCT_CATEGORIES);
 
 export const ProductQuerySchema = z.object({
   category: CategoryEnum.optional(),

@@ -5,7 +5,7 @@ import { ProductQuerySchema, ProductSlugSchema } from '../schemas/product.schema
 export const productRouter = Router();
 
 // GET /api/products
-productRouter.get('/', (req: Request, res: Response, next: NextFunction): void => {
+productRouter.get('/', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const parseResult = ProductQuerySchema.safeParse(req.query);
 
@@ -22,7 +22,7 @@ productRouter.get('/', (req: Request, res: Response, next: NextFunction): void =
     }
 
     const filters = parseResult.data;
-    const paginatedResult = productService.getAll(filters);
+    const paginatedResult = await productService.getAll(filters);
 
     res.json({
       success: true,
@@ -40,9 +40,9 @@ productRouter.get('/', (req: Request, res: Response, next: NextFunction): void =
 });
 
 // GET /api/products/categories
-productRouter.get('/categories', (_req: Request, res: Response, next: NextFunction): void => {
+productRouter.get('/categories', async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const categories = productService.getCategories();
+    const categories = await productService.getCategories();
     res.json({
       success: true,
       data: categories
@@ -53,10 +53,10 @@ productRouter.get('/categories', (_req: Request, res: Response, next: NextFuncti
 });
 
 // GET /api/products/id/:id
-productRouter.get('/id/:id', (req: Request, res: Response, next: NextFunction): void => {
+productRouter.get('/id/:id', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = String(req.params.id).trim();
-    const product = productService.getById(id);
+    const product = await productService.getById(id);
 
     if (!product) {
       res.status(404).json({
@@ -76,7 +76,7 @@ productRouter.get('/id/:id', (req: Request, res: Response, next: NextFunction): 
 });
 
 // GET /api/products/:slug
-productRouter.get('/:slug', (req: Request, res: Response, next: NextFunction): void => {
+productRouter.get('/:slug', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const parseResult = ProductSlugSchema.safeParse(req.params);
 
@@ -93,7 +93,7 @@ productRouter.get('/:slug', (req: Request, res: Response, next: NextFunction): v
     }
 
     const { slug } = parseResult.data;
-    const product = productService.getBySlug(slug);
+    const product = await productService.getBySlug(slug);
 
     if (!product) {
       res.status(404).json({
