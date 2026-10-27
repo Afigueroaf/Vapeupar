@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 const FILTER_ID = "vp-rgb-glitch";
@@ -25,15 +26,21 @@ function nextBurstDelay() {
  *
  * Bajo `prefers-reduced-motion: reduce` no monta nada, así que la clase nunca se
  * activa y el filtro nunca llega a aplicarse (`docs/design-reset-inventory.md` §8.5).
+ *
+ * Tampoco monta nada en la consola (`/admin`): ahí no hay `.vp-glitch` que
+ * filtrar, así que el bucle de `requestAnimationFrame` solo gastaría batería
+ * (plan A5: el armazón del admin va sin glitch).
  */
 export function PageGlitch() {
-  const [enabled, setEnabled] = useState(false);
+  const [motionAllowed, setMotionAllowed] = useState(false);
+  const onConsole = usePathname().startsWith("/admin");
+  const enabled = motionAllowed && !onConsole;
   const redRef = useRef<SVGFEOffsetElement>(null);
   const blueRef = useRef<SVGFEOffsetElement>(null);
 
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const sync = () => setEnabled(!mq.matches);
+    const sync = () => setMotionAllowed(!mq.matches);
     sync();
     mq.addEventListener("change", sync);
     return () => mq.removeEventListener("change", sync);

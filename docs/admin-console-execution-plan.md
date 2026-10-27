@@ -21,7 +21,7 @@ V4 y V5.
 | **A2** | Desacoplar `ProductService` y reescribir sus tests | `backend/src/services/`, `*.test.ts` | ✅ **Ejecutada** (2026-10-26) |
 | **A3** | Dominio de inventario: movimientos, idempotencia, auditoría | `backend/src/services/stock.service.ts` | ✅ **Ejecutada** (2026-10-26) |
 | **A4** | Autenticación y superficie `/api/admin/*` | `backend/src/routes/admin/`, `backend/src/middleware/` | ✅ **Ejecutada** (2026-10-27): sesión, roles, endurecimiento, inventario y el CRUD completo. Solo queda fuera el puente AdminJS (A4.4), opcional y descartado |
-| **A5** | Consola `/admin` en Next | `frontend/src/app/(admin)/` | ⬜ Pendiente |
+| **A5** | Consola `/admin` en Next | `frontend/src/app/(admin)/` | 🟡 **Parcial** (2026-10-27): A5.1 (stock) y el acceso, ejecutados; faltan A5.2, A5.3 y A5.4 |
 | **A6** | Catálogo público con variantes | `product-card.tsx`, `product-catalog.tsx`, tipos | ⬜ Pendiente |
 | **A7** | `SiteContent` + revalidación + barrido de textos | `faq.tsx`, `layout.tsx`, `trust-band.tsx` | ⬜ Pendiente |
 | **A8** | Imágenes en S3 + CloudFront | `next.config.ts`, `storage.service.ts` | ⬜ Pendiente (bucket y CDN ya desplegados) |
@@ -737,6 +737,15 @@ Middleware de Next que redirige a `/admin/login` sin sesión. Las mutaciones sal
 de Server Actions que llaman a `/api/admin/*` **reenviando la cookie de sesión**;
 nunca Prisma ni SQL desde el frontend.
 
+> ⚠️ **Las dos frases del medio no sobrevivieron al contacto con A4.** Las
+> cookies de sesión son `httpOnly` con `Path=/api/admin` sobre el origen del
+> backend, así que el servidor de Next no las recibe: no hay middleware —en Next
+> 16, `proxy.ts`— que pueda comprobar la sesión, ni Server Action que pueda
+> reenviar una cookie que no ve. Las peticiones salen del navegador con
+> `credentials: "include"`, que es para lo que A4.3 dejó el CORS del admin con
+> origen explícito. Lo que sí se mantiene: nunca Prisma ni SQL desde el
+> frontend. Ver el registro de A5.1.
+
 ### A5.1 — Pantalla de stock (la más usada, va primera)
 
 - Tabla de variantes con marca, línea, variante, disponible y estado, con
@@ -772,6 +781,123 @@ movimiento; desactivar una variante la retira del sitio público tras la
 revalidación; sin sesión, `/admin` redirige a login.
 
 ---
+
+### Registro de ejecución A5.1 (2026-10-27)
+
+La pantalla de inventario y el acceso a la consola. Es la primera vez que algo
+del plan se mira con los ojos en vez de con tests: también es lo primero que
+queda a la espera de una revisión visual de verdad (ver *No verificado*).
+
+**Lo que se añadió**
+
+| Archivo | Para qué |
+|---|---|
+| `frontend/src/types/admin.ts` | El contrato de `/api/admin` como lo ve la consola. Las fechas son texto ISO, que es lo que deja JSON |
+| `frontend/src/lib/admin-api.ts` | Cliente con `credentials: "include"` y `AdminApiError` con el código de dominio del backend |
+| `frontend/src/app/(admin)/admin/layout.tsx` | El área: sin navbar, sin footer, sin age gate, sin glitch, con `noindex` |
+| `frontend/src/app/(admin)/admin/page.tsx` | `/admin` entra directo al inventario |
+| `frontend/src/app/(admin)/admin/login/page.tsx` | Acceso en dos fases: credenciales y, si la invitación traía contraseña temporal, la nueva |
+| `frontend/src/app/(admin)/admin/(panel)/layout.tsx` | El grupo que exige sesión. `login` queda fuera a propósito: si no, la puerta se redirigiría a sí misma |
+| `frontend/src/app/(admin)/admin/(panel)/stock/page.tsx` | La pantalla: alertas, búsqueda, filtro, paginación y los dos paneles por fila |
+| `frontend/src/components/admin/admin-shell.tsx` | Armazón y puerta de sesión (`GET /me` al montar) |
+| `frontend/src/components/admin/stock-alerts.tsx` | Agotados y bajo umbral |
+| `frontend/src/components/admin/stock-list.tsx` | Las filas: rejilla responsiva, no `<table>` |
+| `frontend/src/components/admin/movement-form.tsx` | Movimiento en línea, con `operationKey` por operación |
+| `frontend/src/components/admin/kardex-panel.tsx` | Kardex de la variante |
+
+**La desviación grande: no hay `proxy.ts` ni Server Actions**
+
+El plan daba por hecho que un middleware de Next comprobaría la sesión y que
+las mutaciones irían por Server Actions reenviando la cookie. A4 cerró las
+cookies como `httpOnly` + `SameSite=Strict` + `Path=/api/admin` sobre el origen
+del backend, y eso hace las dos cosas imposibles: el navegador solo manda esas
+cookies a `/api/admin` de ese origen, así que el servidor de Next nunca las ve.
+
+Las alternativas eran abrir el `Path` a `/` (que es justo lo que A4 evitó, para
+que el sitio público no reciba cookies de sesión) o añadir una cookie-pista sin
+token para que el servidor pudiera redirigir. Ninguna compra nada: la defensa
+real es que el backend exige sesión en cada petición, y una pista puede quedar
+obsoleta. Así que la consola es una aplicación de cliente que habla con el
+backend con `credentials: "include"`, y la redirección al login es navegación,
+no barrera. La propia documentación de Next dice que el proxy no es un
+mecanismo de sesión.
+
+**Decisiones de la pantalla**
+
+- **Los dos contadores de alerta salen de la misma ruta de stock**, pidiendo una
+  sola fila y leyendo el total de la paginación: `threshold: 0` da los agotados
+  y `threshold: 5`, los que están en o por debajo del umbral. «Bajo umbral» se
+  muestra ya descontados los agotados, que si no saldrían contados dos veces. No
+  hizo falta añadir nada al backend.
+- **`operationKey` por operación, no por petición.** Se genera al abrir el
+  formulario y solo se renueva cuando el movimiento se registró de verdad: un
+  doble clic o un reintento tras un error manda la misma clave, y el backend
+  responde `200 replayed` en vez de duplicar. La pantalla lo dice con esas
+  palabras («ese movimiento ya estaba registrado»).
+- **El disponible se actualiza con la respuesta del movimiento**, sin recargar la
+  tabla: el backend devuelve el stock resultante justamente para eso.
+- **Filas en rejilla, no `<table>`.** Una tabla real obliga a desplazamiento
+  horizontal en un teléfono, que es donde se va a usar esto de pie en el local.
+  Cada fila lleva la etiqueta de cada dato, visible solo donde no hay cabecera.
+- **Búsqueda con freno de 500 ms.** El límite de la consola son 30 peticiones por
+  minuto (A4.3): buscar en cada tecla se lo comería escribiendo «mango».
+- **Umbral repetido en el frontend** (`LOW_STOCK_THRESHOLD = 5`) porque la
+  pantalla tiene que poder enseñarlo antes de pedir nada. Sigue siendo el valor
+  por defecto del backend y la decisión #5 sigue abierta.
+- **El glitch se apaga en `/admin`.** No hay `.vp-glitch` que filtrar ahí, así
+  que su bucle de `requestAnimationFrame` solo gastaría batería.
+
+**Un detalle de React 19 que el lint cazó**
+
+El patrón «pedir datos en un efecto y marcar `cargando` con `setState`» está
+prohibido por `react-hooks/set-state-in-effect`, la misma regla que obligó a
+rehacer el modal +18. En vez de silenciarla, el estado de carga se **deriva**:
+se guarda con qué filtros se resolvió la última respuesta y «cargando» es que
+esos no sean los vigentes. De paso, recargar a mano es crear un objeto de
+filtros nuevo, sin ninguna bandera extra, y el panel de kardex arranca limpio
+por `key` en vez de borrarse a sí mismo.
+
+**Verificado**
+
+| Comprobación | Resultado |
+|---|---|
+| `npm run build:frontend` | ✅ Compila, con TypeScript en verde, y aparecen las rutas `/admin`, `/admin/login` y `/admin/stock` |
+| `npm run lint --workspace=frontend` | ✅ Sin errores |
+| `GET /admin` servido | ✅ `307` a `/admin/stock` |
+| `GET /admin/login` servido | ✅ `200`, con el formulario y `noindex` en la cabecera |
+| `GET /admin/stock` servido | ✅ `200`, con la puerta de sesión en marcha y `noindex` |
+| El sitio público | ✅ Sigue sirviendo `/` con su `.vp-glitch` intacto |
+| Contrato contra el backend real (20 comprobaciones) | ✅ Se levantó la aplicación de Express con repositorios en memoria y se llamaron las mismas URL y cuerpos que manda la consola |
+
+Lo último merece detalle, porque es la costura que A5.1 introduce. Con el
+backend real y repositorios en memoria se comprobó que: `GET /stock` devuelve
+`data`, `pagination` y `meta.threshold` y ordena por disponible ascendente; los
+dos contadores de alerta dan 1 agotado y 2 bajo umbral sobre el mismo juego de
+filas; un movimiento responde `201` con el disponible resultante y
+`replayed: false`; **repetirlo con la misma `operationKey` responde `200`,
+`replayed: true` y el mismo disponible**; el kardex trae saldos y la entrada con
+su `balance`; `createdAt` llega como texto; `GET /suppliers?active=true` da lo
+que necesita el selector de ingreso; y los tres errores que la pantalla muestra
+llegan como ella espera (`409 INSUFFICIENT_STOCK` con mensaje, `400` del ajuste
+sin motivo con mensaje, y `400` con `errors[0].field` cuando el cuerpo está mal
+formado).
+
+**No verificado**
+
+- **Nadie ha visto esta pantalla en un navegador.** Lo que se ha comprobado es
+  que compila, que pasa el lint, que el servidor la sirve y que el contrato con
+  el backend coincide. Falta la revisión visual a 375 / 768 / 1440 px y el
+  recorrido con `Tab`, que es el pendiente #1 del plan de diseño y sigue
+  esperando la extensión de Chrome.
+- **El viaje de ida y vuelta completo sigue bloqueado.** Para iniciar sesión de
+  verdad hacen falta Cognito y la base, es decir la **dependencia #2** del plan
+  (el correo del owner inicial) y el túnel. Hasta entonces el login solo se ha
+  ejercitado contra el backend con Cognito sustituido.
+- **MFA.** Si el pool exige `SOFTWARE_TOKEN_MFA`, el backend responde `501` y la
+  pantalla mostrará ese mensaje. Resolverlo sigue siendo requisito antes de
+  exponer la consola.
+- **Sin pruebas automáticas de frontend.** El workspace no tiene runner y A5 no
+  lo pedía; la red son el build, el lint y la comprobación de contrato de arriba.
 
 ## Fase A6 — Catálogo público con variantes
 

@@ -41,6 +41,7 @@
 - **El stock no se puede escribir por la puerta del catálogo**: `stockCache` no figura en el esquema Zod de las variantes, así que un `stock` en el cuerpo se descarta antes de llegar al servicio. La única vía para moverlo sigue siendo un movimiento de inventario, que queda en el libro.
 - **Publicar contenido no sobrescribe**: cada publicación añade una versión con autor y fecha, así que un texto cambiado por error se puede recuperar y se sabe quién lo cambió.
 - **Lo que se «borra» se desactiva**: no hay `DELETE` en ninguna entidad del catálogo. El libro de inventario referencia variantes y proveedores con `onDelete: Restrict`, de modo que un borrado real rompería el rastro contable; retirar algo es `active: false`.
+- **La consola no guarda ninguna credencial**: `/admin` no ve los tokens (son `httpOnly`), así que no hay nada en `localStorage` que robar ni que limpiar. La redirección al login es navegación, no una barrera: lo que protege los datos es que el backend exige sesión en cada petición. `/admin` va además con `noindex, nofollow`.
 - **Pendiente**: MFA está opcional en dev y será obligatoria en prod; el backend todavía responde `501` al reto `SOFTWARE_TOKEN_MFA` y hay que resolverlo antes de exponer la consola.
 
 ## 3. Pasarelas de Pago y Categoría "High Risk"

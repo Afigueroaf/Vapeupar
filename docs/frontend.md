@@ -52,7 +52,8 @@ frontend/src/
 ├── app/
 │   ├── layout.tsx                # Metadata, Viewport, OpenGraph, Fonts y tema oscuro
 │   ├── page.tsx                  # Landing page principal con ISR (revalidate: 60s)
-│   └── globals.css               # Import Tailwind v4 y soporte prefers-reduced-motion
+│   ├── globals.css               # Import Tailwind v4 y soporte prefers-reduced-motion
+│   └── (admin)/admin/            # Consola: layout propio, login y (panel)/stock
 ├── components/
 │   ├── age-verification-modal.tsx# Modal +18 con TTL de 30 días y accesibilidad ARIA
 │   ├── navbar.tsx                # Barra fija con menú móvil hamburguesa
@@ -60,15 +61,56 @@ frontend/src/
 │   ├── product-catalog.tsx       # Catálogo con búsqueda, filtros, ordenamiento y anclas
 │   ├── product-card.tsx          # Tarjeta semántica (<article>) con verificación de stock
 │   ├── faq.tsx                   # Acordeón de preguntas frecuentes (#faq)
-│   └── footer.tsx                # Pie de página con advertencia legal y jerarquía h3
+│   ├── footer.tsx                # Pie de página con advertencia legal y jerarquía h3
+│   ├── ui/                       # Primitivas del sistema VP (Button, Surface, Field…)
+│   └── admin/                    # Armazón de la consola, tabla de stock, kardex
 ├── lib/
-│   └── utils.ts                  # Utilidades cn() y formato de moneda COP
+│   ├── utils.ts                  # Utilidades cn(), formato COP y fecha es-CO
+│   └── admin-api.ts              # Cliente de /api/admin (desde el navegador)
 └── types/
-    └── product.ts                # Interfaces de datos sincronizadas con el backend
+    ├── product.ts                # Interfaces de datos sincronizadas con el backend
+    └── admin.ts                  # Contrato de /api/admin visto desde la consola
 ```
+
+## Consola de administración (`/admin`, fase A5)
+
+Grupo de rutas `app/(admin)/admin/` con layout propio: sin navbar pública, sin
+footer, sin verificación de edad y sin `.vp-glitch`. Comparte con el sitio el
+layout raíz —tipografías y tokens VP— y las primitivas de `components/ui/`. Va
+con `robots: noindex, nofollow`: es una herramienta interna.
+
+| Ruta | Qué es |
+|---|---|
+| `/admin` | Redirección a `/admin/stock`; no tiene portada propia |
+| `/admin/login` | Acceso, con el segundo paso de contraseña nueva cuando la invitación trae una temporal |
+| `/admin/stock` | Pantalla de inventario (A5.1): alertas, búsqueda, filtro de bajo stock, movimiento en línea y kardex |
+
+**Las peticiones salen del navegador, no del servidor de Next.** Es la
+desviación más importante respecto del plan, que preveía un `proxy.ts` (el
+antiguo `middleware.ts`, renombrado en Next 16) y Server Actions reenviando la
+cookie de sesión. No es posible: las cookies que pone el backend son `httpOnly`
+con `Path=/api/admin` sobre **su** origen (A4.1), así que el navegador solo las
+manda a esas rutas y el servidor de Next no las ve nunca. Un Server Action no
+puede reenviar lo que no recibe, y un `proxy.ts` no puede comprobar una sesión
+que no ve. De ahí `credentials: "include"` en `lib/admin-api.ts` y el CORS
+propio del admin con origen explícito (`ADMIN_URL`).
+
+La consecuencia es que **la puerta de `/admin` es navegación, no defensa**:
+`components/admin/admin-shell.tsx` llama a `GET /api/admin/me` al montar y
+manda a `/admin/login` si responde 401. Quien entre a la URL sin sesión ve el
+armazón un instante y acaba en el login, pero no obtiene ningún dato: la
+defensa está en el backend, que exige sesión en cada petición. La propia
+documentación de Next dice que el proxy no sirve como gestión de sesión.
+
+No hay ningún token en `localStorage` ni en memoria del cliente: no hay token
+que guardar. Cerrar sesión es una llamada al backend, que revoca en Cognito y
+borra las cookies.
 
 ## Ejecución Local
 ```bash
 npm run dev:frontend
 ```
-Acceso: `http://localhost:3000`
+Acceso: `http://localhost:3000`, y la consola en `http://localhost:3000/admin`.
+Necesita el backend levantado (`npm run dev:backend`) con `NEXT_PUBLIC_API_URL`
+apuntando a él: sin backend, la consola muestra «Sesión no disponible» porque no
+puede comprobar la sesión.

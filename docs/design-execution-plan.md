@@ -579,7 +579,7 @@ viewport y lo único que queda es el gutter. Es el precio de que el texto no toq
 
 | # | Pendiente | Bloqueado por |
 |---|---|---|
-| 1 | **Revisión visual** a 375 / 768 / 1440 px y recorrido con `Tab` | Extensión de Chrome |
+| 1 | **Revisión visual** a 375 / 768 / 1440 px y recorrido con `Tab`, ahora también de la consola `/admin` (A5.1: alertas, filas de stock, formulario de movimiento y kardex) | Extensión de Chrome |
 | 2 | ~~`logo-detalle.png` pesa **355 KB**~~ | ✅ **Resuelto** (2026-10-26): `logo-detalle.svg`, 3,2 KB |
 | 3 | Fotografía real y renders 3D de producto | Assets del negocio |
 | 4 | ~~Imagen de OpenGraph propia~~ | ✅ **Resuelto** (2026-10-26): `app/opengraph-image.png`, compuesta con el logo vectorial |
