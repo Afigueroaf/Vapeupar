@@ -1,3 +1,4 @@
+import { CardField } from "@/components/ui/card-field";
 import { PixelLabel } from "@/components/ui/pixel-label";
 import { Surface } from "@/components/ui/surface";
 
@@ -33,15 +34,17 @@ export function TrustBand() {
       aria-label="Garantías de compra"
       className="border-b-2 border-line"
     >
-      <div className="mx-auto grid max-w-7xl gap-6 px-4 py-10 sm:px-6 sm:grid-cols-3">
+      {/* Las tres tarjetas comparten un campo de fondo continuo y reaccionan al
+          puntero. Ver `.vp-card` en `globals.css` y `ui/card-field.tsx`. */}
+      <CardField className="mx-auto grid max-w-vp gap-6 px-4 py-10 sm:px-6 sm:grid-cols-3 xl:px-10">
         {ITEMS.map((item) => (
-          <Surface key={item.label} className="p-5">
+          <Surface key={item.label} className="vp-card p-5">
             <PixelLabel variant="lime">{item.label}</PixelLabel>
             <h3 className="mt-4 text-xl font-bold leading-tight">{item.title}</h3>
             <p className="mt-1 text-base text-muted">{item.detail}</p>
           </Surface>
         ))}
-      </div>
+      </CardField>
     </section>
   );
 }

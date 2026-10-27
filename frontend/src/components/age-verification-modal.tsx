@@ -1,11 +1,29 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { ShieldAlert, CheckCircle, Ban, AlertTriangle } from "lucide-react";
+import { Button, buttonStyles } from "@/components/ui/button";
+import { PixelLabel } from "@/components/ui/pixel-label";
 
 const VERIFICATION_KEY = "vapeupar_age_verified_at";
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
+/**
+ * Puerta de verificación +18 (fase V7).
+ *
+ * Es la primera pantalla que ve cualquier visitante, así que lleva la
+ * expresión más fuerte de la marca (`docs/design-reset-inventory.md` §9.2).
+ *
+ * LO QUE NO SE TOCA (§9.1 y §9.4): el TTL de 30 días, los atributos
+ * `role="dialog"` / `aria-modal` / `aria-labelledby` / `aria-describedby`, el
+ * foco inicial en el botón de confirmación, el bloqueo de scroll del body, la
+ * pantalla de rechazo y **el texto legal palabra por palabra**. Solo cambia la
+ * presentación.
+ *
+ * Este componente se monta FUERA de `.vp-glitch` a propósito: un `filter` en
+ * un ancestro lo convertiría en bloque contenedor de sus descendientes
+ * `position: fixed` y rompería el overlay a pantalla completa (ver `page.tsx` y
+ * el bloque de glitch de `globals.css`).
+ */
 export function AgeVerificationModal() {
   const [isOpen, setIsOpen] = useState(false);
   const [hasRejected, setHasRejected] = useState(false);
@@ -24,7 +42,7 @@ export function AgeVerificationModal() {
         }
       }
       setIsOpen(true);
-    } catch (_e) {
+    } catch {
       // LocalStorage access denied or incognito
       setIsOpen(true);
     }
@@ -47,7 +65,7 @@ export function AgeVerificationModal() {
   const handleConfirmAge = () => {
     try {
       localStorage.setItem(VERIFICATION_KEY, Date.now().toString());
-    } catch (_e) {
+    } catch {
       // fallback if storage disabled
     }
     setIsOpen(false);
@@ -65,75 +83,92 @@ export function AgeVerificationModal() {
       aria-modal="true"
       aria-labelledby="age-dialog-title"
       aria-describedby="age-dialog-desc"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4"
+      // Fondo opaco en vez de `bg-black/90 backdrop-blur-md`: el sistema no usa
+      // la transparencia como recurso de jerarquía ni el desenfoque de fondo
+      // (§2.7 y §3.5). Y esto no es un modal sobre contenido, es una puerta:
+      // mostrar el catálogo difuminado detrás es justo lo que no debe pasar.
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background p-4"
     >
-      <div className="relative w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 p-6 sm:p-8 text-center shadow-2xl">
+      {/*
+        Desplazamiento duro en violeta en lugar de `shadow-2xl`. No se usa la
+        prop `offset` de `Surface` porque su sombra es negra y aquí el fondo
+        también es negro: sería invisible.
+      */}
+      <div className="w-full max-w-md border-2 border-line bg-surface p-6 shadow-[8px_8px_0_0_var(--color-accent)] rounded-vp sm:p-8">
         {!hasRejected ? (
           <>
-            <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400">
-              <ShieldAlert className="size-8" aria-hidden="true" />
-            </div>
+            <PixelLabel variant="lime">[ +18 ]</PixelLabel>
 
-            <span className="inline-block rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-emerald-400">
-              Control Legal de Mayoría de Edad (+18)
-            </span>
-
-            <h2 id="age-dialog-title" className="mt-4 text-2xl font-bold tracking-tight text-white">
+            <h2
+              id="age-dialog-title"
+              className="mt-6 text-[1.75rem] font-bold uppercase leading-[0.95] tracking-[-0.01em]"
+            >
               Bienvenido a Vapeupar
             </h2>
 
-            <p id="age-dialog-desc" className="mt-3 text-sm leading-relaxed text-zinc-400">
+            <p className="mt-2 text-base text-muted">
+              Control legal de mayoría de edad
+            </p>
+
+            <p id="age-dialog-desc" className="mt-6 text-base leading-relaxed text-muted">
               Este sitio web comercializa vaporizadores y líquidos con y sin nicotina. La legislación colombiana (Ley 1335 de 2009) y normas sanitarias prohíben estrictamente el suministro o venta de estos productos a menores de 18 años.
             </p>
 
-            <p className="mt-2 text-xs font-semibold text-amber-400">
+            {/* Antes en `amber-400`, que está fuera de la paleta (§2.5). El
+                énfasis pasa a blanco pleno: 14.9:1 sobre el panel. */}
+            <p className="mt-4 text-base font-semibold text-foreground">
               ¿Confirmas bajo juramento que tienes 18 años o más?
             </p>
 
-            <div className="mt-6 flex flex-col gap-3">
+            <div className="mt-8 flex flex-col gap-3">
+              {/*
+                Botón crudo con `buttonStyles()` y no `<Button>`: necesita la
+                `ref` que enfoca el diálogo al abrirse, y la primitiva no
+                reenvía refs. Es el caso para el que `buttonStyles()` existe.
+              */}
               <button
                 ref={confirmButtonRef}
                 type="button"
                 onClick={handleConfirmAge}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 px-5 py-3.5 text-sm font-bold text-zinc-950 transition hover:bg-emerald-400 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-emerald-400 focus:ring-offset-2 focus:ring-offset-zinc-950"
+                // Excepción deliberada a la regla global de `:focus-visible`:
+                // el diálogo mueve el foco aquí por programa al abrirse, y
+                // Chrome no considera "visible" un foco programático en un
+                // botón sin interacción previa de teclado. Sin este `:focus`
+                // explícito, quien llegue con teclado y pulse Enter no vería
+                // dónde está el foco.
+                className={buttonStyles(
+                  "primary",
+                  "w-full focus:outline-2 focus:outline-offset-2 focus:outline-action"
+                )}
               >
-                <CheckCircle className="size-4" aria-hidden="true" />
                 Sí, soy mayor de 18 años
               </button>
 
-              <button
-                type="button"
-                onClick={handleRejectAge}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900 px-5 py-3 text-sm font-medium text-zinc-400 transition hover:bg-zinc-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-zinc-700"
-              >
-                <Ban className="size-4" aria-hidden="true" />
+              <Button variant="secondary" className="w-full" onClick={handleRejectAge}>
                 No, soy menor de edad
-              </button>
+              </Button>
             </div>
 
-            <p className="mt-4 text-[11px] text-zinc-500">
+            <p className="mt-6 text-sm text-muted">
               La verificación se renueva cada 30 días. Se exigirá documento de identidad físico en la entrega.
             </p>
           </>
         ) : (
-          <div className="py-4">
-            <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-red-500/10 text-red-400">
-              <AlertTriangle className="size-8" aria-hidden="true" />
-            </div>
+          <>
+            <PixelLabel variant="violet">[ DENEGADO ]</PixelLabel>
 
-            <h3 className="text-xl font-bold text-white">Acceso Restringido</h3>
+            <h3 className="mt-6 text-[1.75rem] font-bold uppercase leading-[0.95] tracking-[-0.01em]">
+              Acceso restringido
+            </h3>
 
-            <p className="mt-3 text-sm text-zinc-400 leading-relaxed">
+            <p className="mt-6 text-base leading-relaxed text-muted">
               De acuerdo con la legislación de protección a la infancia y la adolescencia, el acceso a este catálogo está restringido para menores de edad.
             </p>
 
-            <a
-              href="https://www.google.com"
-              className="mt-6 inline-block rounded-xl bg-zinc-800 px-6 py-3 text-xs font-semibold text-zinc-200 hover:bg-zinc-700 transition"
-            >
+            <Button variant="secondary" href="https://www.google.com" className="mt-8 w-full">
               Salir de la página
-            </a>
-          </div>
+            </Button>
+          </>
         )}
       </div>
     </div>

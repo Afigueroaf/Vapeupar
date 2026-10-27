@@ -40,7 +40,7 @@ export function Navbar({ cartCount = 0 }: NavbarProps) {
 
   return (
     <header className="sticky top-0 z-40 w-full border-b-2 border-line bg-background">
-      <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-4 py-4 sm:px-6">
+      <div className="mx-auto flex max-w-vp items-center justify-between gap-6 px-4 py-4 sm:px-6 xl:px-10">
         <Link href="/" className="flex items-center" aria-label="Vapeupar, inicio">
           <Image
             src="/logo-detalle.png"

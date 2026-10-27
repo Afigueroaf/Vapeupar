@@ -4,13 +4,17 @@
 El frontend de Vapeupar es la interfaz web del cliente y catálogo interactivo construido con **Next.js 16** (App Router), **React 19**, **Tailwind CSS v4** y **TypeScript**.
 
 > ⚠️ **Nota sobre el alcance de este documento.**
-> Lo que sigue describe la **funcionalidad, accesibilidad y resiliencia** ya implementadas,
-> que se conservan. **No describe el diseño final.** La capa visual actual (fuentes Geist,
-> paleta `zinc`/`emerald`/`cyan`, esquinas redondeadas, iconos Lucide, imágenes de Unsplash,
-> copy de validación) es un lienzo de trabajo y se reemplaza en su totalidad.
+> Lo que sigue describe la **funcionalidad, accesibilidad y resiliencia**, que se conservan
+> intactas. **No describe la capa visual**, que se rehízo por completo en las fases V0 a V7
+> del rediseño: fuentes Oxanium + Press Start 2P, paleta lima/violeta sobre negro, geometría
+> angular de radio cero y bordes de 2px, y primitivas en `src/components/ui/`. Donde este
+> documento mencione colores, formas o tamaños, manda el plan de ejecución.
+>
+> Siguen siendo de validación, no definitivos: las imágenes de producto (stock de Unsplash)
+> y el copy.
 >
 > - Inventario de reemplazo: [`design-reset-inventory.md`](./design-reset-inventory.md)
-> - Plan de ejecución visual: [`design-execution-plan.md`](./design-execution-plan.md)
+> - Plan de ejecución visual y registro: [`design-execution-plan.md`](./design-execution-plan.md)
 
 ## Principales Funcionalidades y Mejoras de Resiliencia
 

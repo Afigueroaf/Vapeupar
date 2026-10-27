@@ -10,7 +10,7 @@ export function Hero() {
       aria-label="Bienvenida y propuesta de valor"
       className="border-b-2 border-line"
     >
-      <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 py-16 sm:px-6 sm:py-24 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
+      <div className="mx-auto grid max-w-vp items-center gap-12 px-4 py-16 sm:px-6 sm:py-24 xl:px-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
         {/* Columna de texto */}
         <div>
           <PixelLabel variant="outline">[ SYSTEM ONLINE ]</PixelLabel>

@@ -8,7 +8,7 @@ const FILTER_ID = "vp-rgb-glitch";
 const MAX_SHIFT = 14;
 const INTRO_DECAY_MS = 2800;
 const BURST_DURATION_MS = 420;
-const BURST_PEAK = 0.55;
+const BURST_PEAK = 0.42;
 const BURST_INTERVAL_MIN_MS = 5000;
 const BURST_INTERVAL_MAX_MS = 9000;
 
@@ -47,19 +47,22 @@ export function PageGlitch() {
     let start = 0;
     let burstAt = 0;
     let burstStart = -1;
-    let lastShift = -1;
 
-    const apply = (intensity: number) => {
-      const shift = intensity * MAX_SHIFT;
-      // En reposo no se toca el DOM: sin invalidación de estilos ni repintado.
-      if (shift < 0.05 && lastShift < 0.05) return;
-      lastShift = shift;
+    // Habilita el filtro en CSS. Mientras el componente esté montado el filtro
+    // permanece aplicado: con dx=0 es visualmente neutro, y mantenerlo estable
+    // evita que Chromium rehaga el contexto de filtrado en cada burst.
+    root.classList.add("glitch-ready");
 
-      // Los canales no se separan de forma simétrica: el azul lleva jitter propio.
-      redRef.current?.setAttribute("dx", (-shift).toFixed(2));
-      blueRef.current?.setAttribute("dx", (shift * (0.7 + Math.random() * 0.6)).toFixed(2));
-      root.style.setProperty("--glitch-shift", shift.toFixed(2));
-      root.classList.toggle("glitch-active", shift >= 0.05);
+    const apply = (intensity: number, now: number) => {
+      // Jitter horizontal tipo scanline en intensidades altas.
+      const lineNoise =
+        intensity > 0.25 ? Math.max(0, Math.sin(now * 0.001 * 23 + 1.7)) * intensity * 3 : 0;
+      const shift = Math.round(intensity * MAX_SHIFT + lineNoise);
+
+      redRef.current?.setAttribute("dx", String(-shift));
+      blueRef.current?.setAttribute("dx", String(shift));
+      root.style.setProperty("--glitch-shift", String(shift));
+      root.classList.toggle("glitch-active", intensity > 0.04);
     };
 
     const tick = (now: number) => {
@@ -72,7 +75,8 @@ export function PageGlitch() {
       let intensity = 0;
 
       if (sinceStart < INTRO_DECAY_MS) {
-        intensity = (1 - sinceStart / INTRO_DECAY_MS) ** 3;
+        // Caída de potencia: desplome inicial rápido y cola lenta.
+        intensity = (1 - sinceStart / INTRO_DECAY_MS) ** 2.4;
       }
 
       if (burstStart < 0 && now >= burstAt) burstStart = now;
@@ -82,13 +86,12 @@ export function PageGlitch() {
           burstStart = -1;
           burstAt = now + nextBurstDelay();
         } else {
-          // Ataque rápido, caída larga.
-          const envelope = t < 0.2 ? t / 0.2 : 1 - (t - 0.2) / 0.8;
-          intensity = Math.max(intensity, envelope * BURST_PEAK);
+          // Campana: sube y baja de forma simétrica.
+          intensity = Math.max(intensity, BURST_PEAK * Math.sin(t * Math.PI));
         }
       }
 
-      apply(intensity);
+      apply(intensity, now);
       frame = requestAnimationFrame(tick);
     };
 
@@ -96,7 +99,7 @@ export function PageGlitch() {
 
     return () => {
       cancelAnimationFrame(frame);
-      root.classList.remove("glitch-active");
+      root.classList.remove("glitch-ready", "glitch-active");
       root.style.removeProperty("--glitch-shift");
     };
   }, [enabled]);

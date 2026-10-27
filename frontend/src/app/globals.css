@@ -39,6 +39,13 @@
   --radius-vp: 0px;
   --radius-vp-chamfer: 2px;
 
+  /* --- Ancho del armazón de página ---
+     Genera `max-w-vp`, que usan TODAS las secciones (navbar, hero, banda,
+     catálogo, footer) para alinearse en la misma columna. Es el único sitio
+     donde se ajusta el margen lateral de escritorio.
+     A 1920px deja 192px por lado; el `max-w-7xl` anterior dejaba 320px. */
+  --container-vp: 96rem;
+
   /* --- Movimiento --- */
   --ease-vp: cubic-bezier(0.2, 0, 0, 1);
 }
@@ -93,15 +100,21 @@ button {
    Dos capas: el filtro SVG `#vp-rgb-glitch` separa los canales R/B del
    contenido, y un velo de scanlines fijo sobre el viewport acompaña el burst.
 
-   `<PageGlitch />` escribe `--glitch-shift` (0–14, sin unidad) y alterna
-   `html.glitch-active` en cada frame. En reposo no hay filtro aplicado: el
-   coste de repintado existe solo durante el burst, no en cada scroll.
+   `<PageGlitch />` marca `html.glitch-ready` mientras está montado, escribe
+   `--glitch-shift` (0–14, sin unidad) y alterna `html.glitch-active`.
+
+   El filtro cuelga de `glitch-ready`, no de `glitch-active`: debe estar
+   aplicado de forma estable (con dx=0 es neutro) en vez de entrar y salir en
+   cada burst. Y es obligatorio que dependa del montaje, porque un
+   `filter: url(#id)` que apunte a un filtro inexistente hace que Chromium no
+   pinte el elemento: sin este gate, bajo `prefers-reduced-motion` —donde el
+   componente no monta nada— la página entera desaparecería.
 
    El modal +18 queda FUERA de `.vp-glitch` a propósito: `filter` sobre un
    ancestro lo convierte en bloque contenedor de sus descendientes
    `position: fixed`, lo que rompería el overlay a pantalla completa.
    ========================================================================== */
-html.glitch-active .vp-glitch {
+html.glitch-ready .vp-glitch {
   filter: url(#vp-rgb-glitch);
 }
 
@@ -130,6 +143,115 @@ html.glitch-active .vp-glitch-scanlines {
   }
   50% {
     opacity: calc(var(--glitch-shift, 0) / 14 * 0.6);
+  }
+}
+
+/* ============================================================================
+   CAMPO DE TARJETAS REACTIVAS
+   ----------------------------------------------------------------------------
+   Traducción al sistema VP del efecto de tarjeta-ventana. Tres capas:
+
+   1. `::before` — la porción del CAMPO que le toca a esta tarjeta. Todas las
+      tarjetas de un `.vp-field` pintan la misma imagen con un anclaje común,
+      así que el grupo se lee como una superficie continua con ventanas
+      recortadas. `<CardField />` mide y publica `--vp-fw/--vp-fh` (tamaño del
+      campo) y `--vp-fx/--vp-fy` (desplazamiento de la tarjeta). Sin JS las
+      variables caen a sus valores por defecto y cada tarjeta pinta el campo
+      completo: se degrada, no se rompe.
+
+   2. `::after` — el brillo. En el efecto original es un glow blanco fijo en
+      `80px 40px`; aquí es lima (color de acción) y sigue al puntero vía
+      `--vp-mx/--vp-my`, que por defecto valen 50 % para que el foco de teclado
+      reciba el mismo brillo centrado.
+
+   3. La tarjeta — borde lima + desplazamiento duro. El original usa
+      `box-shadow: 0 0 70px` y `border-radius: 10px`, ambos eliminados por el
+      sistema (`docs/design-reset-inventory.md` §3.1 y §3.3): la profundidad es
+      por offset duro, como en `ui/surface.tsx`.
+
+   El original oscurece el ENTORNO (`.bg { opacity: 0.2 }` sobre una segunda
+   copia borrosa de la imagen). Aquí el atenuado recae solo en el campo de las
+   tarjetas no apuntadas, nunca en su texto: bajar la opacidad de la tarjeta
+   completa llevaría el gris `--color-muted` a 2.9:1 y rompería AA.
+
+   `isolation: isolate` es obligatorio: sin contexto de apilamiento propio, los
+   pseudo-elementos con `z-index` negativo se pintarían detrás del fondo de la
+   tarjeta y no se verían.
+
+   NOTA: estas reglas están fuera de capa, así que ganan a las utilidades de
+   Tailwind (que viven en `@layer utilities`) sin importar la especificidad.
+   ========================================================================== */
+.vp-card {
+  position: relative;
+  isolation: isolate;
+  /* Lista explícita de propiedades: el efecto original usa `transition: 0.5s`,
+     que es `transition: all` y acaba animando `visibility` y cualquier
+     propiedad que se añada después (`docs/design-reset-inventory.md` §8.2). */
+  transition:
+    background-color 0.25s var(--ease-vp),
+    border-color 0.25s var(--ease-vp),
+    box-shadow 0.25s var(--ease-vp),
+    translate 0.25s var(--ease-vp);
+}
+
+.vp-card::before,
+.vp-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Capa 1: ventana sobre el campo compartido. */
+.vp-card::before {
+  z-index: -2;
+  background-image:
+    repeating-linear-gradient(
+      to bottom,
+      transparent 0 3px,
+      color-mix(in srgb, var(--color-vp-lime) 6%, transparent) 3px 4px
+    ),
+    radial-gradient(
+      120% 90% at 50% 0%,
+      color-mix(in srgb, var(--color-vp-violet) 24%, transparent) 0%,
+      transparent 62%
+    );
+  background-repeat: no-repeat;
+  background-size: var(--vp-fw, 100%) var(--vp-fh, 100%);
+  background-position: calc(-1 * var(--vp-fx, 0px)) calc(-1 * var(--vp-fy, 0px));
+  transition: opacity 0.3s var(--ease-vp);
+}
+
+/* Capa 2: brillo bajo el puntero. */
+.vp-card::after {
+  z-index: -1;
+  opacity: 0;
+  background: radial-gradient(
+    circle 220px at var(--vp-mx, 50%) var(--vp-my, 50%),
+    color-mix(in srgb, var(--color-action) 18%, transparent) 0%,
+    transparent 70%
+  );
+  transition: opacity 0.3s var(--ease-vp);
+}
+
+/* Capa 3: estado activo. `:focus-within` espeja el hover para el teclado. */
+.vp-card:hover,
+.vp-card:focus-within {
+  border-color: var(--color-action);
+  box-shadow: 4px 4px 0 0 var(--color-accent);
+  translate: -2px -2px;
+}
+
+.vp-card:hover::after,
+.vp-card:focus-within::after {
+  opacity: 1;
+}
+
+/* El entorno se apaga solo con puntero fino: en táctil el `:hover` se queda
+   pegado tras el toque y dejaría el resto del campo atenuado. */
+@media (hover: hover) and (pointer: fine) {
+  .vp-field:has(.vp-card:hover) .vp-card:not(:hover)::before {
+    opacity: 0.2;
   }
 }
 

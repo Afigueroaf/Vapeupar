@@ -19,8 +19,16 @@
 | **V1** | Fundamentos: fuentes + tokens | `layout.tsx`, `globals.css` | ✅ **Ejecutada** |
 | **V2** | Primitivas de UI | `src/components/ui/` | ✅ **Ejecutada** |
 | **V3** | Hero + Navbar reconstruidos | `hero.tsx`, `navbar.tsx`, `trust-band.tsx` | ✅ **Ejecutada** |
+| **V4** | Tarjeta de producto + efecto de tarjeta | `product-card.tsx`, `ui/card-field.tsx`, `globals.css` | ✅ **Ejecutada** |
+| **V5** | Catálogo y filtros | `product-catalog.tsx` | ✅ **Ejecutada** |
+| **V6** | FAQ + footer | `faq.tsx`, `footer.tsx` | ✅ **Ejecutada** |
+| **V7** | Modal +18 | `age-verification-modal.tsx` | ✅ **Ejecutada** |
+| **V8** | Rutas nuevas y 3D | `/producto/[slug]`, `/coleccion/[categoria]`, `/nosotros` | ⬜ Pendiente |
 
-Fases posteriores (fuera del alcance de este plan): V4 tarjeta de producto y grid, V5 catálogo y filtros, V6 FAQ + footer, V7 modal +18, V8 rutas nuevas y 3D.
+Este documento **planificó** V0 a V3. Las fases V4 a V7 se ejecutaron después sin plan
+previo escrito, a petición directa: su registro está en
+[Registro de ejecución (V4 – V7)](#registro-de-ejecución-v4--v7), al final, con las
+decisiones tomadas durante la ejecución. V8 sigue pendiente y no está planificada aquí.
 
 ---
 
@@ -310,6 +318,10 @@ en una sola frecuencia.    <- Oxanium 400, 17px
 
 **Incluye**: fuentes, tokens de color y tipografía, primitivas de UI, navbar y hero.
 
+> **Nota posterior.** Lo que sigue era el "no incluye" de V0–V3. Las últimas cuatro
+> entradas (rediseño visual del modal +18, catálogo, tarjeta de producto, FAQ y footer)
+> **ya están ejecutadas** en V4–V7; el resto sigue vigente. Ver el registro del final.
+
 **No incluye** (fases posteriores, ya inventariadas):
 
 - Logo VP definitivo en SVG, favicon e icon set (§4.1, §4.3) — requiere los archivos de marca.
@@ -408,3 +420,179 @@ mientras conviven.
 | 6 | Revisión visual en los tres breakpoints | Extensión de Chrome |
 | 7 | Rutas `/tienda`, `/coleccion/[categoria]`, `/nosotros` | Fase V8 |
 | 8 | Error de lint preexistente: `set-state-in-effect` en `age-verification-modal.tsx` | Es lógica conservada (§9.1); requiere decisión aparte |
+
+> Esta tabla es el estado **al cerrar V3**. El estado actual, con lo que se resolvió y lo
+> que apareció después, está al final de este documento.
+
+---
+
+# Registro de ejecución (V4 – V7)
+
+Fecha: 2026-10-26. Verificado con `npm run build` (compila, TypeScript limpio), `eslint` y
+lectura del CSS compilado. **Sin revisión visual**: ver "No verificado".
+
+Estas cuatro fases no se planificaron por escrito antes de ejecutarlas. El orden lo pidió el
+usuario: primero la tarjeta y el catálogo, después el modal +18 por ser la primera pantalla
+que ve cualquier visitante, y al final footer y FAQ.
+
+## Archivos creados
+
+| Archivo | Rol |
+|---|---|
+| `frontend/src/components/ui/card-field.tsx` | Campo de tarjetas reactivas: mide el contenedor y publica las variables que usan `.vp-card` y el brillo que sigue al puntero |
+
+## Archivos modificados
+
+`globals.css` (bloque `.vp-field`/`.vp-card` y token `--container-vp`), `product-card.tsx`,
+`product-catalog.tsx`, `age-verification-modal.tsx`, `faq.tsx`, `footer.tsx`,
+`trust-band.tsx`, `hero.tsx`, `navbar.tsx`.
+
+## V4 — Tarjeta de producto y efecto de tarjeta
+
+Traducción al sistema VP de un efecto de referencia que el usuario aportó: tarjetas que
+pintan una misma imagen de fondo continua, brillo que sigue al cursor y atenuado del
+entorno al hacer hover.
+
+- **El anclaje del campo es el contenedor, no el viewport.** El efecto original usa
+  `background-attachment: fixed`. Aquí no sirve por tres razones acumuladas: `.vp-glitch`
+  aplica un `filter` a toda la página y un filtro rasteriza su subárbol, de modo que dentro
+  de él un fondo anclado al viewport deja de estarlo; iOS Safari ignora `fixed` y Android lo
+  degrada; y N fondos fijos se repintan en cada frame de scroll. El coste de anclar al
+  contenedor es una medición por cambio de tamaño.
+- **El atenuado del entorno no toca el texto.** El original baja la opacidad de la capa de
+  fondo. Bajar la opacidad de la tarjeta completa llevaría `--color-muted` a 2.9:1 y
+  rompería AA, así que el atenuado recae solo en el campo de las tarjetas no apuntadas.
+- **El seguimiento del puntero está tras `(hover: hover) and (pointer: fine) and
+  (prefers-reduced-motion: no-preference)`.** En táctil el `:hover` se queda pegado tras el
+  toque; con movimiento reducido no se monta el listener y el brillo queda centrado.
+  `:focus-within` espeja siempre el estado de hover para el teclado.
+- **El CTA de la tarjeta es `secondary`, no `primary`.** La regla §11 es un CTA primario por
+  vista y el hero ya lo gasta. Nueve rellenos lima anularían el lima como señal de acción y
+  competirían con el brillo lima del hover. **Es la decisión más discutible de la fase**: si
+  se prefiere el botón de compra en lima, hay que bajar el del hero a secundario.
+- El nombre del producto **no** cambia de color al hover: la tarjeta no es un enlace todavía
+  (`/producto/[slug]` es V8) y encenderlo prometería un destino inexistente. La imagen
+  pierde el `scale` (§8.1); esa función la hace ahora `.vp-card`.
+- La ficha técnica pasa de pills a una línea de especificaciones con separador lima: dos
+  bordes de 2px alrededor de fragmentos de tres caracteres no se sostienen.
+
+## V5 — Catálogo y filtros
+
+- Encabezado con etiqueta pixel `[ CATALOGO ]`, título en la escala de sección y contador
+  con el número en lima. Búsqueda y desplegables pasan a `TextField` y `SelectField`.
+- **El filtro de categorías no reutiliza `ui/button.tsx`.** Un conmutador no es un botón de
+  acción: su estado activo es relleno lima permanente, reservado en `Button` a `primary` y a
+  un solo uso por vista. Lleva constantes propias (`CHIP_BASE` / `CHIP_ACTIVE` / `CHIP_IDLE`).
+- **Se eliminó el scroll horizontal de categorías.** Llevaba `scrollbar-none`, que no es una
+  utilidad de Tailwind y por tanto no hacía nada, y el desplazamiento lateral escondía las
+  últimas tres categorías sin ninguna señal. Ahora envuelve con `flex-wrap`.
+- Estado vacío con voz VP (`[ 0 RESULTADOS ]`, "Nada en esta frecuencia") en lugar de la
+  caja de borde discontinuo con icono (§8.4).
+
+## V6 — FAQ y footer
+
+- **El panel del acordeón ya no se desmonta al cerrar** (§9.3): antes desaparecía del DOM,
+  así que no se podía animar ni encontrar con Ctrl+F. Colapsa con
+  `grid-template-rows: 0fr → 1fr`, la única forma de animar hasta altura automática sin
+  medir con JS. Donde el motor no interpola `fr` (Safari < 17.4) abre y cierra de golpe.
+- **Marcado del acordeón: patrón de ARIA APG, no `<dl>`.** Cada pregunta es un `<h3>` que
+  envuelve el botón y cada respuesta una `region` con `aria-controls` / `aria-labelledby`.
+  Se eligió sobre el `<dl>` que sugería el inventario porque los lectores de pantalla lo
+  anuncian de forma más consistente y mete las preguntas en el índice de encabezados.
+- **La FAQ pasa a composición asimétrica** (`0.8fr / 1.2fr`) en vez de ensanchar su
+  `max-w-4xl` centrado, que quedaba descolgado del resto: llena el ancho sin alargar la
+  línea de lectura, que era la razón legítima de aquel límite.
+- **La advertencia legal del footer conserva su texto palabra por palabra** (§9.4) y cambia
+  de envase: borde violeta de 2px con etiqueta `[ +18 ]`, el mismo marcador que la puerta de
+  edad. **Su texto sube de 12px a 16px**: era el único sitio donde el tamaño tenía
+  consecuencias legales y no solo estéticas.
+- El bloque de marca del footer pasa a usar `logo-detalle.png`, el archivo que ya cargaba el
+  navbar, en lugar del icono `Flame` en caja con gradiente. Con eso §4.1 queda resuelto en
+  navbar y footer sin esperar al SVG.
+
+## V7 — Modal +18
+
+- **Fondo opaco** en lugar de `bg-black/90 backdrop-blur-md`: el sistema no usa la
+  transparencia como jerarquía ni el desenfoque de fondo (§2.7, §3.5), y esto no es un modal
+  sobre contenido sino una puerta — mostrar el catálogo difuminado por detrás es justo lo
+  que un control de edad no debe hacer.
+- Panel con borde blanco de 2px y desplazamiento duro violeta de 8px. **No** usa la prop
+  `offset` de `Surface` porque su sombra es negra y el fondo también: sería invisible.
+- Fuera los cuatro iconos (`ShieldAlert`, `CheckCircle`, `Ban`, `AlertTriangle`) y sus
+  círculos translúcidos (§4.6). Los sustituyen `[ +18 ]` y `[ DENEGADO ]`.
+- **Excepción documentada a la regla global de foco**: el botón de confirmación lleva un
+  `:focus` explícito además del `:focus-visible` global, porque el diálogo mueve el foco ahí
+  por programa al abrirse y Chrome no considera "visible" un foco programático sobre un
+  botón sin interacción de teclado previa. Sin esa excepción, quien llegue con teclado y
+  pulse Enter no vería dónde está el foco.
+- Composición alineada a la izquierda en vez de centrada. Es un cambio de criterio, no una
+  corrección: la puerta centrada lee institucional y neutra; alineada a la izquierda con la
+  etiqueta pixel arriba lee como VP.
+- Se cambiaron los dos `catch (_e)` por `catch` sin binding (mismo comportamiento, sin
+  variable sin usar): **el lint baja de 4 problemas a 2**.
+
+## Cambio transversal: ancho del armazón de página
+
+A petición del usuario, que veía los márgenes de escritorio demasiado anchos. `max-w-7xl`
+(1280px) se sustituye por el token `--container-vp` (96rem = 1536px), que genera `max-w-vp`,
+más un escalón de gutter `xl:px-10`. Lo consumen las siete secciones de página.
+
+| Ancho de pantalla | Margen antes | Margen ahora |
+|---|---|---|
+| 1920 | 344px | 232px |
+| 1600 | 184px | 72px |
+| 1440 | 104px | 40px |
+| 1280 | 24px | 40px |
+| < 1280 | 24px | 24px |
+
+Entre 1280 y ~1310px de ancho el margen **sube** 16px: ahí el contenedor ya llenaba el
+viewport y lo único que queda es el gutter. Es el precio de que el texto no toque el borde a
+1366px. Para seguir ajustando, el único valor a tocar es `--container-vp`.
+
+## Verificado
+
+- `npm run build`: compila, TypeScript sin errores, 5 rutas generadas.
+- `eslint`: **2 problemas, los dos preexistentes** (el `set-state-in-effect` del modal, que
+  es lógica conservada, y un `_e` sin usar en `page.tsx`). Antes de estas fases eran 4.
+- **Cero clases fuera de sistema** en los diez componentes y en `page.tsx` / `layout.tsx`:
+  ni `zinc-*`, ni `emerald-*`, ni `amber-*`, ni `red-*`, ni `rounded-xl|2xl|lg|md|full`, ni
+  `backdrop-blur`, ni sombras difusas, ni `font-black` / `font-extrabold` / `font-medium`,
+  ni `hover:scale-*`.
+- CSS compilado: se emiten `--container-vp: 96rem`, `.max-w-vp`, las reglas `.vp-card` /
+  `.vp-field` completas (incluidos `:has()`, `color-mix()` y las variables del campo) y las
+  tres utilidades del acordeón (`grid-rows-[0fr]`, `grid-rows-[1fr]`,
+  `transition-[grid-template-rows]`). Esto último se comprobó expresamente porque un
+  acordeón sin `grid-template-rows` se queda abierto para siempre.
+- Lucide baja de los 22 iconos del inventario (§4.5) a **6, todos funcionales**: `Search`,
+  `ChevronDown`, `Menu`, `X`, `ShoppingBag`, `MessageCircle`. Footer y modal +18 ya no
+  importan ninguno.
+
+## No verificado
+
+- **Revisión visual en los tres breakpoints y recorrido con `Tab`.** Sigue sin ser posible:
+  la extensión de Chrome no está conectada. Es el mismo pendiente que quedó abierto en V3,
+  y ahora acumula cuatro fases sin mirar. En concreto no se ha visto renderizado: la
+  alineación del campo compartido entre celdas del grid, el colapso del acordeón en
+  movimiento, el modal +18 completo, y cómo cae el footer a 375px.
+
+## Pendientes abiertos (estado actual)
+
+| # | Pendiente | Bloqueado por |
+|---|---|---|
+| 1 | **Revisión visual** a 375 / 768 / 1440 px y recorrido con `Tab` | Extensión de Chrome |
+| 2 | `logo-detalle.png` pesa **355 KB** y ahora se carga en navbar y footer. Convertirlo a SVG, o al menos a WebP | Nada; es la optimización más barata que queda |
+| 3 | Fotografía real y renders 3D de producto | Assets del negocio |
+| 4 | Imagen de OpenGraph propia (sigue apuntando a Unsplash) | Diseño del lockup |
+| 5 | Set de iconografía definitivo (§4.5): quedan 6 iconos de Lucide, todos funcionales | Decisión de diseño |
+| 6 | Escala de espaciado en tokens (§3.7): los `py-16`, `p-5`, `gap-6` siguen siendo ad-hoc | Decisión de diseño |
+| 7 | Teléfono, WhatsApp y horarios reales | Confirmación del negocio |
+| 8 | Rutas `/producto/[slug]`, `/coleccion/[categoria]`, `/nosotros` | Fase V8 |
+| 9 | Error de lint `set-state-in-effect` en `age-verification-modal.tsx` | Es lógica conservada (§9.1); requiere decisión aparte |
+
+**Resuelto desde V3**: el logo (#1 de la tabla anterior). Existe
+`frontend/public/logo-detalle.png` y lo consumen navbar y footer, así que el lockup
+tipográfico `VP®` solo queda como placeholder en el hero. El SVG definitivo pasa de ser un
+bloqueo a ser la optimización #2. El `favicon.ico` del directorio `app/` ya no es el del
+template (3,7 KB frente a los ~26 KB del archivo por defecto de `create-next-app`), pero no
+se ha verificado que sea el icono VP definitivo ni existe aún el icon set completo
+(`apple-icon`, versión maskable) que pedía §4.3.
