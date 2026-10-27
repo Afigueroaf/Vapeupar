@@ -16,7 +16,7 @@ V4 y V5.
 
 | Fase | Objetivo | Archivos | Estado |
 |---|---|---|---|
-| **A0** | Decisiones abiertas y entorno | `.env.example`, `docs/` | 🟡 **En curso** (3 de 6 cerradas) |
+| **A0** | Decisiones y entorno AWS dev | `infra/`, `docs/infrastructure-aws.md` | 🟡 **En curso**: entorno dev desplegado, 3 decisiones de producto abiertas |
 | **A1** | Esquema Prisma + migración + semilla desde `assets/` | `backend/prisma/`, `backend/src/repositories/` | ⬜ Pendiente |
 | **A2** | Desacoplar `ProductService` y reescribir sus tests | `backend/src/services/`, `*.test.ts` | ⬜ Pendiente |
 | **A3** | Dominio de inventario: movimientos, idempotencia, auditoría | `backend/src/services/stock.service.ts` | ⬜ Pendiente |
@@ -24,7 +24,7 @@ V4 y V5.
 | **A5** | Consola `/admin` en Next | `frontend/src/app/(admin)/` | ⬜ Pendiente |
 | **A6** | Catálogo público con variantes | `product-card.tsx`, `product-catalog.tsx`, tipos | ⬜ Pendiente |
 | **A7** | `SiteContent` + revalidación + barrido de textos | `faq.tsx`, `layout.tsx`, `trust-band.tsx` | ⬜ Pendiente |
-| **A8** | Imágenes en Supabase Storage | `next.config.ts`, `storage.service.ts` | ⬜ Pendiente |
+| **A8** | Imágenes en S3 + CloudFront | `next.config.ts`, `storage.service.ts` | ⬜ Pendiente (bucket y CDN ya desplegados) |
 
 Orden recomendado de valor entregado: A1 → A2 → A3 → A4 → **A5.1 (pantalla de
 stock)** → A8 → A5.2–A5.4 → A6 → A7. Con A5.1 y A8 ya se administra el inventario
@@ -43,7 +43,7 @@ o el despliegue.
 
 | # | Decisión | Resultado | Consecuencia en el plan |
 |---|---|---|---|
-| 1 | Proveedor de datos, storage y auth | **Supabase** (PostgreSQL + Storage + Auth) | Una sola cuenta para A1, A4 y A8. Se descarta Neon y desaparecen la elección de storage y de librería de sesiones |
+| 1 | Proveedor de datos, storage, auth y cómputo | **AWS**: RDS PostgreSQL, S3 + CloudFront, Cognito, todo por CDK en `infra/` (sustituye a Supabase, ver ADR-002) | Una sola cuenta para A1, A4 y A8, compartida con DeliPan; el backend también se alojará ahí |
 | 2 | Precio: ¿por línea o por variante? | **Por línea** (`Product.precio`, con `precioAnterior` opcional para ofertas) | `Variant` no lleva precio; la consola edita el precio una vez por línea (A5.3) |
 | 3 | Taxonomía de categorías | **Se mantienen las 6 actuales** (`disposables`, `pod-systems`, `mods-tanks`, `salt-nic`, `freebase-liquids`, `coils-accessories`) | `Product.categoria` es un enum de Prisma con esos 6 valores; los identificadores del contrato de API no cambian y A2.3 solo consolida las etiquetas, no la taxonomía |
 
@@ -55,45 +55,46 @@ o el despliegue.
 | 5 | Umbral de «bajo stock» | Global (ej. 5 unidades) vs por variante | Define la alerta de la pantalla de stock (A5.1) |
 | 6 | Usuarios de la consola | Solo `owner` hoy; ¿habrá `operador`? | El rol se modela desde A1 en cualquier caso, pero define si A4 necesita pantalla de invitación |
 
-### A0.2 — Proyecto Supabase
+### A0.2 — Entorno AWS dev ✅
 
-Configuración del proyecto antes de la primera migración:
+Desplegado el 2026-10-26 con CDK desde `infra/`. Inventario, operación diaria,
+separación frente a DeliPan y costos: **`docs/infrastructure-aws.md`**.
 
-1. Crear el proyecto en la región más cercana a Colombia disponible.
-2. **Desactivar la Data API** (Settings → API). El proyecto no usa PostgREST y,
-   activa, expondría el esquema `public` a cualquiera con la `anon key`.
-3. **Desactivar el registro público** en Auth (las altas son por invitación).
-4. Crear el bucket `catalogo` con lectura pública y sin política de escritura
-   para `anon` ni `authenticated`: solo se escribe con URL firmada.
-5. Plan de pago o monitoreo de actividad antes de producción: el plan gratuito
-   pausa proyectos inactivos.
+| Stack | Contenido |
+|---|---|
+| `Vapeupar-dev-Network` | VPC `10.50.0.0/16`, 2 AZ, subredes públicas y aisladas, sin NAT, endpoint S3 |
+| `Vapeupar-dev-Data` | RDS PostgreSQL 18.6 `db.t4g.micro` privada + bastión SSM `t4g.nano` |
+| `Vapeupar-dev-Storage` | Bucket S3 privado + CloudFront con OAC |
+| `Vapeupar-dev-Auth` | User Pool de Cognito sin registro público + cliente confidencial del backend |
+| `Vapeupar-dev-Ops` | Presupuesto de 30 USD/mes filtrado por etiqueta + grupo de recursos |
 
 ### A0.3 — Variables de entorno
 
-Añadir a `backend/.env.example`, documentando cada una junto al resto de la
-configuración de entorno del proyecto:
+`npm run infra:env-backend` escribe en `backend/.env` (ignorado por git) todo lo
+que el backend necesita, leído de SSM y Secrets Manager:
 
 ```
-DATABASE_URL=                 # Pooler de Supabase (Supavisor, modo transacción) + ?pgbouncer=true
-DIRECT_URL=                   # Conexión directa; solo la usan las migraciones de Prisma
-SUPABASE_URL=                 # https://<proyecto>.supabase.co
-SUPABASE_SERVICE_ROLE_KEY=    # Salta RLS: solo backend, nunca en el repositorio
-SUPABASE_STORAGE_BUCKET=catalogo
-REVALIDATE_SECRET=            # Compartido con el frontend (A7)
-ADMIN_SEED_EMAIL=             # Destinatario de la invitación del owner inicial
+AWS_REGION=                   # us-east-1
+DATABASE_URL=                 # postgresql://...@localhost:15432/vapeupar?sslmode=require (vía túnel)
+S3_CATALOG_BUCKET=            # vapeupar-dev-catalog-<cuenta>
+CDN_DOMAIN=                   # dxxxx.cloudfront.net
+COGNITO_USER_POOL_ID=
+COGNITO_CLIENT_ID=
+COGNITO_CLIENT_SECRET=        # Del cliente confidencial; solo backend
+REVALIDATE_SECRET=            # Generado una vez; compartido con el frontend (A7)
 ```
 
-No hay `ADMIN_SEED_PASSWORD`: el owner inicial recibe una invitación de correo de
-Supabase Auth y define su contraseña ahí.
+`DATABASE_URL` apunta a `localhost:15432` porque la base solo es alcanzable con el
+túnel abierto (`npm run infra:db-tunnel`). Pendiente en A1: crear
+`backend/.env.example` con estas claves y sin valores.
 
-En el frontend solo se añade `REVALIDATE_SECRET` (mismo valor), junto a
-`NEXT_PUBLIC_API_URL`, que ya existe. **Ninguna clave de Supabase en el frontend,
-ni siquiera la `anon key`** (ADR-002, invariante 1): `grep -r SUPABASE frontend/`
-debe devolver vacío.
+En el frontend solo se añadirá `REVALIDATE_SECRET` (mismo valor), junto a
+`NEXT_PUBLIC_API_URL`, que ya existe. **Ninguna credencial de AWS en el frontend**
+(ADR-002, invariante 1).
 
 **Verificación A0**: las seis decisiones están respondidas por escrito en este
-documento; el proyecto Supabase cumple los cinco puntos de A0.2; los dos
-`.env.example` existen con todas las claves y sin valores reales.
+documento; `npm run infra:diff` no muestra cambios pendientes; con el túnel
+abierto, `psql "$DATABASE_URL" -c 'select version()'` responde PostgreSQL 18.
 
 ---
 
@@ -102,16 +103,17 @@ documento; el proyecto Supabase cumple los cinco puntos de A0.2; los dos
 ### A1.1 — Instalar y declarar el esquema
 
 - `prisma` + `@prisma/client` como dependencias de **`backend/` únicamente**.
-- `backend/prisma/schema.prisma` con las entidades de ADR-002 §3, y el
-  `datasource` usando `url = env("DATABASE_URL")` y `directUrl = env("DIRECT_URL")`.
-- **Cada migración que crea una tabla activa RLS en ella**
-  (`ALTER TABLE ... ENABLE ROW LEVEL SECURITY;`) sin crear políticas. Prisma no lo
-  genera solo: se añade a mano al SQL de la migración. El backend conecta con un
-  rol que salta RLS, así que esto no le afecta; protege contra una Data API
-  reactivada por error.
-- `User.id` es el `uuid` de `auth.users`, sin clave foránea entre esquemas
-  (`auth` lo gestiona Supabase); la coherencia la garantiza el flujo de
-  invitación de A4.
+- `backend/prisma/schema.prisma` con las entidades de ADR-002 §3 y el
+  `datasource` usando `url = env("DATABASE_URL")`. RDS no usa pooler, así que no
+  hace falta `directUrl`.
+- Las migraciones se ejecutan desde el portátil con el túnel abierto. En
+  producción, desde el pipeline de despliegue dentro de la VPC, nunca abriendo la
+  base a internet.
+- La aplicación no debería conectar con el usuario maestro `vapeupar_admin`.
+  La primera migración crea un rol `vapeupar_app` con permisos solo sobre el
+  esquema de la aplicación; el maestro queda para migraciones y mantenimiento.
+- `User.id` es el `sub` de Cognito (UUID). No hay clave foránea posible hacia
+  Cognito; la coherencia la garantiza el flujo de invitación de A4.
 - Índices obligatorios: `Variant(productId)`, `StockMovement(variantId, createdAt)`,
   `StockMovement(operationKey)` único, `Product(slug)` único, `Brand(slug)` único,
   `SiteContent(clave, version)`.
@@ -141,18 +143,17 @@ datos).
    precio; el precio por línea se carga en la consola (A5.3) y es requisito para
    publicar. El stock inicial queda en cero y entra por la consola como
    movimientos de `ingreso`, que es justamente el registro que hoy no existe.
-5. Envía la invitación del `owner` inicial a `ADMIN_SEED_EMAIL` por la API de
-   administración de Supabase Auth y crea su fila en `User` con rol `owner`.
+5. **No envía correos.** La invitación del `owner` inicial es un comando aparte
+   (`npm run admin:invite -- <correo>`, A4.1), para que repetir el seed nunca
+   dispare invitaciones.
 
 Conteo esperado tras la semilla: 1 marca, 4 productos, **79 variantes**
 (23 `eco-3` + 49 `eco.pro` + 7 `ONE` + 0 `fit`), 0 movimientos de stock.
 
 **Verificación A1**: `npx prisma migrate dev` corre en limpio; el seed es
-idempotente (ejecutarlo dos veces no duplica nada ni reenvía la invitación); los
-conteos coinciden con los esperados; `grep -r "prisma" frontend/` no devuelve
-nada; la consulta
-`select relname from pg_class where relkind = 'r' and relnamespace = 'public'::regnamespace and not relrowsecurity;`
-devuelve cero filas (ninguna tabla sin RLS).
+idempotente (ejecutarlo dos veces no duplica nada); los conteos coinciden con los
+esperados; `grep -r "prisma" frontend/` no devuelve nada; el backend conecta con
+`vapeupar_app`, no con el usuario maestro.
 
 ---
 
@@ -227,20 +228,33 @@ corromperlo a propósito en el test.
 
 ## Fase A4 — Autenticación y superficie `/api/admin/*`
 
-### A4.1 — Sesión con Supabase Auth, mediada por el backend
+### A4.1 — Sesión con Cognito, mediada por el backend
 
-- `backend/src/services/auth.service.ts` es el **único** archivo que importa el
-  SDK de Auth de Supabase (contención del acoplamiento, ADR-002 Consecuencias).
-- `POST /api/admin/auth/login` autentica contra Supabase Auth y guarda el access
-  token y el refresh token en cookies `httpOnly` + `Secure` + `SameSite=Strict`.
-  El navegador nunca ve un token en JavaScript.
-- `backend/src/middleware/require-auth.ts` valida el access token contra
-  Supabase, lo renueva con el refresh token cuando expira, y resuelve el rol desde
-  la tabla `User`. Un usuario de Supabase Auth sin fila activa en `User` recibe 403.
+El User Pool `vapeupar-dev-admins` y su cliente confidencial ya existen
+(stack `Vapeupar-dev-Auth`); sus IDs y el secreto llegan a `backend/.env` con
+`npm run infra:env-backend`.
+
+- `backend/src/services/auth.service.ts` es el **único** archivo que importa
+  `@aws-sdk/client-cognito-identity-provider` (contención del acoplamiento,
+  ADR-002 Consecuencias).
+- `POST /api/admin/auth/login` llama a `InitiateAuth` con `USER_PASSWORD_AUTH` y
+  el `SECRET_HASH` del cliente, y guarda access token y refresh token en cookies
+  `httpOnly` + `Secure` + `SameSite=Strict`. El navegador nunca ve un token.
+- Primer acceso: Cognito responde con el reto `NEW_PASSWORD_REQUIRED` (la
+  contraseña de la invitación es temporal). El login lo resuelve con
+  `RespondToAuthChallenge`; la consola muestra el formulario de cambio.
+- `backend/src/middleware/require-auth.ts` verifica la firma del access token
+  contra el JWKS del pool (`aws-jwt-verify`), lo renueva con `REFRESH_TOKEN_AUTH`
+  cuando expira, y resuelve el rol desde la tabla `User`. Un usuario de Cognito
+  sin fila activa en `User` recibe 403.
 - `backend/src/middleware/require-role.ts` para restringir por `owner` / `operador`.
-- `POST /api/admin/users/invite` (solo `owner`) invita por correo y crea la fila
-  en `User`. Desactivar un usuario es `activo: false` más revocar sus sesiones en
-  Supabase.
+- `POST /api/admin/users/invite` (solo `owner`) llama a `AdminCreateUser` y crea
+  la fila en `User`. El primer owner se invita con un script equivalente,
+  `npm run admin:invite -- <correo>`. Desactivar un usuario es `activo: false`
+  más `AdminUserGlobalSignOut` y `AdminDisableUser`.
+- Permisos IAM del backend: solo `cognito-idp:AdminCreateUser`,
+  `AdminDisableUser`, `AdminUserGlobalSignOut` sobre el ARN del pool. En dev las
+  llamadas usan tus credenciales locales; en prod, el rol de la tarea del backend.
 
 ### A4.2 — Rutas
 
@@ -395,22 +409,32 @@ marcar una marca como no aliada y verla desaparecer del texto de autenticidad.
 
 ---
 
-## Fase A8 — Imágenes en Supabase Storage
+## Fase A8 — Imágenes en S3 + CloudFront
 
-- `backend/src/services/storage.service.ts`, único archivo que importa el SDK de
-  Storage de Supabase.
+El bucket `vapeupar-dev-catalog-<cuenta>` y su distribución de CloudFront ya
+existen (stack `Vapeupar-dev-Storage`), con CORS para `PUT` desde
+`http://localhost:3000`. Falta el código que los usa:
+
+- `backend/src/services/storage.service.ts`, único archivo que importa
+  `@aws-sdk/client-s3` y `@aws-sdk/s3-request-presigner`.
 - `POST /api/admin/uploads` valida sesión, tipo y tamaño (webp/png/svg, límite
-  explícito) y devuelve una **URL firmada de subida** al bucket `catalogo`
-  (`createSignedUploadUrl`). La consola sube directo con esa URL; el archivo no
-  pasa por Express, así que el límite de cuerpo de A4.3 no aplica.
-- Rutas del bucket ordenadas como el inventario:
+  explícito) y devuelve una **URL prefirmada de PUT** de vida corta (5 min), con
+  `Content-Type` fijado en la firma. La consola sube directo con esa URL; el
+  archivo no pasa por Express, así que el límite de cuerpo de A4.3 no aplica.
+- Claves del bucket ordenadas como el inventario:
   `marcas/<brand-slug>/logo.svg` y `productos/<product-slug>/<variant-slug>.webp`.
-- Migración de los 89 archivos de `assets/` al bucket mediante script, dejando
-  `assets/` como archivo maestro del negocio, no como origen de producción.
-- `next.config.ts`: `remotePatterns` con `hostname: "<proyecto>.supabase.co"` y
-  `pathname: "/storage/v1/object/public/catalogo/**"`; se retira
-  `images.unsplash.com` cuando ya no quede ninguna referencia. Actualizar
-  `docs/security.md` §2, que documenta hoy la lista de orígenes autorizados.
+  La base guarda la clave, no la URL: la URL pública se compone con `CDN_DOMAIN`.
+- Migración de los 89 archivos de `assets/` al bucket mediante script
+  (`aws s3 sync` con el mapeo de claves anterior), dejando `assets/` como archivo
+  maestro del negocio, no como origen de producción.
+- `next.config.ts`: `remotePatterns` con el dominio de CloudFront (`CDN_DOMAIN`);
+  se retira `images.unsplash.com` cuando ya no quede ninguna referencia.
+  Actualizar `docs/security.md` §2, que documenta hoy la lista de orígenes
+  autorizados.
+- Los logos SVG no pasan por el optimizador de `next/image` (lo rechaza por
+  defecto): se sirven con `<img>` o `unoptimized`, nunca activando
+  `dangerouslyAllowSVG` de forma global.
+- Permisos IAM del backend: `s3:PutObject` solo sobre `arn:aws:s3:::<bucket>/*`.
 - Imagen OG propia (pendiente #3 del plan visual y §7.2 del inventario de diseño).
 
 **Verificación A8**: ninguna `imageUrl` en base de datos apunta a Unsplash;
@@ -441,12 +465,13 @@ imágenes en storage, autenticación y auditoría.
 
 | # | Dependencia | Bloquea |
 |---|---|---|
-| 1 | Proyecto Supabase configurado según A0.2, con sus claves | A1, A4 y A8 |
-| 2 | Correo del owner inicial (recibe la invitación) | Primer acceso a la consola |
+| 1 | ~~Entorno de datos, storage y auth~~ | ✅ Desplegado en AWS dev (A0.2) |
+| 2 | Correo del owner inicial (recibe la invitación de Cognito) | Primer acceso a la consola |
 | 3 | Precio real de cada una de las cuatro líneas y conteo físico inicial del inventario | Publicar líneas (A5.3) y primer uso de A5.1 |
 | 4 | Datos de los proveedores reales (contacto, condiciones) | A5.2 |
-| 5 | Hosting del backend con variables de entorno y secretos | Despliegue de A4 |
+| 5 | Cómputo del backend en AWS (ECS Fargate o Lightsail Containers) y alojamiento del frontend | Despliegue público; en dev el backend corre en local. Ver `docs/infrastructure-aws.md` §8 |
 | 6 | Logos de las demás marcas aliadas en SVG | A5.2 |
+| 7 | Dominio propio verificado en SES | Correo de invitaciones en producción |
 
 ---
 
@@ -456,9 +481,11 @@ imágenes en storage, autenticación y auditoría.
 |---|---|
 | El modelo de variantes se filtra a medias y quedan dos formas de producto conviviendo | A6 cambia los contratos en un solo paso, con el fallback regenerado en el mismo commit |
 | `stockCache` se desincroniza del libro | `reconciliar()` desde A3 y su test de corrupción deliberada; la pantalla de stock muestra el valor del libro cuando difieren |
-| Las tablas quedan legibles desde internet vía la Data API de Supabase | Data API desactivada (A0.2) **y** RLS en cada tabla (A1.1), con la consulta de verificación de A1 en cada migración nueva |
-| La `service_role key` se filtra al frontend o al repositorio | Solo en variables del backend; `grep -r SUPABASE frontend/` vacío como verificación de A0 |
+| La base de datos queda expuesta a internet | Subredes aisladas y `publiclyAccessible: false` en código (`infra/lib/data-stack.ts`); cualquier cambio pasa por `cdk diff` en revisión |
+| Un secreto (contraseña de RDS, secreto de Cognito) se filtra al repositorio o al frontend | Viven en Secrets Manager; solo llegan a `backend/.env` (ignorado por git) mediante `npm run infra:env-backend`, que no imprime valores |
+| Un cambio de Vapeupar afecta a DeliPan en la cuenta compartida | Todo por CDK con prefijo, etiquetas, VPC y toolkit propios; ningún stack referencia recursos de DeliPan (verificado al sintetizar) |
+| Los créditos se agotan sin aviso | Presupuesto `vapeupar-dev-monthly` con alertas al 80 % real y 100 % previsto |
 | La consola queda expuesta por una configuración de CORS o cookie laxa | A4.3, revisión explícita en `docs/security.md` y verificación de 401/403 antes de desplegar |
-| El sitio público queda en blanco si la API cae | Invariante 5 de ADR-002: fallback en código para catálogo y contenido, verificado apagando el backend |
+| El sitio público queda en blanco si la API cae | Invariante 6 de ADR-002: fallback en código para catálogo y contenido, verificado apagando el backend |
 | Alguien edita precio o stock por fuera de los servicios | `stockCache` y precios solo escribibles desde `backend/src/services/`; `AuditLog` revela cualquier escritura sin autor |
 | El puente AdminJS se vuelve permanente | Habilitado solo por variable de entorno y con retirada incluida en la definición de terminado de A5 |

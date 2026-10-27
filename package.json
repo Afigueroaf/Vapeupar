@@ -5,7 +5,8 @@
   "description": "Vapeupar - Landing page y catálogo de ventas para tienda de vaporizadores",
   "workspaces": [
     "frontend",
-    "backend"
+    "backend",
+    "infra"
   ],
   "scripts": {
     "dev": "npm run dev --workspace=frontend",
@@ -16,7 +17,11 @@
     "test": "npm run test --workspace=backend",
     "build:frontend": "npm run build --workspace=frontend",
     "build:backend": "npm run build --workspace=backend",
-    "build": "npm run build --workspace=backend && npm run build --workspace=frontend"
+    "build": "npm run build --workspace=backend && npm run build --workspace=frontend",
+    "infra:diff": "npm run diff --workspace=infra",
+    "infra:deploy": "npm run deploy --workspace=infra",
+    "infra:db-tunnel": "npm run db:tunnel --workspace=infra",
+    "infra:env-backend": "npm run env:backend --workspace=infra"
   },
   "keywords": [
     "vape",

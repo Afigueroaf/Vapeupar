@@ -1,11 +1,16 @@
 # ADR-002: Consola de Administración, Persistencia y Modelo de Inventario
 
 ## Estado
-Propuesto — 2026-10-26. Pendiente de aprobación del dueño del producto.
+Aceptado — 2026-10-26. Implementación iniciada (entorno dev en AWS desplegado).
 
-Decisiones abiertas cerradas el 2026-10-26: proveedor **Supabase** (decisiones 1,
-6 y 8), **precio por línea** (decisión 3) y **se mantienen las 6 categorías
-actuales**, sin cambio de taxonomía ni de contrato de API.
+Decisiones cerradas el 2026-10-26:
+
+- Proveedor de infraestructura: **AWS** (decisiones 1, 6, 8 y 9). Sustituye a
+  Supabase, elegido en una revisión anterior del mismo día; el motivo del cambio
+  está en «Alternativas consideradas».
+- **Precio por línea** (decisión 3).
+- **Se mantienen las 6 categorías actuales**, sin cambio de taxonomía ni de
+  contrato de API.
 
 Supersede parcialmente la **Capa de Datos** de [ADR-001](001-stack-and-architecture.md)
 («servicio desacoplado en memoria»). El resto de ADR-001 (stack, desacoplamiento
@@ -43,30 +48,29 @@ casi idénticas y 49 tarjetas en el grid.
 
 ## Decisión
 
-### 1. Persistencia: Supabase (PostgreSQL) + Prisma, propiedad exclusiva del backend
+### 1. Persistencia: Amazon RDS for PostgreSQL + Prisma, propiedad exclusiva del backend
 
-El catálogo, el inventario y el contenido se mueven a **Supabase**, que aporta en
-una sola pieza PostgreSQL, Auth (decisión 6) y Storage (decisión 8). Prisma es la
-capa de acceso a datos. Todo — Prisma, el SDK de Supabase y sus claves — vive
-**solo** en `backend/`. El frontend no instala Prisma ni `@supabase/supabase-js`,
-no recibe ninguna clave de Supabase (no existe ninguna variable
-`NEXT_PUBLIC_SUPABASE_*`) y sigue consumiendo exclusivamente REST, según la regla
-de desacoplamiento de `docs/architecture.md` §2.
+El catálogo, el inventario y el contenido se mueven a **RDS for PostgreSQL 18**
+en AWS, con Prisma como capa de acceso a datos. Prisma, el SDK de AWS y toda
+credencial viven **solo** en `backend/`. El frontend no instala Prisma ni el SDK
+de AWS, no recibe ninguna credencial y sigue consumiendo exclusivamente REST,
+según la regla de desacoplamiento de `docs/architecture.md` §2.
 
-Reglas específicas de Supabase:
+Reglas de red y acceso:
 
-- **Conexión de Prisma**: `DATABASE_URL` apunta al pooler de Supabase (Supavisor,
-  modo transacción, con `?pgbouncer=true`) para el runtime; `DIRECT_URL` apunta a
-  la conexión directa y solo la usan las migraciones (`directUrl` en
-  `schema.prisma`).
-- **La Data API queda cerrada.** Supabase publica automáticamente las tablas del
-  esquema `public` vía PostgREST, legibles con la `anon key`, que está pensada
-  para ser pública. Este proyecto no usa la Data API, así que se **desactiva** en
-  la configuración del proyecto y, como defensa en profundidad, **RLS queda
-  activado en todas las tablas sin ninguna política** (denegar por defecto). Una
-  migración que crea una tabla sin activar RLS es un defecto.
-- La `service_role key` salta RLS: solo existe en las variables de entorno del
-  backend, nunca en el repositorio ni en el frontend.
+- **La base de datos no es accesible desde internet.** Vive en subredes aisladas
+  (sin ruta a internet) de una VPC propia de Vapeupar, con `publiclyAccessible:
+  false`. Su grupo de seguridad solo admite el puerto 5432 desde el bastión y,
+  en producción, desde el cómputo del backend.
+- **Desde el portátil se llega por túnel de AWS Systems Manager** a través de un
+  bastión sin puertos de entrada (`npm run infra:db-tunnel`). No hay SSH, ni
+  claves de instancia, ni listas de IPs que mantener.
+- **La credencial maestra la genera RDS en Secrets Manager**
+  (`vapeupar/<env>/rds-master`). No se escribe a mano en ningún sitio; en
+  desarrollo, `npm run infra:env-backend` la lleva a `backend/.env`, que está
+  ignorado por git.
+- Sin pooler: con un solo proceso de backend, Prisma conecta directo. Si en el
+  futuro el backend escala horizontalmente o pasa a funciones, se añade RDS Proxy.
 
 Los arrays actuales no se borran: se degradan a **semilla** (`prisma/seed.ts`) y a
 **fallback de presentación** en el frontend para el caso de API caída.
@@ -103,7 +107,7 @@ Variant  { id, productId, tipo: flavor | color, nombre, slug, imageUrl,
 StockMovement (arriba)
 SiteContent { clave, valor(JSON), version, publicadoEn, userId }
 AuditLog { id, userId, entidad, entidadId, accion, antes(JSON), despues(JSON), createdAt }
-User     { id (= auth.users.id), email, rol: owner | operador, activo }
+User     { id (= sub de Cognito), email, rol: owner | operador, activo }
 ```
 
 Tres reglas del modelo:
@@ -159,23 +163,30 @@ La lista de marcas aliadas en la FAQ y en la landing se **genera** a partir de
 `Brand.esAliada = true`. No se vuelve a escribir a mano, para que no quede
 nombrando marcas que ya no se venden.
 
-### 6. Autenticación con Supabase Auth, mediada por el backend
+### 6. Autenticación con Amazon Cognito, mediada por el backend
 
-La identidad y las contraseñas las gestiona **Supabase Auth**: no se guardan
-hashes propios ni se firman tokens a mano. Pero el navegador no habla con Supabase:
+La identidad y las contraseñas las gestiona un **User Pool de Cognito**: no se
+guardan hashes propios ni se firman tokens a mano. Pero el navegador no habla con
+Cognito:
 
-- El login entra por `POST /api/admin/auth/login` del backend, que autentica
-  contra Supabase Auth y guarda los tokens de sesión en cookies `httpOnly` +
-  `Secure` + `SameSite=Strict`. Nada de tokens en `localStorage` ni en JavaScript
-  del cliente.
-- En cada petición a `/api/admin/*`, el middleware valida el token contra Supabase
-  y lo renueva con el refresh token cuando expira.
+- El login entra por `POST /api/admin/auth/login` del backend, que autentica con
+  un **cliente confidencial** de Cognito (con secreto, flujo
+  `USER_PASSWORD_AUTH`) y guarda los tokens en cookies `httpOnly` + `Secure` +
+  `SameSite=Strict`. Nada de tokens en `localStorage` ni en JavaScript del cliente.
+- En cada petición a `/api/admin/*`, el middleware verifica la firma del access
+  token contra las claves públicas (JWKS) del User Pool y lo renueva con el
+  refresh token cuando expira. La revocación de tokens está activada.
 - El **rol** (`owner` / `operador`) vive en la tabla propia `User`, enlazada por
-  `id` a `auth.users`, y lo resuelve el backend. Ser usuario de Supabase Auth no
-  da acceso a la consola si no existe la fila en `User` con `activo: true`.
-- El registro público queda **desactivado** en Supabase Auth. Las altas se hacen
-  por invitación desde el backend (rol `owner`), así que el primer usuario se crea
-  por invitación de correo y nunca hay contraseñas en variables de entorno.
+  el `sub` de Cognito, y lo resuelve el backend. Existir en Cognito no da acceso a
+  la consola si no existe la fila en `User` con `activo: true`.
+- El registro público está **desactivado** en el User Pool. Las altas se hacen
+  por invitación desde el backend (`AdminCreateUser`, rol `owner`): Cognito envía
+  una contraseña temporal que se cambia en el primer acceso. Nunca hay
+  contraseñas en variables de entorno.
+- MFA por TOTP: opcional en desarrollo, **obligatorio en producción**.
+- Correo: en desarrollo, el correo integrado de Cognito (límite diario bajo,
+  suficiente para invitar a pocas personas). En producción, Amazon SES con
+  dominio verificado.
 
 Roles `owner` y `operador` desde el primer día, aunque hoy exista un solo
 usuario. `/api/admin/*` lleva un rate limit propio más estricto que el
@@ -191,30 +202,60 @@ etiquetas `catalogo` y `contenido`. El catálogo **no** se mueve a fetching en
 cliente: el SEO orgánico es un objetivo declarado en ADR-001 y el renderizado en
 servidor se mantiene.
 
-### 8. Imágenes en Supabase Storage
+### 8. Imágenes en S3 servidas por CloudFront
 
-Las imágenes de producto y los logos de marca viven en un bucket de **Supabase
-Storage**. El bucket es de **lectura pública** (las imágenes de catálogo son
-públicas por naturaleza y así se sirven por CDN sin firmar cada lectura) y de
-**escritura solo mediante URL firmada de subida**, que emite el backend tras
-validar sesión, tipo y tamaño. La consola sube el archivo directo al storage con
-esa URL y el backend guarda la ruta resultante.
+Las imágenes de producto y los logos de marca viven en un bucket de **S3
+privado** (bloqueo de acceso público total), servido por una distribución de
+**CloudFront** con Origin Access Control: CloudFront es el único lector del
+bucket. La escritura entra **solo con URL prefirmada de subida (PUT)**, que emite
+el backend tras validar sesión, tipo y tamaño; la consola sube el archivo directo
+a S3 con esa URL y el backend guarda la clave resultante. La única regla CORS del
+bucket es ese PUT desde el origen de la consola.
 
-`next.config.ts` autoriza `<proyecto>.supabase.co` en `remotePatterns`, acotado a
-la ruta del bucket (`/storage/v1/object/public/<bucket>/**`), no al dominio
-entero. No se versionan 80
-archivos `.webp` en el repositorio ni se sirven desde `frontend/public/`, que no
-es escribible en producción y no sobrevive un despliegue.
+`next.config.ts` autoriza en `remotePatterns` el dominio de la distribución de
+CloudFront, no `*.amazonaws.com`. No se versionan 80 archivos `.webp` en el
+repositorio ni se sirven desde `frontend/public/`, que no es escribible en
+producción y no sobrevive un despliegue.
+
+### 9. Infraestructura como código con AWS CDK, en una cuenta compartida con DeliPan
+
+Toda la infraestructura de Vapeupar se declara en TypeScript con **AWS CDK** en
+el workspace `infra/`. Nada se crea a mano en la consola: lo que no está en
+`infra/` no existe para el proyecto. La configuración de cada entorno (dev y
+prod) vive en `infra/lib/config.ts`, de modo que pasar a producción consiste en
+revisar sus diferencias y desplegar, no en escribir infraestructura nueva.
+
+La cuenta AWS (`342284838697`) **es compartida con la infraestructura de staging
+de DeliPan**, creada a mano y sin CloudFormation. La separación se garantiza así:
+
+| Mecanismo | Vapeupar | DeliPan |
+|---|---|---|
+| Etiquetas | `Project=Vapeupar`, `Environment=<env>`, `ManagedBy=cdk` en todo recurso | `Project=Delipan`, `Environment=staging` (incompletas en la red) |
+| Nombres físicos | Prefijo `vapeupar-<env>-` | Prefijo `delipan-staging-` |
+| Stacks de CloudFormation | `Vapeupar-<env>-*` y `CDKToolkit-Vapeupar` | Ninguno |
+| Toolkit de CDK | Qualifier propio `vapeupar` (roles `cdk-vapeupar-*`) | No usa CDK |
+| Red | VPC propia `10.50.0.0/16` (dev) y `10.51.0.0/16` (prod) | VPC `10.42.0.0/16` |
+| Parámetros | `/vapeupar/<env>/*` en SSM | `/delipan/staging/*` |
+| Secretos | `vapeupar/<env>/*` en Secrets Manager | SSM SecureString |
+| Costos | Presupuesto propio filtrado por etiqueta + grupo de recursos | Presupuesto general de la cuenta |
+
+Los rangos de red no se solapan, para que un peering futuro sea posible sin
+renumerar. La separación por cuenta (AWS Organizations, una cuenta por proyecto)
+es el aislamiento fuerte y se evalúa en la transición a producción
+(`docs/infrastructure-aws.md` §8).
 
 ## Alternativas consideradas
 
 | Alternativa | Por qué no |
 |---|---|
-| **Neon + storage y auth por separado** | Postgres equivalente y algo más barato, pero obliga a integrar y mantener aparte un proveedor de storage (R2, UploadThing) y una librería de sesiones (Auth.js, Lucia). Supabase resuelve las tres piezas con una sola cuenta, una sola facturación y un solo panel |
+| **Supabase (PostgreSQL + Auth + Storage)** | Elegido en una primera revisión y sustituido el mismo día. No aloja el backend Express, que igualmente necesitaba otro proveedor; expone por defecto las tablas a internet vía su Data API, lo que obligaba a mitigaciones (desactivarla, RLS en cada tabla); y el equipo ya dispone de créditos en una cuenta AWS. AWS concentra base de datos, autenticación, imágenes y cómputo del backend en una sola cuenta, con la base sin acceso público por diseño |
+| **Neon + storage y auth por separado** | Postgres equivalente, pero suma dos proveedores más que integrar y mantener (storage y librería de sesiones), y tampoco aloja el backend |
+| **RDS pública con lista de IPs, en lugar de bastión** | Más simple el primer día, pero la IP doméstica cambia, la base queda expuesta a internet y la topología de dev se aleja de la de prod. El bastión SSM cuesta ~10 USD/mes y mantiene la base privada en ambos entornos |
+| **Cuenta AWS separada para Vapeupar (AWS Organizations)** | Es el aislamiento más fuerte, pero convertir la cuenta actual en cuenta de gestión de una organización afecta también a DeliPan. Se pospone a la transición a producción; mientras tanto, la separación es por etiquetas, nombres, VPC y toolkit de CDK (decisión 9) |
 | **Precio por variante** | Ningún sabor cuesta distinto de su línea; multiplicaría por 49 cada cambio de precio en la consola sin beneficio. Queda como extensión aditiva (decisión 3) |
 | **Seguir con arrays en TypeScript** | Imposible de administrar sin despliegue; mantiene F-07. Descartada por el objetivo mismo del ADR |
 | **CMS headless (Strapi / Directus / Payload) como dueño del modelo** | Resuelve el CRUD, pero el modelo de datos pasa a ser propiedad del CMS, y un inventario con libro de movimientos e idempotencia no es un caso de uso de CMS. Express quedaría como capa delgada sin reglas de negocio, contra `docs/architecture.md` §2 |
-| **Next.js con Prisma o cliente Supabase directo, sin Express** | Más corto, pero rompe la regla de desacoplamiento del proyecto y deja sin API a los consumidores futuros (POS, app móvil) previstos en ADR-001 |
+| **Next.js con Prisma o SDK de AWS directo, sin Express** | Más corto, pero rompe la regla de desacoplamiento del proyecto y deja sin API a los consumidores futuros (POS, app móvil) previstos en ADR-001 |
 | **Hoja de cálculo o NocoDB + script de sincronización** | Cero desarrollo, pero sin integridad referencial, sin auditoría y sin validación. Aceptable como puente de días, no como arquitectura |
 | **AdminJS como consola definitiva** | UI genérica, ajena al sistema visual VP, y los flujos propios (ajuste masivo, kardex, alertas de bajo stock) quedan forzados. Se conserva solo como puente (decisión 4) |
 
@@ -232,15 +273,22 @@ es escribible en producción y no sobrevive un despliegue.
 
 **En contra / costos asumidos**
 
-- Entra infraestructura nueva que mantener y pagar: un proyecto Supabase y la
-  gestión de sus secretos.
-- **Dependencia de Supabase.** El acoplamiento es desigual: la base de datos es
-  PostgreSQL estándar detrás de Prisma y se migra a cualquier Postgres cambiando
-  dos URLs. Auth y Storage sí son específicos de Supabase; se contienen en
-  `backend/src/services/auth.service.ts` y `storage.service.ts` para que un cambio
-  de proveedor toque dos archivos y no el resto del backend.
-- El plan gratuito de Supabase pausa proyectos inactivos; producción debe ir en
-  un plan de pago o con monitoreo de actividad.
+- Entra infraestructura que operar: red, permisos IAM, copias de seguridad,
+  parches del bastión. CDK reduce el riesgo de error al hacerla revisable y
+  repetible, pero no elimina el trabajo de entender lo que se despliega.
+- **Costo.** El entorno dev cuesta del orden de 26 USD/mes, cubiertos hoy por los
+  créditos del plan gratuito de AWS, compartidos con DeliPan (detalle y fecha
+  estimada de agotamiento en `docs/infrastructure-aws.md` §6.1). Al agotarse los
+  créditos o vencer el plan hay que pasar la cuenta a plan de pago (decisión
+  conjunta con DeliPan); el presupuesto propio avisa al 80 %.
+- **Acoplamiento a AWS contenido.** La base es PostgreSQL estándar detrás de
+  Prisma y se migra a cualquier Postgres cambiando la URL. Cognito y S3 sí son
+  específicos de AWS; se contienen en `backend/src/services/auth.service.ts` y
+  `storage.service.ts` para que un cambio de proveedor toque dos archivos.
+- **Cuenta compartida con DeliPan.** Un error de permisos o un borrado manual en
+  consola puede afectar a ambos proyectos. Mitigación: todo recurso de Vapeupar
+  se gestiona por CDK, lleva sus etiquetas y su prefijo, y no se modifica nada
+  de DeliPan desde este repositorio.
 - `Product` deja de ser plano: se añade un nivel de anidación que afecta la
   tarjeta, el catálogo, los filtros y el mensaje de WhatsApp.
 - Los tipos compartidos crecen y hay que mantenerlos sincronizados entre
@@ -268,13 +316,16 @@ renombrarlo exige redirección 301.
 
 ## Invariantes que este ADR fija
 
-1. El frontend no accede a la base de datos ni a ningún servicio de Supabase, y no
-   recibe ninguna de sus claves. Solo REST del backend.
+1. El frontend no accede a la base de datos ni a ningún servicio de AWS, y no
+   recibe ninguna credencial. Solo REST del backend.
 2. La lógica de inventario, precios y publicación vive en `backend/src/services/`.
 3. El libro de movimientos es la autoridad del stock; cualquier contador es caché.
 4. Ninguna escritura entra sin validación Zod y sin registro en `AuditLog`.
-5. Toda tabla tiene RLS activado y la Data API de Supabase permanece desactivada.
+5. La base de datos nunca es accesible desde internet: solo desde dentro de su
+   VPC (backend y bastión).
 6. El contenido del sitio siempre tiene fallback en código: la caída de la API
    degrada el contenido, nunca tumba la página.
 7. Todo cambio de contrato de API se refleja en `docs/backend.md` en el mismo
    commit (regla de `docs/architecture.md` §2).
+8. Todo recurso AWS de Vapeupar se crea desde `infra/` y lleva
+   `Project=Vapeupar`. Nada de DeliPan se modifica desde este repositorio.

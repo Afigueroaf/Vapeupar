@@ -18,7 +18,7 @@ El sistema se compone de una arquitectura desacoplada:
 
 3. **Capa de Datos**:
    - En esta fase inicial: servicio desacoplado en memoria con tipado estricto (`ProductService`), listo para conectarse a PostgreSQL / Prisma / Supabase sin romper contratos de API.
-   - **Fase 2 (decidida, no implementada)**: Supabase (PostgreSQL + Auth + Storage) + Prisma, accesible únicamente desde el backend, con modelo de inventario por libro de movimientos y consola de administración. Ver [ADR-002](decisions/002-consola-de-administracion-y-persistencia.md) y `docs/admin-console-execution-plan.md`.
+   - **Fase 2 (en implementación)**: AWS (RDS PostgreSQL + Cognito + S3/CloudFront, por CDK en `infra/`) + Prisma, accesible únicamente desde el backend, con modelo de inventario por libro de movimientos y consola de administración. Ver [ADR-002](decisions/002-consola-de-administracion-y-persistencia.md) y `docs/admin-console-execution-plan.md`.
 
 ```
 +-------------------------------------------------------+

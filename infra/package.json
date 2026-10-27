@@ -1,0 +1,24 @@
+{
+  "name": "vapeupar-infra",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Infraestructura como codigo (AWS CDK) de Vapeupar",
+  "scripts": {
+    "synth": "cdk synth",
+    "diff": "cdk diff --all",
+    "deploy": "cdk deploy --all",
+    "typecheck": "tsc --noEmit",
+    "db:tunnel": "node scripts/db-tunnel.mjs",
+    "env:backend": "node scripts/write-backend-env.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "aws-cdk": "^2.1146.1",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.275.0",
+    "constructs": "^10.8.1"
+  }
+}
