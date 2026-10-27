@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { adminApi } from "@/lib/admin-api";
 import { formatDateTimeCO, formatNumberCO, formatPriceCOP } from "@/lib/utils";
 import type { Kardex } from "@/types/admin";
+import { FormError } from "./form";
 import { MOVEMENT_LABELS } from "./movement-labels";
 
 /**
@@ -36,13 +37,7 @@ export function KardexPanel({ variantId }: { variantId: string }) {
     };
   }, [variantId]);
 
-  if (error) {
-    return (
-      <p role="alert" className="border-2 border-action px-3 py-2 text-sm text-foreground">
-        {error}
-      </p>
-    );
-  }
+  if (error) return <FormError>{error}</FormError>;
 
   if (!kardex) return <p className="text-sm text-muted">Cargando kardex…</p>;
 

@@ -106,6 +106,21 @@ describe('proveedores', () => {
     expect(repo.audits).toHaveLength(0);
   });
 
+  it('cuenta las variantes distintas que ha abastecido y el ultimo ingreso', async () => {
+    const supplier = await service.createSupplier({ name: 'Andina' }, AUTHOR);
+    const primero = new Date('2026-10-01T10:00:00.000Z');
+    const ultimo = new Date('2026-10-20T10:00:00.000Z');
+    repo.seedInbound(supplier.id, primero, 'variante-a');
+    repo.seedInbound(supplier.id, ultimo, 'variante-b');
+    // El mismo par vuelve a ingresar: sigue siendo una variante, no dos.
+    repo.seedInbound(supplier.id, primero, 'variante-a');
+
+    expect(await repo.findSupplier(supplier.id)).toMatchObject({
+      lastInboundAt: ultimo,
+      suppliedVariantCount: 2
+    });
+  });
+
   it('reemplaza la lista de marcas completa', async () => {
     const uno = repo.seedBrand({ slug: 'uno', name: 'Uno' });
     const dos = repo.seedBrand({ slug: 'dos', name: 'Dos' });

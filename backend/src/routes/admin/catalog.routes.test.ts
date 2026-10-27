@@ -321,7 +321,8 @@ describe('CRUD de /api/admin', () => {
       expect(data(ficha)).toMatchObject({
         name: 'Distribuidora Andina',
         brands: [{ id: data(marca).id, name: 'LifePod' }],
-        lastInboundAt: null
+        lastInboundAt: null,
+        suppliedVariantCount: 0
       });
     });
 

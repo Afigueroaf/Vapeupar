@@ -36,6 +36,25 @@ export function TextField({ icon, className, ...props }: TextFieldProps) {
   );
 }
 
+interface TextAreaFieldProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
+  rows?: number;
+}
+
+/**
+ * Texto largo. Mismo borde y mismo foco que `TextField`; sin alto mínimo de
+ * 44px porque `rows` ya lo supera, y sin redimensionado horizontal, que
+ * rompería la rejilla del formulario.
+ */
+export function TextAreaField({ className, rows = 3, ...props }: TextAreaFieldProps) {
+  return (
+    <textarea
+      rows={rows}
+      className={cn(FIELD_BASE, "min-h-0 resize-y px-3.5 py-2.5 leading-relaxed", className)}
+      {...props}
+    />
+  );
+}
+
 interface SelectFieldProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   children: React.ReactNode;
 }

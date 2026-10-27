@@ -2,16 +2,18 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
+import { FormError } from "@/components/admin/form";
 import { KardexPanel } from "@/components/admin/kardex-panel";
 import { MovementForm } from "@/components/admin/movement-form";
+import { EmptyState, Pager, ScreenHeader } from "@/components/admin/screen";
 import { StockAlerts } from "@/components/admin/stock-alerts";
 import { StockList, type RowPanel } from "@/components/admin/stock-list";
+import { useAdminQuery } from "@/components/admin/use-admin-query";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/field";
 import { Surface } from "@/components/ui/surface";
-import { adminApi, isUnauthorized } from "@/lib/admin-api";
-import { formatNumberCO } from "@/lib/utils";
-import type { Pagination, StockRow, SupplierRow } from "@/types/admin";
+import { adminApi } from "@/lib/admin-api";
+import type { SupplierRow } from "@/types/admin";
 
 /**
  * Pantalla de stock (plan A5.1): la que se usa a diario y por eso va primera.
@@ -24,11 +26,9 @@ import type { Pagination, StockRow, SupplierRow } from "@/types/admin";
  * recargar la tabla: el backend responde con el stock resultante justamente
  * para eso (criterio de verificación de A5).
  *
- * **Sobre el estado de carga**: no se escribe con `setState` dentro del efecto
- * —React 19 lo rechaza, y con razón: provoca renders en cascada—, sino que se
- * deriva. Se guarda con qué filtros se resolvió la última respuesta y
- * «cargando» es que esos no sean los vigentes. De paso, recargar a mano es
- * crear un objeto de filtros nuevo, sin ninguna bandera extra.
+ * El estado de carga lo lleva `useAdminQuery`, que lo **deriva** en vez de
+ * escribirlo dentro del efecto —React 19 lo rechaza, y con razón: provoca
+ * renders en cascada—. Recargar a mano es crear un objeto de filtros nuevo.
  */
 
 /**
@@ -57,22 +57,9 @@ const INITIAL_FILTERS: Filters = {
   page: 1,
 };
 
-interface Loaded {
-  filters: Filters;
-  rows: StockRow[];
-  pagination: Pagination;
-}
-
-function describe(cause: unknown): string {
-  if (isUnauthorized(cause)) return "La sesión caducó. Vuelve a entrar.";
-  return cause instanceof Error ? cause.message : "No se pudo cargar el inventario";
-}
-
 export default function StockPage() {
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Filters>(INITIAL_FILTERS);
-  const [loaded, setLoaded] = useState<Loaded | null>(null);
-  const [failed, setFailed] = useState<{ filters: Filters; message: string } | null>(null);
 
   const [alertsTick, setAlertsTick] = useState(0);
   const [alerts, setAlerts] = useState<{ out: number; low: number } | null>(null);
@@ -82,12 +69,26 @@ export default function StockPage() {
   /** Evita pedir los proveedores dos veces si se abren dos ingresos seguidos. */
   const suppliersRequested = useRef(false);
 
+  const fetchStock = useCallback(
+    (current: Filters) =>
+      adminApi.stock({
+        q: current.q || undefined,
+        lowStock: current.lowStock || undefined,
+        threshold: current.threshold,
+        page: current.page,
+        limit: PAGE_SIZE,
+      }),
+    [],
+  );
+
   // Mientras llega la página nueva se siguen viendo las filas anteriores: menos
   // salto que vaciar la tabla. Los controles quedan deshabilitados igualmente.
-  const rows = loaded?.rows ?? [];
-  const pagination = loaded?.pagination ?? null;
-  const error = failed?.filters === filters ? failed.message : null;
-  const loading = loaded?.filters !== filters && failed?.filters !== filters;
+  const { data, error, loading, patch } = useAdminQuery(
+    filters,
+    fetchStock,
+    "No se pudo cargar el inventario",
+  );
+  const rows = data?.data ?? [];
 
   // --- Búsqueda con freno: el texto se escribe ya, el filtro espera ---
   useEffect(() => {
@@ -98,32 +99,6 @@ export default function StockPage() {
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(id);
   }, [search]);
-
-  // --- Filas ---
-  useEffect(() => {
-    let alive = true;
-    adminApi
-      .stock({
-        q: filters.q || undefined,
-        lowStock: filters.lowStock || undefined,
-        threshold: filters.threshold,
-        page: filters.page,
-        limit: PAGE_SIZE,
-      })
-      .then(
-        (response) => {
-          if (alive) setLoaded({ filters, rows: response.data, pagination: response.pagination });
-        },
-        (cause: unknown) => {
-          // La sesión caducada la resuelve la puerta de `AdminShell` al recargar;
-          // aquí solo se dice lo que pasó.
-          if (alive) setFailed({ filters, message: describe(cause) });
-        },
-      );
-    return () => {
-      alive = false;
-    };
-  }, [filters]);
 
   // --- Contadores de alerta: se rehacen tras cada movimiento ---
   useEffect(() => {
@@ -155,17 +130,16 @@ export default function StockPage() {
   }, []);
 
   /** Tras un movimiento: la fila y los contadores, sin recargar la tabla. */
-  const applyStock = useCallback((variantId: string, stock: number) => {
-    setLoaded((current) =>
-      current
-        ? {
-            ...current,
-            rows: current.rows.map((row) => (row.variantId === variantId ? { ...row, stock } : row)),
-          }
-        : current,
-    );
-    setAlertsTick((tick) => tick + 1);
-  }, []);
+  const applyStock = useCallback(
+    (variantId: string, stock: number) => {
+      patch((page) => ({
+        ...page,
+        data: page.data.map((row) => (row.variantId === variantId ? { ...row, stock } : row)),
+      }));
+      setAlertsTick((tick) => tick + 1);
+    },
+    [patch],
+  );
 
   const toggle = useCallback((variantId: string, panel: RowPanel) => {
     setExpanded((current) =>
@@ -185,17 +159,14 @@ export default function StockPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold uppercase tracking-[0.02em]">Inventario</h1>
-          <p className="mt-1 text-sm text-muted">
-            Disponible por variante, de menos a más: lo urgente, arriba.
-          </p>
-        </div>
+      <ScreenHeader
+        title="Inventario"
+        description="Disponible por variante, de menos a más: lo urgente, arriba."
+      >
         <Button variant="secondary" onClick={reload} disabled={loading}>
           {loading ? "Actualizando…" : "Actualizar"}
         </Button>
-      </div>
+      </ScreenHeader>
 
       <StockAlerts
         out={alerts?.out ?? 0}
@@ -253,20 +224,14 @@ export default function StockPage() {
         )}
       </Surface>
 
-      {error && (
-        <p role="alert" className="border-2 border-action px-3 py-2 text-sm text-foreground">
-          {error}
-        </p>
-      )}
+      {error && <FormError>{error}</FormError>}
 
       {rows.length === 0 && !loading && !error ? (
-        <Surface border="muted" className="p-6">
-          <p className="text-sm text-muted">
-            {filtered
-              ? "Ninguna variante coincide con el filtro."
-              : "Todavía no hay variantes. Se crean desde productos (A5.3) o con la semilla."}
-          </p>
-        </Surface>
+        <EmptyState>
+          {filtered
+            ? "Ninguna variante coincide con el filtro."
+            : "Todavía no hay variantes. Se crean en la pantalla de líneas o con la semilla."}
+        </EmptyState>
       ) : (
         <StockList
           rows={rows}
@@ -290,28 +255,12 @@ export default function StockPage() {
         />
       )}
 
-      {pagination && pagination.totalPages > 1 && (
-        <nav aria-label="Paginación" className="flex items-center justify-between gap-4">
-          <Button
-            variant="secondary"
-            disabled={pagination.page <= 1 || loading}
-            onClick={() => setFilters((current) => ({ ...current, page: current.page - 1 }))}
-          >
-            Anterior
-          </Button>
-          <p className="text-sm text-muted">
-            Página {pagination.page} de {pagination.totalPages} · {formatNumberCO(pagination.total)}{" "}
-            variantes
-          </p>
-          <Button
-            variant="secondary"
-            disabled={pagination.page >= pagination.totalPages || loading}
-            onClick={() => setFilters((current) => ({ ...current, page: current.page + 1 }))}
-          >
-            Siguiente
-          </Button>
-        </nav>
-      )}
+      <Pager
+        pagination={data?.pagination ?? null}
+        loading={loading}
+        noun="variantes"
+        onPage={(step) => setFilters((current) => ({ ...current, page: current.page + step }))}
+      />
     </div>
   );
 }

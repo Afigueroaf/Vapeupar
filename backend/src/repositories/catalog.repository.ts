@@ -58,6 +58,8 @@ export interface SupplierDetail extends SupplierRow {
   brands: { id: string; name: string }[];
   /** Fecha del último ingreso que firmó, o `null` si nunca abasteció. */
   lastInboundAt: Date | null;
+  /** Variantes distintas que ha abastecido alguna vez, según el libro. */
+  suppliedVariantCount: number;
 }
 
 export interface AdminVariantRow {

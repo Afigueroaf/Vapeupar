@@ -1,11 +1,23 @@
+import type { ProductCategory } from "@/types/product";
 import type {
   AdminIdentity,
+  AdminProductDetail,
+  AdminProductRow,
+  AdminVariantRow,
+  BrandInput,
+  BrandRow,
   Kardex,
   MovementResult,
   PagedResponse,
+  ProductInput,
+  ProductStatus,
+  Readiness,
   StockMovementType,
   StockRow,
+  SupplierDetail,
+  SupplierInput,
   SupplierRow,
+  VariantInput,
 } from "@/types/admin";
 
 /**
@@ -32,10 +44,27 @@ export class AdminApiError extends Error {
     public readonly code?: string,
     /** Campos que el backend señaló como inválidos. */
     public readonly fields?: { field: string; message: string }[],
+    /** En un `NOT_PUBLISHABLE`: qué le falta a la línea para publicarse. */
+    public readonly missing?: string[],
   ) {
     super(message);
     this.name = "AdminApiError";
   }
+}
+
+/**
+ * Mensaje para la pantalla. El primer campo inválido dice más que el mensaje
+ * general («Marca inválida» vs. «slug: va en minúsculas»), y la sesión
+ * caducada se nombra aparte porque la resuelve `AdminShell` al recargar.
+ */
+export function errorMessage(cause: unknown, fallback: string): string {
+  if (isUnauthorized(cause)) return "La sesión caducó. Vuelve a entrar.";
+  if (cause instanceof AdminApiError) {
+    if (cause.status === 403) return "Esta acción es solo para el dueño de la cuenta.";
+    const field = cause.fields?.[0];
+    return field ? `${field.field}: ${field.message}` : cause.message;
+  }
+  return cause instanceof Error ? cause.message : fallback;
 }
 
 /** `true` si el error es «no hay sesión»: quien lo reciba redirige al login. */
@@ -49,6 +78,7 @@ interface ApiEnvelope {
   message?: string;
   code?: string;
   errors?: { field: string; message: string }[];
+  missing?: string[];
   data?: unknown;
 }
 
@@ -84,6 +114,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       body.message ?? "La operación no se pudo completar",
       body.code,
       body.errors,
+      body.missing,
     );
   }
 
@@ -117,6 +148,56 @@ export interface MovementInput {
   lot?: string;
   /** La genera el cliente, una por intento: hace seguro el reintento. */
   operationKey: string;
+}
+
+export interface BrandQuery {
+  q?: string;
+  active?: boolean;
+  isPartner?: boolean;
+  page?: number;
+  limit?: number;
+}
+
+export interface SupplierQuery {
+  q?: string;
+  active?: boolean;
+  page?: number;
+  limit?: number;
+}
+
+export interface ProductQuery {
+  q?: string;
+  brandId?: string;
+  category?: ProductCategory;
+  status?: ProductStatus;
+  page?: number;
+  limit?: number;
+}
+
+/** Una línea y qué le falta para publicarse: el backend manda las dos cosas. */
+export interface ProductWithReadiness {
+  product: AdminProductDetail;
+  readiness: Readiness;
+}
+
+function withReadiness(body: {
+  data: AdminProductDetail;
+  meta?: { readiness?: Readiness };
+}): ProductWithReadiness {
+  // El backend siempre manda `meta.readiness` en estas tres rutas. Si faltara,
+  // la pantalla no puede quedarse muda: se deriva de los mismos tres datos.
+  // La regla la sigue imponiendo el servicio al publicar de verdad.
+  const fallback: Readiness = {
+    canPublish: false,
+    missing: [
+      ...(body.data.price === null ? (["price"] as const) : []),
+      ...(!body.data.imageKey ? (["imageKey"] as const) : []),
+      ...(!body.data.variants.some((variant) => variant.active)
+        ? (["activeVariant"] as const)
+        : []),
+    ],
+  };
+  return { product: body.data, readiness: body.meta?.readiness ?? fallback };
 }
 
 export const adminApi = {
@@ -177,6 +258,114 @@ export const adminApi = {
   async suppliers(): Promise<SupplierRow[]> {
     const body = await request<PagedResponse<SupplierRow>>(
       `/suppliers${toSearchParams({ active: true, limit: 100 })}`,
+    );
+    return body.data;
+  },
+
+  // ---- Marcas (A5.2). Leer, cualquier sesión; escribir, solo el dueño. ----
+
+  brands(query: BrandQuery = {}): Promise<PagedResponse<BrandRow>> {
+    return request(`/brands${toSearchParams({ ...query })}`);
+  },
+
+  async createBrand(input: BrandInput): Promise<BrandRow> {
+    const body = await request<{ data: BrandRow }>("/brands", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    return body.data;
+  },
+
+  /** PATCH: lo que no viaja se queda como estaba. Devuelve la marca ya guardada. */
+  async updateBrand(id: string, patch: Partial<BrandInput>): Promise<BrandRow> {
+    const body = await request<{ data: BrandRow }>(`/brands/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+    return body.data;
+  },
+
+  // ---- Proveedores (A5.2) ----
+
+  suppliersPage(query: SupplierQuery = {}): Promise<PagedResponse<SupplierRow>> {
+    return request(`/suppliers${toSearchParams({ ...query })}`);
+  },
+
+  /** Ficha: marcas que trae, variantes abastecidas y último ingreso. */
+  async supplier(id: string): Promise<SupplierDetail> {
+    const body = await request<{ data: SupplierDetail }>(`/suppliers/${id}`);
+    return body.data;
+  },
+
+  async createSupplier(input: SupplierInput): Promise<SupplierRow> {
+    const body = await request<{ data: SupplierRow }>("/suppliers", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    return body.data;
+  },
+
+  async updateSupplier(id: string, patch: Partial<SupplierInput>): Promise<SupplierRow> {
+    const body = await request<{ data: SupplierRow }>(`/suppliers/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    });
+    return body.data;
+  },
+
+  // ---- Líneas y variantes (A5.3) ----
+
+  products(query: ProductQuery = {}): Promise<PagedResponse<AdminProductRow>> {
+    return request(`/products${toSearchParams({ ...query })}`);
+  },
+
+  async product(id: string): Promise<ProductWithReadiness> {
+    return withReadiness(
+      await request<{ data: AdminProductDetail; meta?: { readiness?: Readiness } }>(
+        `/products/${id}`,
+      ),
+    );
+  },
+
+  async createProduct(input: ProductInput): Promise<ProductWithReadiness> {
+    return withReadiness(
+      await request<{ data: AdminProductDetail; meta?: { readiness?: Readiness } }>("/products", {
+        method: "POST",
+        body: JSON.stringify(input),
+      }),
+    );
+  },
+
+  /** Aquí se edita el precio, y solo aquí: las variantes no tienen precio. */
+  async updateProduct(id: string, patch: Partial<ProductInput>): Promise<ProductWithReadiness> {
+    return withReadiness(
+      await request<{ data: AdminProductDetail; meta?: { readiness?: Readiness } }>(
+        `/products/${id}`,
+        { method: "PATCH", body: JSON.stringify(patch) },
+      ),
+    );
+  },
+
+  async createVariant(productId: string, input: VariantInput): Promise<AdminVariantRow> {
+    const body = await request<{ data: AdminVariantRow }>(`/products/${productId}/variants`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    return body.data;
+  },
+
+  /**
+   * La línea va en la ruta: una variante no se edita sin decir de quién es, y
+   * el backend comprueba que de verdad le pertenece.
+   */
+  async updateVariant(
+    productId: string,
+    variantId: string,
+    patch: Partial<VariantInput>,
+  ): Promise<AdminVariantRow> {
+    const body = await request<{ data: AdminVariantRow }>(
+      `/products/${productId}/variants/${variantId}`,
+      { method: "PATCH", body: JSON.stringify(patch) },
     );
     return body.data;
   },

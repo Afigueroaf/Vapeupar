@@ -53,7 +53,7 @@ frontend/src/
 │   ├── layout.tsx                # Metadata, Viewport, OpenGraph, Fonts y tema oscuro
 │   ├── page.tsx                  # Landing page principal con ISR (revalidate: 60s)
 │   ├── globals.css               # Import Tailwind v4 y soporte prefers-reduced-motion
-│   └── (admin)/admin/            # Consola: layout propio, login y (panel)/stock
+│   └── (admin)/admin/            # Consola: layout propio, login y (panel)/{stock,products,brands,suppliers}
 ├── components/
 │   ├── age-verification-modal.tsx# Modal +18 con TTL de 30 días y accesibilidad ARIA
 │   ├── navbar.tsx                # Barra fija con menú móvil hamburguesa
@@ -63,7 +63,7 @@ frontend/src/
 │   ├── faq.tsx                   # Acordeón de preguntas frecuentes (#faq)
 │   ├── footer.tsx                # Pie de página con advertencia legal y jerarquía h3
 │   ├── ui/                       # Primitivas del sistema VP (Button, Surface, Field…)
-│   └── admin/                    # Armazón de la consola, tabla de stock, kardex
+│   └── admin/                    # Armazón, listas, formularios del catálogo y kardex
 ├── lib/
 │   ├── utils.ts                  # Utilidades cn(), formato COP y fecha es-CO
 │   └── admin-api.ts              # Cliente de /api/admin (desde el navegador)
@@ -84,6 +84,9 @@ con `robots: noindex, nofollow`: es una herramienta interna.
 | `/admin` | Redirección a `/admin/stock`; no tiene portada propia |
 | `/admin/login` | Acceso, con el segundo paso de contraseña nueva cuando la invitación trae una temporal |
 | `/admin/stock` | Pantalla de inventario (A5.1): alertas, búsqueda, filtro de bajo stock, movimiento en línea y kardex |
+| `/admin/products` | Líneas y variantes (A5.3): filtros por marca, categoría y estado; alta y edición con **precio**; panel de variantes; aviso de qué falta para publicar |
+| `/admin/brands` | Marcas (A5.2): alta y edición, orden de aparición y marca aliada |
+| `/admin/suppliers` | Proveedores (A5.2): ficha con las marcas que trae, variantes abastecidas y último ingreso; edición con el vínculo N↔N |
 
 **Las peticiones salen del navegador, no del servidor de Next.** Es la
 desviación más importante respecto del plan, que preveía un `proxy.ts` (el
@@ -105,6 +108,22 @@ documentación de Next dice que el proxy no sirve como gestión de sesión.
 No hay ningún token en `localStorage` ni en memoria del cliente: no hay token
 que guardar. Cerrar sesión es una llamada al backend, que revoca en Cognito y
 borra las cookies.
+
+**Lo que comparten las cuatro pantallas** vive en `components/admin/`:
+`record-list.tsx` (la rejilla con paneles desplegables, que no es un `<table>`
+para no obligar a desplazamiento horizontal en un teléfono, y que resuelve el
+`aria-expanded`/`aria-controls` del desplegable en un solo sitio),
+`use-admin-query.ts` (la lectura con el estado de carga **derivado**, porque
+React 19 prohíbe marcarlo con `setState` dentro del efecto que pide los datos),
+`screen.tsx` (cabecera, paginación y vacíos) y `form.tsx` (etiqueta, casilla,
+grupo de campos y las dos líneas de aviso con su rol ARIA).
+
+**Las escrituras son del dueño.** Cualquier sesión lee; crear y editar marcas,
+proveedores, líneas y variantes es `owner` (A4). Las pantallas ocultan los
+botones de escritura a un `operator`, y el backend responde `403` de todos
+modos: lo que se oculta es ruido, no la defensa. Tampoco hay borrado en ningún
+formulario: retirar algo del sitio es desactivarlo o pasarlo a borrador, porque
+el libro de inventario y las líneas referencian con `Restrict`.
 
 ## Ejecución Local
 ```bash

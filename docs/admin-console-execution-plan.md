@@ -21,7 +21,7 @@ V4 y V5.
 | **A2** | Desacoplar `ProductService` y reescribir sus tests | `backend/src/services/`, `*.test.ts` | ✅ **Ejecutada** (2026-10-26) |
 | **A3** | Dominio de inventario: movimientos, idempotencia, auditoría | `backend/src/services/stock.service.ts` | ✅ **Ejecutada** (2026-10-26) |
 | **A4** | Autenticación y superficie `/api/admin/*` | `backend/src/routes/admin/`, `backend/src/middleware/` | ✅ **Ejecutada** (2026-10-27): sesión, roles, endurecimiento, inventario y el CRUD completo. Solo queda fuera el puente AdminJS (A4.4), opcional y descartado |
-| **A5** | Consola `/admin` en Next | `frontend/src/app/(admin)/` | 🟡 **Parcial** (2026-10-27): A5.1 (stock) y el acceso, ejecutados; faltan A5.2, A5.3 y A5.4 |
+| **A5** | Consola `/admin` en Next | `frontend/src/app/(admin)/` | 🟡 **Parcial** (2026-10-27): A5.1 (stock), A5.2 (marcas y proveedores) y A5.3 (lineas y variantes), ejecutadas; falta A5.4, que depende de A7.1 |
 | **A6** | Catálogo público con variantes | `product-card.tsx`, `product-catalog.tsx`, tipos | ⬜ Pendiente |
 | **A7** | `SiteContent` + revalidación + barrido de textos | `faq.tsx`, `layout.tsx`, `trust-band.tsx` | ⬜ Pendiente |
 | **A8** | Imágenes en S3 + CloudFront | `next.config.ts`, `storage.service.ts` | ⬜ Pendiente (bucket y CDN ya desplegados) |
@@ -725,9 +725,10 @@ Los repositorios en memoria no pueden revelarlas, así que se revisaron a mano:
   acepta cualquier objeto JSON de hasta 64 kB. El respaldo mientras tanto es el
   del plan: el frontend hace `safeParse` y cae a los textos por defecto (A7.2),
   así que un valor mal formado no deja la página sin texto.
-- **«Variantes abastecidas» por proveedor** (A5.2) no está: la ficha trae las
-  marcas y la fecha del último ingreso. Agregar el conteo exige recorrer el
-  libro, y es la pantalla la que debe decidir cómo se presenta.
+- **«Variantes abastecidas» por proveedor** (A5.2) no estaba: la ficha traía las
+  marcas y la fecha del último ingreso. **Resuelto el 2026-10-27 al ejecutar
+  A5.2**: `SupplierDetail` lleva `suppliedVariantCount`, que en Prisma es un
+  `groupBy` por variante sobre los movimientos del proveedor. Ver su registro.
 
 ## Fase A5 — Consola `/admin` en Next
 
@@ -898,6 +899,121 @@ formado).
   exponer la consola.
 - **Sin pruebas automáticas de frontend.** El workspace no tiene runner y A5 no
   lo pedía; la red son el build, el lint y la comprobación de contrato de arriba.
+
+---
+
+### Registro de ejecucion A5.2 y A5.3 (2026-10-27)
+
+Las tres pantallas que faltaban del catalogo: marcas, proveedores y lineas con
+sus variantes. La API ya existia desde el cierre de A4, asi que esto es
+pantalla, y lo poco de backend que hizo falta se nombra abajo.
+
+**Lo que se anadio**
+
+| Archivo | Para que |
+|---|---|
+| `frontend/src/app/(admin)/admin/(panel)/brands/page.tsx` | Marcas: busqueda, filtro por estado y por aliadas, alta y edicion |
+| `frontend/src/app/(admin)/admin/(panel)/suppliers/page.tsx` | Proveedores: listado, ficha y edicion con el vinculo N<->N |
+| `frontend/src/app/(admin)/admin/(panel)/products/page.tsx` | Lineas: filtros por marca, categoria y estado, alta, edicion y variantes |
+| `frontend/src/components/admin/brand-form.tsx` | Alta y edicion de marca |
+| `frontend/src/components/admin/supplier-form.tsx` | Alta y edicion de proveedor, con las casillas de marcas |
+| `frontend/src/components/admin/supplier-panel.tsx` | Pide la ficha al abrir y pinta la vista por proveedor o el formulario |
+| `frontend/src/components/admin/product-form.tsx` | La linea entera: identidad, **precio**, ficha tecnica por campos y publicacion |
+| `frontend/src/components/admin/product-panel.tsx` | Pide la ficha al abrir, con su `readiness`, y reparte entre edicion y variantes |
+| `frontend/src/components/admin/variants-panel.tsx` | Variantes: alta, edicion, activar y desactivar |
+| `frontend/src/components/admin/readiness.tsx` | Que falta para publicar, en etiquetas y en palabras |
+| `frontend/src/components/admin/record-list.tsx` | La lista con paneles desplegables, ahora comun a las cuatro pantallas |
+| `frontend/src/components/admin/use-admin-query.ts` | La lectura con su estado derivado, tambien comun |
+| `frontend/src/components/admin/form.tsx` | Etiqueta, casilla, grupo de campos y las dos lineas de aviso |
+| `frontend/src/components/admin/screen.tsx` | Cabecera, paginacion y vacios |
+| `frontend/src/components/admin/catalog.ts` | Nombres de categoria y de tipo, slug sugerido, y que falta para publicar en el listado |
+| `frontend/src/components/ui/field.tsx` | Gano `TextAreaField`: el sistema no tenia campo de texto largo y la descripcion de una linea lo necesita |
+
+**Lo unico que se toco del backend**
+
+A4 dejo pendiente a proposito el conteo de «variantes abastecidas» de la ficha
+del proveedor, con el argumento de que era la pantalla la que debia decidir como
+presentarlo. Ya existe la pantalla, y lo presenta como un numero, asi que
+`SupplierDetail` gano `suppliedVariantCount`: en Prisma es un `groupBy` por
+variante sobre los movimientos de ese proveedor —se cuentan grupos, no se trae
+el libro— y en memoria, el tamano de un conjunto. Con eso la vista por proveedor
+de A5.2 queda completa: marcas que trae, variantes abastecidas y ultimo ingreso.
+
+**Decisiones de las pantallas**
+
+- **Al editar solo viaja lo que cambio.** Cada formulario compara con lo que
+  recibio y manda un PATCH con esos campos. Un PATCH con todo volveria a
+  escribir lo que nadie toco y dejaria ruido en la auditoria, que registra el
+  antes y el despues de cada escritura. Si no cambio nada, el formulario lo dice
+  en vez de mandar un cuerpo vacio, que el backend rechaza con 400.
+- **La ficha tecnica se edita por campos, no como JSON.** Son las siete claves
+  que el contrato publico sabe mostrar. Un `<textarea>` con JSON habria sido mas
+  rapido de escribir y bastante peor de usar: una coma de mas y la linea se
+  queda sin specs. Las claves que no estan en el formulario, si las hubiera, se
+  conservan al guardar.
+- **El aviso de que falta para publicar se pinta dos veces.** En el listado, con
+  los tres datos que ya trae la fila (precio, imagen, variantes activas), y en
+  el panel, con el `meta.readiness` que calcula el backend. La autoridad es el
+  servicio; el listado solo evita pedir veinte fichas para pintar una tabla.
+- **El precio se edita en la linea y en ningun otro sitio**, que es lo que pide
+  A5.3: las variantes no tienen precio, asi que no hay dos lugares donde pueda
+  quedar distinto. El campo muestra debajo el valor formateado en pesos, porque
+  escribir «45000» y leer «$ 45.000» evita el cero de mas.
+- **El tipo de variante se bloquea cuando la linea ya tiene variantes.** La
+  regla es del servicio (una linea no mezcla sabores con colores); la pantalla
+  la ensena deshabilitando el selector en vez de dejar intentarlo.
+- **Las escrituras son del dueno.** El `operator` ve las cuatro pantallas y la
+  ficha del proveedor, pero no los botones de alta ni de edicion. El backend lo
+  impone igual con 403, y ese 403 tiene su mensaje propio en la consola. Sigue
+  siendo la postura conservadora de A4 mientras la decision #6 no se cierre.
+- **Sin borrado, en ninguna de las tres.** Las lineas referencian la marca y el
+  libro de inventario referencia las variantes, las dos con `Restrict`. Retirar
+  es `active: false` o `status: 'draft'`, y la pantalla lo dice donde toca: la
+  fila de la marca ensena cuantas lineas la usan.
+- **La lista y el estado de carga se compartieron en vez de copiarse.** Al
+  aparecer la tercera pantalla con la misma forma, la rejilla con paneles
+  desplegables paso a `record-list.tsx` y la lectura derivada a
+  `use-admin-query.ts`, y la pantalla de stock se reescribio sobre las dos. Lo
+  que mas se gana no es el tamano: es que el cableado ARIA del desplegable
+  (`aria-expanded` + `aria-controls`) y la regla de React 19 sobre `setState` en
+  efectos esten resueltos en un solo sitio.
+
+**Verificado**
+
+| Comprobacion | Resultado |
+|---|---|
+| `npm run build:frontend` | OK, TypeScript en verde y las cuatro rutas de consola en la salida |
+| `npm run lint --workspace=frontend` | OK, sin errores |
+| `npx vitest run` (backend) | OK, 125 pruebas: la nueva cubre el conteo de variantes abastecidas y el ultimo ingreso |
+| Rutas servidas (`next start`) | OK: `/admin/brands`, `/admin/suppliers` y `/admin/products` responden 200 con `noindex`, y el sitio publico sigue intacto |
+| Contrato contra el backend real (31 comprobaciones) | OK: la aplicacion de Express con repositorios en memoria, llamada con las mismas URL y cuerpos que mandan estas pantallas |
+
+La comprobacion de contrato cubrio, entre otras: el 403 del `operator` al
+escribir marcas y su 200 al leerlas; el 409 `DUPLICATE_SLUG`; que la ficha del
+proveedor trae marcas, ultimo ingreso y variantes abastecidas, y que un
+`brandIds` vacio deshace el vinculo; que crear una linea responde
+`readiness: {canPublish: false, missing: [price, imageKey, activeVariant]}`; que
+publicar sin esas tres cosas responde `409 NOT_PUBLISHABLE` con la lista en
+`missing`; que un precio anterior menor que el precio es 400; que una segunda
+variante de otro tipo es 409; que al publicar con todo en su sitio `readiness`
+queda en verde y **las claves de specs que la pantalla no edita se conservan**;
+que el slug de una linea publicada responde `409 IMMUTABLE_SLUG`; y que
+desactivar la ultima variante activa de una linea publicada responde `409`.
+
+**No verificado**
+
+- **Nadie ha visto estas pantallas en un navegador**, igual que en A5.1. Falta
+  la revision visual a 375 / 768 / 1440 px y el recorrido con `Tab`, que es el
+  pendiente #1 del plan de diseno y sigue esperando la extension de Chrome. Son
+  ademas las pantallas con los formularios mas largos del proyecto, asi que es
+  donde esa revision mas importa.
+- **La ruta de Prisma del conteo nuevo no se ha ejecutado.** El `groupBy` esta
+  revisado a mano y probado contra el repositorio en memoria; el primer viaje
+  real sigue bloqueado por la dependencia #2 y el tunel a la base.
+- **La retirada del sitio publico no se ha visto de punta a punta.** Desactivar
+  una variante o pasar una linea a borrador la saca del contrato publico en la
+  siguiente revalidacion ISR (60 s). La revalidacion inmediata al publicar es
+  A7.3 y no esta hecha.
 
 ## Fase A6 — Catálogo público con variantes
 

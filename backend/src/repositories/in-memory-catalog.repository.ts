@@ -52,8 +52,8 @@ export class InMemoryCatalogRepository implements CatalogRepository {
 
   private queue: Promise<unknown> = Promise.resolve();
 
-  /** Último ingreso por proveedor, que en la base sale del libro. */
-  private readonly inbounds = new Map<string, Date>();
+  /** Lo que en la base sale del libro de inventario: ingresos por proveedor. */
+  private readonly inbounds = new Map<string, { last: Date; variants: Set<string> }>();
 
   // --- Ayudas de test ---
 
@@ -126,8 +126,11 @@ export class InMemoryCatalogRepository implements CatalogRepository {
     return { ...row };
   }
 
-  public seedInbound(supplierId: string, at: Date): void {
-    this.inbounds.set(supplierId, at);
+  public seedInbound(supplierId: string, at: Date, variantId = randomUUID()): void {
+    const entry = this.inbounds.get(supplierId) ?? { last: at, variants: new Set<string>() };
+    if (at >= entry.last) entry.last = at;
+    entry.variants.add(variantId);
+    this.inbounds.set(supplierId, entry);
   }
 
   public get audits(): readonly AuditRecord[] {
@@ -180,7 +183,13 @@ export class InMemoryCatalogRepository implements CatalogRepository {
       .map(link => this.state.brands.get(link.split(':')[0]!))
       .filter((brand): brand is BrandRow => brand !== undefined)
       .map(brand => ({ id: brand.id, name: brand.name }));
-    return { ...row, brands, lastInboundAt: this.inbounds.get(id) ?? null };
+    const inbound = this.inbounds.get(id);
+    return {
+      ...row,
+      brands,
+      lastInboundAt: inbound?.last ?? null,
+      suppliedVariantCount: inbound?.variants.size ?? 0
+    };
   }
 
   public async listProducts(filter: ProductFilter): Promise<Page<AdminProductRow>> {

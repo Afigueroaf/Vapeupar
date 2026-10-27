@@ -6,6 +6,7 @@ import { SelectField, TextField } from "@/components/ui/field";
 import { AdminApiError, adminApi } from "@/lib/admin-api";
 import { formatNumberCO } from "@/lib/utils";
 import type { StockMovementType, StockRow, SupplierRow } from "@/types/admin";
+import { FormError, FormStatus, Labelled } from "./form";
 import { MOVEMENT_HINTS, MOVEMENT_LABELS, MOVEMENT_TYPES } from "./movement-labels";
 
 /**
@@ -191,44 +192,12 @@ export function MovementForm({ row, suppliers, onNeedSuppliers, onApplied }: Mov
 
       <p className="text-xs text-muted">{MOVEMENT_HINTS[type]}</p>
 
-      {error && (
-        <p role="alert" className="border-2 border-action px-3 py-2 text-sm text-foreground">
-          {error}
-        </p>
-      )}
-      {result && (
-        <p role="status" className="border-2 border-accent px-3 py-2 text-sm text-foreground">
-          {result}
-        </p>
-      )}
+      {error && <FormError>{error}</FormError>}
+      {result && <FormStatus>{result}</FormStatus>}
 
       <Button type="submit" disabled={pending}>
         {pending ? "Registrando…" : "Registrar movimiento"}
       </Button>
     </form>
-  );
-}
-
-function Labelled({
-  label,
-  htmlFor,
-  className,
-  children,
-}: {
-  label: string;
-  htmlFor: string;
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className={className}>
-      <label
-        htmlFor={htmlFor}
-        className="mb-2 block font-display text-xs font-bold uppercase tracking-[0.04em] text-muted"
-      >
-        {label}
-      </label>
-      {children}
-    </div>
   );
 }

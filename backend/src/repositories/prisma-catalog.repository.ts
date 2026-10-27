@@ -181,6 +181,15 @@ async function lastInboundAt(db: Db, supplierId: string): Promise<Date | null> {
   return row?.createdAt ?? null;
 }
 
+/**
+ * Cuántas variantes distintas ha abastecido (A5.2). Se agrupa en la base en vez
+ * de traer el libro entero: lo que interesa es el número de grupos.
+ */
+async function suppliedVariantCount(db: Db, supplierId: string): Promise<number> {
+  const groups = await db.stockMovement.groupBy({ by: ['variantId'], where: { supplierId } });
+  return groups.length;
+}
+
 function transactionOps(tx: Prisma.TransactionClient): CatalogTransaction {
   return {
     async findBrand(id) {
@@ -333,10 +342,15 @@ export class PrismaCatalogRepository implements CatalogRepository {
       include: { brands: { include: { brand: { select: { id: true, name: true } } } } }
     });
     if (!row) return undefined;
+    const [lastInbound, supplied] = await Promise.all([
+      lastInboundAt(db, id),
+      suppliedVariantCount(db, id)
+    ]);
     return {
       ...toSupplier(row),
       brands: row.brands.map(link => link.brand),
-      lastInboundAt: await lastInboundAt(db, id)
+      lastInboundAt: lastInbound,
+      suppliedVariantCount: supplied
     };
   }
 

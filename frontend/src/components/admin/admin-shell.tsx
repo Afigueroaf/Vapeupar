@@ -39,7 +39,12 @@ export function useAdminSession(): AdminSession {
   return session;
 }
 
-const NAV = [{ href: "/admin/stock", label: "Inventario" }];
+const NAV = [
+  { href: "/admin/stock", label: "Inventario" },
+  { href: "/admin/products", label: "Líneas" },
+  { href: "/admin/brands", label: "Marcas" },
+  { href: "/admin/suppliers", label: "Proveedores" }
+];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const router = useRouter();

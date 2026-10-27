@@ -93,7 +93,7 @@ nace protegida.
 | `POST /api/admin/brands` | **owner** | Crea la marca. `201` con la fila resultante |
 | `PATCH /api/admin/brands/:id` | **owner** | Cambia solo los campos que trae el cuerpo |
 | `GET /api/admin/suppliers` | sesión | Proveedores paginados. `?q=&active=&page=&limit=` |
-| `GET /api/admin/suppliers/:id` | sesión | Ficha con las marcas que trae y la fecha del último ingreso |
+| `GET /api/admin/suppliers/:id` | sesión | Ficha con las marcas que trae, las variantes distintas que ha abastecido (`suppliedVariantCount`) y la fecha del último ingreso |
 | `POST /api/admin/suppliers` | **owner** | Crea el proveedor; `brandIds` fija el vínculo con marcas |
 | `PATCH /api/admin/suppliers/:id` | **owner** | Igual; `brandIds` reemplaza la lista completa |
 | `GET /api/admin/products` | sesión | Líneas paginadas, borradores primero, con el número de variantes (no las variantes). `?q=&brandId=&category=&status=&page=&limit=` |
