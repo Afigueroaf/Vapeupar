@@ -20,7 +20,7 @@ V4 y V5.
 | **A1** | Esquema Prisma + migración + semilla desde `assets/` | `backend/prisma/`, `backend/src/db/` | ✅ **Ejecutada** (2026-10-26) |
 | **A2** | Desacoplar `ProductService` y reescribir sus tests | `backend/src/services/`, `*.test.ts` | ✅ **Ejecutada** (2026-10-26) |
 | **A3** | Dominio de inventario: movimientos, idempotencia, auditoría | `backend/src/services/stock.service.ts` | ✅ **Ejecutada** (2026-10-26) |
-| **A4** | Autenticación y superficie `/api/admin/*` | `backend/src/routes/admin/`, `backend/src/middleware/` | ⬜ Pendiente |
+| **A4** | Autenticación y superficie `/api/admin/*` | `backend/src/routes/admin/`, `backend/src/middleware/` | 🟡 **Parcial** (2026-10-26): sesión, roles, endurecimiento e inventario; falta el CRUD de entidades y contenido |
 | **A5** | Consola `/admin` en Next | `frontend/src/app/(admin)/` | ⬜ Pendiente |
 | **A6** | Catálogo público con variantes | `product-card.tsx`, `product-catalog.tsx`, tipos | ⬜ Pendiente |
 | **A7** | `SiteContent` + revalidación + barrido de textos | `faq.tsx`, `layout.tsx`, `trust-band.tsx` | ⬜ Pendiente |
@@ -482,6 +482,135 @@ admin se dispara antes que el público; `docs/backend.md` documenta los endpoint
 nuevos en el mismo commit.
 
 ---
+
+### Registro de ejecución A4 (2026-10-26) — parcial
+
+Se ejecutaron **A4.1 (sesión), A4.3 (endurecimiento)** y la parte de A4.2 que
+alimenta la pantalla de stock, que es la primera de A5 y la de uso diario. El
+CRUD de entidades y el contenido quedan para la siguiente pasada: ver *Lo que
+falta de A4* al final de este registro.
+
+**Archivos**
+
+| Archivo | Rol |
+|---|---|
+| `backend/src/config/cognito.ts` | Lee y valida las cuatro variables del pool, bajo demanda |
+| `backend/src/services/auth.service.ts` | Único importador del SDK de Cognito: login, reto de contraseña, renovación, cierre de sesión, invitación y baja |
+| `backend/src/services/token-verifier.ts` | Verifica la firma del access token contra el JWKS (`aws-jwt-verify`) y distingue vencido de inválido |
+| `backend/src/middleware/session-cookies.ts` | Las cuatro cookies de la sesión y sus atributos, en un solo sitio |
+| `backend/src/middleware/require-auth.ts` | Verifica, renueva si hace falta y resuelve el rol desde `User` |
+| `backend/src/middleware/require-role.ts` | Restricción por `owner` / `operator` |
+| `backend/src/repositories/user.repository.ts` + Prisma + memoria | Quién puede entrar y con qué rol |
+| `backend/src/repositories/stock-view.repository.ts` + Prisma + memoria | La tabla de inventario que mira la consola |
+| `backend/src/routes/admin/` | `auth`, `me`, `stock`, `users`, y la traducción de errores de dominio a HTTP |
+| `backend/src/schemas/admin/` | Zod de la superficie autenticada |
+| `backend/src/app.ts` | Armado de la aplicación, separado de `index.ts` |
+| `backend/scripts/admin-invite.ts` | `npm run admin:invite -- <correo>` para el primer owner |
+
+**Decisiones tomadas durante la ejecución**
+
+- **Rutas en inglés**, como en A3 y como el catálogo público (`?minPrice`, no
+  `?precioMinimo`): `POST /stock/movements` en lugar de `/stock/movimientos` y
+  `?lowStock=` en lugar de `?bajoStock=`. El plan las escribía en español.
+- **La sesión vive en cuatro cookies y ninguna llega al JavaScript.** Access
+  token, refresh token, nombre de usuario del pool y, si está en curso, el reto
+  de contraseña temporal. Todas `httpOnly`, `SameSite=Strict` y con
+  `Path=/api/admin`, así que el sitio público nunca las recibe. `Secure` queda
+  atado a producción: `next dev` se sirve por HTTP a otros equipos de la red
+  Wi-Fi (`allowedDevOrigins`), donde una cookie `Secure` no llegaría.
+- **Hace falta guardar el nombre de usuario real.** El pool usa el correo como
+  alias (`signInAliases: { email: true }`), de modo que el nombre de usuario es
+  otro: con alias de correo, Cognito **no admite nombres de usuario en formato
+  de correo**, así que la invitación crea el usuario con un UUID. El
+  `SECRET_HASH` de `REFRESH_TOKEN_AUTH` se calcula con ese nombre real y no con
+  el alias, y por eso viaja en su propia cookie, tomada del claim `username` del
+  access token.
+- **401 y 403 significan cosas distintas.** Cognito responde por la identidad
+  (401 si el token no verifica ni se puede renovar); la tabla `User` responde
+  por el acceso (403 si no hay fila activa para ese `sub`, porque reintentar el
+  login no cambiaría nada). Quitarle el acceso a alguien es una escritura en la
+  base; Cognito solo se usa además para cerrarle las sesiones abiertas.
+- **El login también comprueba la autorización**, no solo `requireAuth`: sin
+  fila activa no se deja ninguna cookie puesta, para no dar por abierta una
+  sesión que iba a rebotar con 403 en cada petición.
+- **El autor de un movimiento lo pone la sesión, nunca el cuerpo.** El esquema
+  Zod de `/stock/movements` no tiene `userId` a propósito, y hay un test que
+  manda uno ajeno y comprueba que se ignora.
+- **La vista de inventario es un repositorio aparte.** `StockRepository` existe
+  para escribir el libro con garantías transaccionales; cargarlo además con
+  filtros, orden y paginación habría obligado a la capa que escribe a arrastrar
+  lo que solo necesita la que mira. Las dos consultas de la página (filas y
+  total) van en una transacción de solo lectura para que no se contradigan.
+- **Un solo middleware de CORS con dos políticas.** Montar dos `cors()` duplica
+  `Access-Control-Allow-Origin` y el navegador descarta la respuesta, así que el
+  origen permitido se decide por petición. El del admin es explícito
+  (`ADMIN_URL`) y, a diferencia del público, no admite peticiones sin `Origin`.
+- **Tres límites de peticiones, y los tres se aplican.** 10 fallos por 15 min en
+  el login (solo cuenta los fallidos), 30/min en `/api/admin` y los 100/min del
+  público. Montados de más estricto a más laxo: una ráfaga contra la consola se
+  corta por su propio límite.
+- **`TRUST_PROXY` en vez de confiar en `X-Forwarded-For`.** Sin proxy delante,
+  creerse esa cabecera permite saltarse el límite poniéndola a mano. Por defecto
+  no se confía en ninguno; detrás del ALB de prod será 1.
+- **Cuerpo de 256 kB bajo `/api/admin`** y los 20 kB del público en el resto. El
+  parser del admin va primero y el global ve el cuerpo ya consumido.
+- **`index.ts` se parte en dos.** `app.ts` arma la aplicación y `index.ts` solo
+  escucha el puerto y cierra elegante. Sin eso no hay forma de levantar la API
+  en un puerto efímero desde un test, que es como se comprueba el orden de los
+  middlewares.
+
+**Verificado**
+
+| Comprobación | Resultado |
+|---|---|
+| `tsc` (incluido `scripts/admin-invite.ts`, fuera del `include` del tsconfig) | ✅ Sin errores |
+| `npm run test:backend` | ✅ **74/74**: los 51 de A1–A3 siguen verdes y 23 nuevos de la superficie admin |
+| Sin sesión | ✅ 401 en lectura y en escritura, y el servicio de inventario no llega a invocarse |
+| Token que no verifica | ✅ 401 y cookies borradas |
+| Usuario del pool sin fila en `User`, y usuario desactivado | ✅ 403 en ambos |
+| Access token vencido con refresh válido | ✅ 200, la petición continúa y vuelve un `Set-Cookie` nuevo |
+| Access token vencido con refresh revocado | ✅ 401 |
+| `operator` contra `/users/invite` | ✅ 403, y Cognito no se invoca |
+| `owner` contra `/users/invite` | ✅ 201 y fila creada en `User` |
+| `operator` contra `/stock/movements` | ✅ 201: registrar inventario es su trabajo diario |
+| `userId` ajeno en el cuerpo de un movimiento | ✅ Ignorado: el servicio lo recibe con el de la sesión |
+| Atributos de las cookies de sesión | ✅ `HttpOnly`, `SameSite=Strict`, `Path=/api/admin`, y ningún token en el cuerpo |
+| Reto de contraseña temporal | ✅ Va en cookie; no aparece en la respuesta |
+| Límite del admin frente al público | ✅ Con 3/min en el admin y 100/min en el público, la cuarta petición ya es 429 |
+| Límite propio del login | ✅ Con 2 fallos permitidos, el tercero es 429 |
+| Errores de dominio | ✅ `NOT_FOUND` del kardex sale 404; cuerpo mal formado, 400 antes de tocar el servicio |
+
+**No verificado**
+
+- **Nada de esto ha hablado con Cognito ni con RDS.** Los 23 tests sustituyen el
+  verificador, el SDK y los repositorios: lo que comprueban es el cableado de
+  Express, que es donde fallan estas cosas. El viaje de ida y vuelta real está
+  bloqueado por la **dependencia #2 del plan** (falta el correo del owner
+  inicial), así que ni el login ni `npm run admin:invite` se han ejecutado
+  contra el pool.
+- **MFA.** Es opcional en dev y obligatoria en prod. El backend responde `501`
+  al reto `SOFTWARE_TOKEN_MFA`; hay que resolverlo antes de exponer la consola.
+- **Permisos IAM del backend.** En dev las llamadas salen con las credenciales
+  locales, como anticipaba A4.1. El rol acotado al ARN del pool
+  (`AdminCreateUser`, `AdminDisableUser`, `AdminUserGlobalSignOut`) va con el
+  cómputo del backend, que sigue sin existir (`docs/infrastructure-aws.md` §8.3).
+
+**Aviso de seguridad heredado**: `npm audit` reporta un fallo **alto** en `zod`
+(`GHSA-mrhx-c7xc-m3w5`, agotamiento de memoria al validar colecciones
+restringidas de gran tamaño) que afecta a todo `zod < 4.6.6`. No hay parche en
+la rama 3.x: el arreglo es subir a 4.6.7, que es un cambio mayor y toca
+`product.schema.ts`, `stock.service.ts` y los esquemas nuevos. **No se mezcló
+con esta fase**; merece su propio commit, con la batería de tests como red. Los
+límites de cuerpo (20 kB / 256 kB) reducen la exposición, pero no la eliminan.
+
+**Lo que falta de A4**
+
+| Pieza | Por qué quedó fuera |
+|---|---|
+| CRUD de `brands`, `suppliers`, `products` y `products/:id/variants` | Cada una necesita su repositorio, que todavía no existe (A1.2 los reparte entre las fases que los consumen). Son lo que consumen A5.2 y A5.3, no la pantalla de stock |
+| `GET/PUT /content/:key` | Igual, y además depende de los esquemas de contenido de A7.1 |
+| `GET /audit` | Necesita un repositorio de lectura de `AuditLog`; nada de A5.1 lo consume |
+| Puente AdminJS (A4.4) | Es opcional y desechable, y solo tiene sentido si hay que operar stock antes de A5. Con esta superficie ya se puede operar por API |
 
 ## Fase A5 — Consola `/admin` en Next
 

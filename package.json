@@ -24,7 +24,8 @@
     "infra:env-backend": "npm run env:backend --workspace=infra",
     "db:migrate": "npm run db:migrate --workspace=backend",
     "db:seed": "npm run db:seed --workspace=backend",
-    "db:sync-app-role": "npm run db:sync-app-role --workspace=backend"
+    "db:sync-app-role": "npm run db:sync-app-role --workspace=backend",
+    "admin:invite": "npm run admin:invite --workspace=backend --"
   },
   "keywords": [
     "vape",

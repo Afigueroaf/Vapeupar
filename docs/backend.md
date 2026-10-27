@@ -5,7 +5,7 @@ El backend de Vapeupar es un servicio REST desarrollado en **TypeScript** con **
 
 ## Seguridad y Resiliencia
 - **Cabeceras de Seguridad (Helmet)**: Configurado para proteger la API contra ataques de scripting entre sitios (XSS), sniffing de tipo MIME y clickjacking.
-- **Limitación de Tasa (Rate Limiting)**: Ventana deslizante de 1 minuto que restringe a 100 peticiones máximas por IP en `/api/*` para mitigar ataques de fuerza bruta y DoS.
+- **Limitación de Tasa (Rate Limiting)**: Tres límites, del más estricto al más laxo, y los tres se aplican: 10 intentos fallidos por 15 minutos en `/api/admin/auth/login`, 30 peticiones por minuto en `/api/admin` y 100 por minuto en `/api/*`. Por eso una ráfaga contra la consola se corta antes que la del público.
 - **Validación con Esquemas Zod**: Toda entrada de parámetros de consulta (`query`) y parámetros de ruta (`params`) se somete a validación estricta con esquemas Zod en tiempo de ejecución.
 - **Manejo Centralizado de Errores**: Middleware global que captura excepciones no controladas y enmascara detalles técnicos internos en entornos de producción.
 - **Cierre Elegante (Graceful Shutdown)**: Captura de señales `SIGINT` y `SIGTERM` para finalizar conexiones HTTP de manera ordenada.
@@ -33,13 +33,16 @@ El backend de Vapeupar es un servicio REST desarrollado en **TypeScript** con **
 backend/
 ├── src/
 │   ├── catalog/         # Etiquetas de categoría y claves de imagen
+│   ├── config/          # Configuración de Cognito, validada bajo demanda
 │   ├── db/              # Cliente de Prisma bajo demanda
+│   ├── middleware/      # Sesión en cookies, requireAuth y requireRole
 │   ├── repositories/    # Acceso a datos: interfaz + Prisma + memoria (tests)
-│   ├── routes/          # Rutas Express (product.routes.ts)
-│   ├── schemas/         # Esquemas de validación Zod (product.schema.ts)
-│   ├── services/        # Lógica de negocio: catálogo, inventario (stock.service.ts) y auditoría
+│   ├── routes/          # Rutas Express; routes/admin/ es la superficie autenticada
+│   ├── schemas/         # Esquemas de validación Zod; schemas/admin/ los del admin
+│   ├── services/        # Catálogo, inventario, auditoría y sesión con Cognito
 │   ├── types/           # Interfaces y tipos TypeScript compartidos (product.types.ts)
-│   └── index.ts         # Punto de entrada de la aplicación Express
+│   ├── app.ts           # Armado de la aplicación (middlewares, CORS, límites, rutas)
+│   └── index.ts         # Arranque del proceso: escucha el puerto y cierra elegante
 ├── tsconfig.json        # Configuración TypeScript NodeNext / ES2022 (strict: true)
 ├── package.json         # Scripts y dependencias
 ├── prisma/
@@ -61,6 +64,51 @@ negativos e idempotencia (`operationKey`), y escribe movimiento, caché y
 auditoría en una sola transacción. Ver el registro de A3 en
 `docs/admin-console-execution-plan.md`. El cliente generado vive en `src/generated/prisma`
 (ignorado por git; `npm run db:generate` o `prebuild` lo regeneran).
+
+## Superficie autenticada: `/api/admin` (A4)
+
+Consola de administración. Todo lo que no sea `/auth` exige sesión; el orden de
+montaje en `routes/admin/index.ts` es la frontera, de modo que una ruta nueva
+nace protegida.
+
+| Método y ruta | Rol | Qué hace |
+|---|---|---|
+| `POST /api/admin/auth/login` | — | Abre sesión. Con la contraseña temporal de la invitación responde `new_password_required` |
+| `POST /api/admin/auth/new-password` | — | Resuelve ese reto y abre sesión |
+| `POST /api/admin/auth/logout` | sesión | Revoca los refresh tokens en Cognito y borra las cookies |
+| `GET /api/admin/me` | sesión | Identidad y rol del usuario de la sesión |
+| `GET /api/admin/stock` | sesión | Inventario paginado. `?q=&brandId=&lowStock=&threshold=&page=&limit=` |
+| `POST /api/admin/stock/movements` | sesión | Registra un movimiento. `201`, o `200` si fue un reintento (`replayed`) |
+| `GET /api/admin/stock/:variantId/kardex` | sesión | Kardex de la variante. `?from=&to=` |
+| `POST /api/admin/users/invite` | **owner** | Invita a la consola y crea la fila en `User` |
+| `POST /api/admin/users/:id/deactivate` | **owner** | Desactiva la fila y deshabilita la cuenta en el pool |
+
+**Sesión.** Los tokens de Cognito viven en cookies `httpOnly` + `SameSite=Strict`
+limitadas a `/api/admin` (y `Secure` en producción). El JavaScript de la consola
+nunca ve un token, así que un XSS no se lleva la sesión. Cuando el access token
+vence, `requireAuth` lo renueva con el refresh token y la petición continúa; el
+cliente solo nota un `Set-Cookie` nuevo.
+
+**Dos puertas, dos códigos.** Cognito dice quién eres: si eso falla, `401`. La
+tabla `User` dice si puedes entrar: si no hay fila activa para ese `sub`, `403`,
+porque reintentar el login no cambiaría nada. Desactivar a alguien es, por tanto,
+una escritura en la base; Cognito solo se usa además para cerrarle las sesiones
+abiertas.
+
+**El autor no se acepta del cliente.** `POST /stock/movements` ignora cualquier
+`userId` del cuerpo y firma el movimiento con el de la sesión: lo que queda en
+`AuditLog` es quien lo hizo de verdad.
+
+**Primer acceso.** La ruta de invitación exige ser `owner`, así que el primero
+entra por script:
+
+```bash
+npm run admin:invite -- correo@dominio.com            # rol owner por defecto
+npm run admin:invite -- otro@dominio.com --role operator
+```
+
+Necesita credenciales de AWS y el túnel abierto. Cognito envía la contraseña
+temporal por correo y vence en 3 días.
 
 ## Base de Datos (PostgreSQL en AWS RDS + Prisma 7)
 
