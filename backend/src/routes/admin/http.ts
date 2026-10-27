@@ -30,7 +30,7 @@ export function sendValidationError(res: Response, error: ZodError, message = 'D
   res.status(400).json({
     success: false,
     message,
-    errors: error.errors.map(err => ({
+    errors: error.issues.map(err => ({
       field: err.path.join('.'),
       message: err.message
     }))

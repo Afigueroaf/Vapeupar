@@ -595,13 +595,12 @@ falta de A4* al final de este registro.
   (`AdminCreateUser`, `AdminDisableUser`, `AdminUserGlobalSignOut`) va con el
   cómputo del backend, que sigue sin existir (`docs/infrastructure-aws.md` §8.3).
 
-**Aviso de seguridad heredado**: `npm audit` reporta un fallo **alto** en `zod`
+**Aviso de seguridad heredado**: `npm audit` reportaba un fallo **alto** en `zod`
 (`GHSA-mrhx-c7xc-m3w5`, agotamiento de memoria al validar colecciones
-restringidas de gran tamaño) que afecta a todo `zod < 4.6.6`. No hay parche en
-la rama 3.x: el arreglo es subir a 4.6.7, que es un cambio mayor y toca
-`product.schema.ts`, `stock.service.ts` y los esquemas nuevos. **No se mezcló
-con esta fase**; merece su propio commit, con la batería de tests como red. Los
-límites de cuerpo (20 kB / 256 kB) reducen la exposición, pero no la eliminan.
+restringidas de gran tamaño) que afectaba a todo `zod < 4.6.6`. No había parche
+en la rama 3.x, así que no se mezcló con esta fase.
+→ ✅ **Resuelto** en el commit siguiente, subiendo a `zod` 4.6.7; ver *Migración
+a zod 4* más abajo.
 
 **Lo que falta de A4**
 
@@ -807,3 +806,59 @@ imágenes en storage, autenticación y auditoría.
 | El sitio público queda en blanco si la API cae | Invariante 6 de ADR-002: fallback en código para catálogo y contenido, verificado apagando el backend |
 | Alguien edita precio o stock por fuera de los servicios | `stockCache` y precios solo escribibles desde `backend/src/services/`; `AuditLog` revela cualquier escritura sin autor |
 | El puente AdminJS se vuelve permanente | Habilitado solo por variable de entorno y con retirada incluida en la definición de terminado de A5 |
+
+---
+
+# Migración a zod 4 (2026-10-26)
+
+Subida de `zod` 3.24.2 → **4.6.7** para cerrar `GHSA-mrhx-c7xc-m3w5` (severidad
+alta, agotamiento de memoria al validar colecciones restringidas de gran tamaño).
+No había arreglo dentro de la rama 3.x: el aviso cubre todo `zod < 4.6.6`.
+
+Va en su propio commit a propósito. Es un cambio mayor que toca la capa por la
+que pasa **toda** la entrada del sistema, y la red para hacerlo eran los 74 tests
+que dejó A4.
+
+`zod` solo es dependencia directa del backend, así que el frontend no se toca.
+
+## Lo que rompió
+
+Ocho errores de compilación, todos de la misma causa: **`ZodError.errors`
+desaparece y la lista de problemas es `.issues`**. Afectaba a las dos rutas
+públicas, a la traducción de errores del admin, a `StockService` y al script de
+invitación.
+
+## Lo que se modernizó de paso
+
+Ninguna de estas tres era obligatoria —la v4 mantiene las formas antiguas como
+obsoletas—, pero dejarlas puestas es deuda para la próxima mayor:
+
+- `z.ZodIssueCode.custom` → `'custom'` (3 sitios en `stock.service.ts`).
+- `z.string().uuid()` → `z.uuid()` (5 sitios en los esquemas del admin).
+- `z.string().trim().toLowerCase().email()` → el mismo encadenado con
+  `.pipe(z.email())`, porque en la v4 los formatos son tipos de primer nivel y
+  ya no métodos de cadena. Se mantiene la normalización, que era el motivo de
+  encadenar `trim` y `toLowerCase` antes de validar.
+
+Se dejó `superRefine` como estaba: la v4 recomienda `.check()`, pero la forma
+anterior sigue soportada y cambiarla tocaría la validación cruzada del libro de
+inventario, que es lo último que conviene mover en el mismo commit.
+
+## Verificado
+
+| Comprobación | Resultado |
+|---|---|
+| `npm audit` | ✅ **0 vulnerabilidades** en todo el workspace (antes: 1 alta) |
+| `tsc`, incluido `scripts/admin-invite.ts` | ✅ Sin errores |
+| `npm run test:backend` | ✅ **74/74**, sin tocar ninguna aserción salvo un `.errors` → `.issues` en un test |
+| `npm run build:backend` | ✅ Compila |
+
+Y, sobre los esquemas reales, los tres puntos donde la v4 cambia semántica y un
+test verde podría estar tapando una regresión:
+
+| Comportamiento | Resultado |
+|---|---|
+| Defaults y coerción con la consulta vacía | ✅ `{}` sigue dando `page: 1`, `limit: 20`, `threshold: 5`, `lowStock: false`; en la v3 un `coerce` mal ordenado convertía `undefined` en `NaN` |
+| Coerción desde cadenas de `query` | ✅ `'true'`, `'3'`, `'2'`, `'10'` siguen llegando como booleano y enteros |
+| Claves desconocidas en el cuerpo | ✅ Se **descartan**, no rechazan la petición: un `userId` colado en un movimiento desaparece antes del servicio |
+| Normalización del correo | ✅ `'  OWNER@Vapeupar.COM '` → `owner@vapeupar.com`, y un correo inválido se rechaza |

@@ -5,7 +5,7 @@ import { z } from 'zod';
  * entra a un servicio sin pasar por aquí.
  */
 
-const email = z.string().trim().toLowerCase().email().max(254);
+const email = z.string().trim().toLowerCase().pipe(z.email().max(254));
 
 /**
  * La longitud mínima es la del pool (`passwordPolicy.minLength: 12`). El resto
@@ -30,5 +30,5 @@ export const InviteSchema = z.object({
 });
 
 export const UserIdSchema = z.object({
-  id: z.string().uuid()
+  id: z.uuid()
 });

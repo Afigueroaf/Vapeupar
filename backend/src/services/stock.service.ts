@@ -45,18 +45,18 @@ const RecordMovementSchema = z.object({
 }).superRefine((input, ctx) => {
   if (input.type === 'adjustment') {
     if (!input.reason) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['reason'], message: 'Un ajuste exige motivo' });
+      ctx.addIssue({ code: 'custom', path: ['reason'], message: 'Un ajuste exige motivo' });
     }
   } else if (input.quantity < 0) {
     ctx.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       path: ['quantity'],
       message: 'La cantidad va en positivo: el tipo de movimiento define el signo'
     });
   }
   if (input.type !== 'inbound' && (input.unitCost !== undefined || input.supplierId !== undefined)) {
     ctx.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       path: [input.unitCost !== undefined ? 'unitCost' : 'supplierId'],
       message: 'Proveedor y costo unitario solo aplican a ingresos'
     });
@@ -98,7 +98,7 @@ export class StockService {
   public async recordMovement(input: RecordMovementInput): Promise<RecordMovementResult> {
     const parsed = RecordMovementSchema.safeParse(input);
     if (!parsed.success) {
-      throw new StockError('VALIDATION', parsed.error.errors.map(e => e.message).join('; '));
+      throw new StockError('VALIDATION', parsed.error.issues.map(e => e.message).join('; '));
     }
     const data = parsed.data;
     const candidate: NewStockMovement = {

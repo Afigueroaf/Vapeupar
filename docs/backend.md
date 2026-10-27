@@ -6,7 +6,7 @@ El backend de Vapeupar es un servicio REST desarrollado en **TypeScript** con **
 ## Seguridad y Resiliencia
 - **Cabeceras de Seguridad (Helmet)**: Configurado para proteger la API contra ataques de scripting entre sitios (XSS), sniffing de tipo MIME y clickjacking.
 - **Limitación de Tasa (Rate Limiting)**: Tres límites, del más estricto al más laxo, y los tres se aplican: 10 intentos fallidos por 15 minutos en `/api/admin/auth/login`, 30 peticiones por minuto en `/api/admin` y 100 por minuto en `/api/*`. Por eso una ráfaga contra la consola se corta antes que la del público.
-- **Validación con Esquemas Zod**: Toda entrada de parámetros de consulta (`query`) y parámetros de ruta (`params`) se somete a validación estricta con esquemas Zod en tiempo de ejecución.
+- **Validación con Esquemas Zod 4**: Toda entrada de parámetros de consulta (`query`), de ruta (`params`) y de cuerpo se somete a validación estricta en tiempo de ejecución. Las claves desconocidas se descartan en lugar de rechazar la petición, de modo que un campo colado en un cuerpo no llega nunca al servicio.
 - **Manejo Centralizado de Errores**: Middleware global que captura excepciones no controladas y enmascara detalles técnicos internos en entornos de producción.
 - **Cierre Elegante (Graceful Shutdown)**: Captura de señales `SIGINT` y `SIGTERM` para finalizar conexiones HTTP de manera ordenada.
 

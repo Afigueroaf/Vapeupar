@@ -17,7 +17,7 @@
 - **Limitación de Tasa (Rate Limiting)**:
   - Tres límites con `express-rate-limit`, del más estricto al más laxo, y los tres se aplican a la vez: **10 intentos fallidos por 15 minutos** en `/api/admin/auth/login` (solo cuenta los fallos, para no penalizar a quien acierta), **30 por minuto** en `/api/admin` y **100 por minuto** en `/api/*`. Una ráfaga contra la consola se corta por su propio límite antes que por el del público.
   - La IP se toma de la conexión y no de `X-Forwarded-For` salvo que `TRUST_PROXY` declare cuántos saltos de proxy hay delante: creerse esa cabecera sin balanceador permitiría saltarse el límite poniéndola a mano.
-- **Validación Estricta de Entradas con Zod**:
+- **Validación Estricta de Entradas con Zod 4** (4.6.7; la rama 3.x quedó expuesta a `GHSA-mrhx-c7xc-m3w5`, agotamiento de memoria al validar colecciones grandes, y no tuvo parche):
   - Parámetros de consulta (`ProductQuerySchema`): `minPrice`, `maxPrice` (con verificación cruzada `min <= max`), `search` (máximo 100 caracteres sanitizados), `limit` (máximo 50 elementos por página) y categorías restringidas a enumeraciones estrictas.
   - Parámetros de ruta (`ProductSlugSchema`): Expresión regular `^[a-z0-9-]+$` para prevenir inyección de caracteres especiales o manipulación de rutas.
 - **Prevención de SSRF en Frontend (`next.config.ts`)**:

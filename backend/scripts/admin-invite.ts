@@ -16,7 +16,7 @@ import { disconnectPrisma } from '../src/db/prisma.js';
  * (`npm run infra:db-tunnel`).
  */
 const ArgsSchema = z.object({
-  email: z.string().trim().toLowerCase().email(),
+  email: z.string().trim().toLowerCase().pipe(z.email()),
   role: z.enum(['owner', 'operator']).default('owner')
 });
 
@@ -30,7 +30,7 @@ function parseArgs(argv: string[]): z.infer<typeof ArgsSchema> {
     role: roleFlag ? role : undefined
   });
   if (!parsed.success) {
-    const detail = parsed.error.errors.map(e => `${e.path.join('.') || 'argumento'}: ${e.message}`).join('; ');
+    const detail = parsed.error.issues.map(e => `${e.path.join('.') || 'argumento'}: ${e.message}`).join('; ');
     throw new Error(`${detail}\nUso: npm run admin:invite -- correo@dominio.com [--role operator]`);
   }
   return parsed.data;

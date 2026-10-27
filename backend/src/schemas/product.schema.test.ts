@@ -37,7 +37,7 @@ describe('ProductSchema - Validation Tests', () => {
       const result = ProductQuerySchema.safeParse(query);
       expect(result.success).toBe(false);
       if (!result.success) {
-        expect(result.error.errors[0]?.message).toContain('El precio mínimo no puede ser mayor');
+        expect(result.error.issues[0]?.message).toContain('El precio mínimo no puede ser mayor');
       }
     });
 

@@ -13,7 +13,7 @@ productRouter.get('/', async (req: Request, res: Response, next: NextFunction): 
       res.status(400).json({
         success: false,
         message: 'Parámetros de consulta inválidos',
-        errors: parseResult.error.errors.map(err => ({
+        errors: parseResult.error.issues.map(err => ({
           field: err.path.join('.'),
           message: err.message
         }))
@@ -84,7 +84,7 @@ productRouter.get('/:slug', async (req: Request, res: Response, next: NextFuncti
       res.status(400).json({
         success: false,
         message: 'Formato de slug inválido',
-        errors: parseResult.error.errors.map(err => ({
+        errors: parseResult.error.issues.map(err => ({
           field: err.path.join('.'),
           message: err.message
         }))

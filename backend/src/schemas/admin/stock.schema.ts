@@ -9,7 +9,7 @@ export const DEFAULT_LOW_STOCK_THRESHOLD = 5;
 export const StockQuerySchema = z.object({
   /** Busca en el nombre de la variante y en el de la línea. */
   q: z.string().trim().max(100).optional(),
-  brandId: z.string().uuid().optional(),
+  brandId: z.uuid().optional(),
   lowStock: z.preprocess(val => (val === 'true' || val === true ? true : val === 'false' || val === false ? false : val),
     z.boolean().default(false)),
   threshold: z.coerce.number().int().nonnegative().max(100000).default(DEFAULT_LOW_STOCK_THRESHOLD),
@@ -27,11 +27,11 @@ export const StockQuerySchema = z.object({
  * comprueba la forma.
  */
 export const MovementBodySchema = z.object({
-  variantId: z.string().uuid(),
+  variantId: z.uuid(),
   type: z.enum(['inbound', 'sale', 'adjustment', 'shrinkage', 'return']),
   quantity: z.number().int(),
   reason: z.string().trim().max(500).optional(),
-  supplierId: z.string().uuid().optional(),
+  supplierId: z.uuid().optional(),
   unitCost: z.number().int().nonnegative().optional(),
   lot: z.string().trim().max(100).optional(),
   /** La genera el cliente, una por formulario abierto; permite reintentar. */
@@ -39,7 +39,7 @@ export const MovementBodySchema = z.object({
 });
 
 export const VariantIdSchema = z.object({
-  variantId: z.string().uuid()
+  variantId: z.uuid()
 });
 
 export const KardexQuerySchema = z.object({
