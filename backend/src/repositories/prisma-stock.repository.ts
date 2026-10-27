@@ -1,26 +1,8 @@
-import { getPrisma } from '../db/prisma.js';
+import { Db, PrismaDbHandle, defaultDbHandle, prismaAuditSink } from '../db/handle.js';
 import { isUuid } from '../db/uuid.js';
-import { Prisma, PrismaClient } from '../generated/prisma/client.js';
-import { AuditRecord } from '../services/audit.service.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { LowStockVariant, StockMovement } from '../types/stock.types.js';
 import { DuplicateOperationKeyError, NewStockMovement, StockRepository, StockTransaction } from './stock.repository.js';
-
-type Db = PrismaClient | Prisma.TransactionClient;
-
-/**
- * Cómo obtener el cliente y abrir transacciones. Por defecto, el cliente
- * global; un script de verificación puede pasar una transacción externa que
- * luego revierte, porque el libro es de solo inserción y no admite limpieza.
- */
-export interface PrismaDbHandle {
-  client(): Db;
-  transaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T>;
-}
-
-const defaultHandle: PrismaDbHandle = {
-  client: () => getPrisma(),
-  transaction: work => getPrisma().$transaction(work)
-};
 
 type MovementRow = Prisma.StockMovementGetPayload<object>;
 
@@ -80,26 +62,12 @@ function transactionOps(tx: Prisma.TransactionClient): StockTransaction {
 
     sumLedger: variantId => sumLedger(tx, variantId),
 
-    audit: {
-      async write(record: AuditRecord) {
-        await tx.auditLog.create({
-          data: {
-            userId: record.userId,
-            entity: record.entity,
-            entityId: record.entityId,
-            action: record.action,
-            // `undefined` deja la columna en NULL.
-            before: record.before as Prisma.InputJsonValue | undefined,
-            after: record.after as Prisma.InputJsonValue | undefined
-          }
-        });
-      }
-    }
+    audit: prismaAuditSink(tx)
   };
 }
 
 export class PrismaStockRepository implements StockRepository {
-  constructor(private readonly db: PrismaDbHandle = defaultHandle) {}
+  constructor(private readonly db: PrismaDbHandle = defaultDbHandle) {}
 
   public transaction<T>(work: (tx: StockTransaction) => Promise<T>): Promise<T> {
     return this.db.transaction(tx => work(transactionOps(tx)));

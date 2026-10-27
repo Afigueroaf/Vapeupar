@@ -20,7 +20,7 @@ V4 y V5.
 | **A1** | Esquema Prisma + migración + semilla desde `assets/` | `backend/prisma/`, `backend/src/db/` | ✅ **Ejecutada** (2026-10-26) |
 | **A2** | Desacoplar `ProductService` y reescribir sus tests | `backend/src/services/`, `*.test.ts` | ✅ **Ejecutada** (2026-10-26) |
 | **A3** | Dominio de inventario: movimientos, idempotencia, auditoría | `backend/src/services/stock.service.ts` | ✅ **Ejecutada** (2026-10-26) |
-| **A4** | Autenticación y superficie `/api/admin/*` | `backend/src/routes/admin/`, `backend/src/middleware/` | 🟡 **Parcial** (2026-10-26): sesión, roles, endurecimiento e inventario; falta el CRUD de entidades y contenido |
+| **A4** | Autenticación y superficie `/api/admin/*` | `backend/src/routes/admin/`, `backend/src/middleware/` | ✅ **Ejecutada** (2026-10-27): sesión, roles, endurecimiento, inventario y el CRUD completo. Solo queda fuera el puente AdminJS (A4.4), opcional y descartado |
 | **A5** | Consola `/admin` en Next | `frontend/src/app/(admin)/` | ⬜ Pendiente |
 | **A6** | Catálogo público con variantes | `product-card.tsx`, `product-catalog.tsx`, tipos | ⬜ Pendiente |
 | **A7** | `SiteContent` + revalidación + barrido de textos | `faq.tsx`, `layout.tsx`, `trust-band.tsx` | ⬜ Pendiente |
@@ -136,8 +136,8 @@ todavía nadie necesita:
 |---|---|
 | `product.repository.ts` | A2 (lo consume `ProductService`) |
 | `stock.repository.ts` | A3 |
-| `brand.repository.ts`, `supplier.repository.ts` | A5.2 |
-| `content.repository.ts` | A7 |
+| `user.repository.ts`, `stock-view.repository.ts` | A4 |
+| `catalog.repository.ts` (marcas, proveedores, líneas y variantes en una sola interfaz, porque comparten transacción y auditoría), `site-content.repository.ts`, `audit-view.repository.ts` | A4, cierre del CRUD: los consume la API, no la pantalla, así que se adelantaron a A5.2 y A7 |
 
 A1 deja el acceso a datos listo: `backend/src/db/prisma.ts` crea el cliente
 bajo demanda, así que importar el módulo no abre conexiones y los tests no
@@ -602,14 +602,132 @@ en la rama 3.x, así que no se mezcló con esta fase.
 → ✅ **Resuelto** en el commit siguiente, subiendo a `zod` 4.6.7; ver *Migración
 a zod 4* más abajo.
 
-**Lo que falta de A4**
+**Lo que faltaba de A4**
 
-| Pieza | Por qué quedó fuera |
+| Pieza | Por qué quedó fuera entonces | Estado |
+|---|---|---|
+| CRUD de `brands`, `suppliers`, `products` y `products/:id/variants` | Cada una necesita su repositorio, que todavía no existía (A1.2 los reparte entre las fases que los consumen). Son lo que consumen A5.2 y A5.3, no la pantalla de stock | ✅ Cerrado el 2026-10-27, ver el registro siguiente |
+| `GET/PUT /content/:key` | Igual, y además depende de los esquemas de contenido de A7.1 | ✅ Cerrado: la ruta versiona y audita; la validación **por clave** sigue siendo A7.1 |
+| `GET /audit` | Necesita un repositorio de lectura de `AuditLog`; nada de A5.1 lo consume | ✅ Cerrado el 2026-10-27 |
+| Puente AdminJS (A4.4) | Es opcional y desechable, y solo tiene sentido si hay que operar stock antes de A5. Con esta superficie ya se puede operar por API | ⬜ **Descartado**: ya no aporta nada |
+
+### Registro de ejecución A4 — cierre del CRUD (2026-10-27)
+
+Lo que A4 había dejado fuera: el CRUD de catálogo, el contenido y la auditoría.
+Con esto la superficie `/api/admin` queda completa y A5.2, A5.3 y A5.4 ya tienen
+API contra la que trabajar.
+
+**Lo que se añadió**
+
+| Archivo | Para qué |
 |---|---|
-| CRUD de `brands`, `suppliers`, `products` y `products/:id/variants` | Cada una necesita su repositorio, que todavía no existe (A1.2 los reparte entre las fases que los consumen). Son lo que consumen A5.2 y A5.3, no la pantalla de stock |
-| `GET/PUT /content/:key` | Igual, y además depende de los esquemas de contenido de A7.1 |
-| `GET /audit` | Necesita un repositorio de lectura de `AuditLog`; nada de A5.1 lo consume |
-| Puente AdminJS (A4.4) | Es opcional y desechable, y solo tiene sentido si hay que operar stock antes de A5. Con esta superficie ya se puede operar por API |
+| `backend/src/db/handle.ts` | `PrismaDbHandle`, `Db` y el `AuditSink` de Prisma, extraídos de `prisma-stock.repository.ts` para no repetirlos en cada repositorio nuevo |
+| `backend/src/repositories/catalog.repository.ts` (+ `prisma-`, `in-memory-`) | Marcas, proveedores, líneas y variantes. Las escrituras van dentro de `transaction()`, que entrega el destino de auditoría |
+| `backend/src/repositories/site-content.repository.ts` (+ `prisma-`, `in-memory-`) | `SiteContent` versionado por clave |
+| `backend/src/repositories/audit-view.repository.ts` (+ `prisma-`, `in-memory-`) | Lectura de `audit_logs`, con el correo del autor ya resuelto |
+| `backend/src/services/catalog.service.ts` | Las reglas del catálogo y **el único sitio que escribe precios** |
+| `backend/src/services/content.service.ts` | Publicar contenido: añade versión, no sobrescribe |
+| `backend/src/schemas/json.schema.ts` | JSON validado con tope de tamaño, para `Product.specs` y `SiteContent.value` |
+| `backend/src/schemas/admin/catalog.schema.ts`, `content.schema.ts`, `audit.schema.ts` | Los esquemas de la superficie |
+| `backend/src/routes/admin/brands.routes.ts`, `suppliers.routes.ts`, `products.routes.ts`, `content.routes.ts`, `audit.routes.ts` | Las rutas, montadas detrás del guardián que ya existía |
+| `backend/src/services/catalog.service.test.ts`, `content.service.test.ts`, `routes/admin/catalog.routes.test.ts` | 50 tests nuevos |
+
+El router del admin gana cuatro dependencias inyectables más (`catalog`,
+`catalogService`, `contentService`, `auditView`), con el mismo patrón que ya
+tenían `users`, `stockService` y `stockView`: en runtime las de Prisma, en los
+tests las de memoria.
+
+**Decisiones que hubo que tomar**
+
+- **Escribir es de `owner`; leer, de cualquier sesión.** La decisión #6 sigue
+  abierta, así que se tomó la lectura conservadora de «solo `owner` hoy»: el
+  `operator` conserva el inventario diario (que A4 ya le dio explícitamente) y
+  el catálogo, el contenido y la auditoría quedan para `owner`. Relajarlo es
+  quitar un `requireRole` por ruta.
+- **No hay `DELETE`.** El libro de inventario referencia variantes y
+  proveedores con `onDelete: Restrict`, y las líneas referencian marcas igual:
+  un borrado real rompería el rastro contable. Retirar algo es `active: false`;
+  retirar una línea, `status: 'draft'`. La API no ofrece la operación que la
+  base rechazaría.
+- **`PATCH`, no `PUT`, para las entidades.** La consola manda solo lo que el
+  formulario cambió, y así una pantalla que no conozca un campo nuevo no lo
+  borra sin querer. El contenido sí es `PUT`: ahí el valor entero *es* el
+  recurso.
+- **Qué falta para publicar se devuelve, no se adivina.** A5.3 pide avisar qué
+  falta (imagen, precio, al menos una variante activa). El detalle lo adelanta
+  en `meta.readiness` y el intento fallido responde `409` con `missing`, de modo
+  que el aviso de la pantalla y la regla del servidor son la misma lista.
+- **Las claves de contenido, en inglés** (`hero`, `trust-band`, `faq`, `seo`,
+  `contact`), como el resto del contrato de la API; el plan las nombraba en
+  español (`contacto`), igual que A3 y A4 ya desviaron `movimientos` →
+  `movements`.
+- **El contenido se versiona.** `PUT` inserta la versión *n+1* en vez de
+  sobrescribir, y `GET /:key/versions` lista el historial. Es lo que hace
+  reversible un texto cambiado por error, y de paso deja el `before` real en la
+  auditoría.
+
+**Un error que los tests revelaron**
+
+Derivar los esquemas de parche del cuerpo de creación con `.partial()` estaba
+mal: en **zod 4 `.partial()` conserva el `.default()`**, así que un
+`PATCH {active:false}` habría reescrito además `isPartner`, `sortOrder` y
+compañía con sus valores por defecto, y un `PATCH {}` habría pasado la
+validación. Cada entidad se declara ahora como un núcleo **sin** defaults, y de
+ahí salen las dos variantes: el cuerpo (núcleo + defaults) y el parche (núcleo
+en `.partial()`). El comportamiento de zod se comprobó aparte antes de escribir
+el arreglo.
+
+**Dos cosas que solo se veían en la ruta de Prisma**
+
+Los repositorios en memoria no pueden revelarlas, así que se revisaron a mano:
+
+- `deleteMany` **no existe en una escritura anidada de creación**. El vínculo
+  proveedor↔marcas compartía función para crear y para actualizar, lo que habría
+  hecho fallar la creación con `brandIds` en la primera llamada real. Ahora son
+  dos funciones.
+- Los lotes de lectura (página + total en una transacción) se abrían con
+  `client().$transaction([...])`. Prisma 7 tipa `$transaction` también en el
+  cliente de transacción, pero no las anida: si alguien inyectara un handle
+  transaccional —para lo que existe el handle— esa lectura habría reventado.
+  Ahora se abren por `this.db.transaction(...)`.
+
+**Verificado**
+
+| Comprobación | Resultado |
+|---|---|
+| `tsc` | ✅ Sin errores |
+| `npm run test:backend` | ✅ **124/124** (74 anteriores + 50 nuevos), sin tocar ninguna aserción previa |
+| `npm run build:backend` | ✅ Compila |
+| Reglas de publicación | ✅ Sin precio, sin imagen o sin variante activa: `409 NOT_PUBLISHABLE` con la lista en `missing`; con las tres, publica |
+| Transacción de una publicación fallida | ✅ No queda ni la línea a medias ni la fila de auditoría |
+| Slug de una línea publicada | ✅ `409 IMMUTABLE_SLUG`; en borrador sí se renombra |
+| Precio anterior | ✅ Tiene que ser mayor que el precio, y no se acepta sin precio |
+| Tipo de variante | ✅ Una línea no mezcla sabores con colores |
+| Última variante activa de una línea publicada | ✅ No se desactiva: `409`, con el mensaje de pasar la línea a borrador primero |
+| Slug de variante | ✅ Único dentro de la línea, repetible entre líneas |
+| `stock` en el cuerpo de una variante | ✅ Se descarta; el disponible sigue en cero y solo lo mueve `StockService` |
+| `userId` ajeno en el cuerpo | ✅ Ignorado: la auditoría queda firmada por la sesión |
+| Verbos de la auditoría | ✅ `product.publish` / `product.price` / `product.update` según el cambio, y el `before`/`after` recortado a lo que cambió |
+| `PATCH` vacío y `PATCH` que no cambia nada | ✅ 400 el primero; el segundo no escribe auditoría |
+| `operator` contra el CRUD y la auditoría | ✅ 403, y sin escribir nada; la lectura del catálogo sí la hace |
+| Identificador mal formado frente a inexistente | ✅ 400 y 404, que son cosas distintas |
+| Contenido | ✅ Publicar da `201` y versión 1; la segunda, versión 2; la lectura devuelve la última; clave fuera de la lista, 400; clave sin publicar, 404 |
+| Carrera por el número de versión | ✅ El choque del índice `[key, version]` sale como `409`, para que la consola reintente |
+
+**No verificado**
+
+- **Nada de esto ha hablado con RDS todavía.** Los tests sustituyen los
+  repositorios de Prisma por los de memoria, igual que en A3 y A4: lo que
+  comprueban son las reglas y el cableado de Express. La ruta de Prisma está
+  revisada a mano (ver los dos arreglos de arriba) pero no ejecutada; el primer
+  viaje real sigue bloqueado por la **dependencia #2** y por el túnel a la base.
+- **La validación por clave del contenido es A7.1.** Hoy `PUT /content/:key`
+  acepta cualquier objeto JSON de hasta 64 kB. El respaldo mientras tanto es el
+  del plan: el frontend hace `safeParse` y cae a los textos por defecto (A7.2),
+  así que un valor mal formado no deja la página sin texto.
+- **«Variantes abastecidas» por proveedor** (A5.2) no está: la ficha trae las
+  marcas y la fecha del último ingreso. Agregar el conteo exige recorrer el
+  libro, y es la pantalla la que debe decidir cómo se presenta.
 
 ## Fase A5 — Consola `/admin` en Next
 

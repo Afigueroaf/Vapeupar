@@ -39,7 +39,7 @@ backend/
 │   ├── repositories/    # Acceso a datos: interfaz + Prisma + memoria (tests)
 │   ├── routes/          # Rutas Express; routes/admin/ es la superficie autenticada
 │   ├── schemas/         # Esquemas de validación Zod; schemas/admin/ los del admin
-│   ├── services/        # Catálogo, inventario, auditoría y sesión con Cognito
+│   ├── services/        # Catálogo público y de consola, inventario, contenido, auditoría y sesión
 │   ├── types/           # Interfaces y tipos TypeScript compartidos (product.types.ts)
 │   ├── app.ts           # Armado de la aplicación (middlewares, CORS, límites, rutas)
 │   └── index.ts         # Arranque del proceso: escucha el puerto y cierra elegante
@@ -57,6 +57,14 @@ backend/
 Los servicios reciben su repositorio por constructor: en runtime el de Prisma, en
 los tests uno en memoria con un fixture propio. Las etiquetas de categoría solo se
 declaran en `src/catalog/categories.ts`.
+
+**Catálogo y contenido.** `catalog.service.ts` es el único código que escribe
+marcas, proveedores, líneas y variantes, y por tanto **el único que escribe
+precios**; `content.service.ts`, el único que publica contenido. Cada escritura
+deja su fila en `AuditLog` dentro de la misma transacción, firmada por el
+usuario de la sesión. Las reglas que el esquema documenta pero no puede imponer
+—qué falta para publicar, qué es inmutable, que una línea no mezcla sabores con
+colores— viven ahí y no en las rutas.
 
 **Inventario.** `stock.service.ts` es el único código que escribe movimientos y
 `Variant.stockCache`: cada operación bloquea la variante, valida signo, motivo,
@@ -80,8 +88,45 @@ nace protegida.
 | `GET /api/admin/stock` | sesión | Inventario paginado. `?q=&brandId=&lowStock=&threshold=&page=&limit=` |
 | `POST /api/admin/stock/movements` | sesión | Registra un movimiento. `201`, o `200` si fue un reintento (`replayed`) |
 | `GET /api/admin/stock/:variantId/kardex` | sesión | Kardex de la variante. `?from=&to=` |
+| `GET /api/admin/brands` | sesión | Marcas paginadas. `?q=&active=&isPartner=&page=&limit=` |
+| `GET /api/admin/brands/:id` | sesión | Una marca, con su número de líneas |
+| `POST /api/admin/brands` | **owner** | Crea la marca. `201` con la fila resultante |
+| `PATCH /api/admin/brands/:id` | **owner** | Cambia solo los campos que trae el cuerpo |
+| `GET /api/admin/suppliers` | sesión | Proveedores paginados. `?q=&active=&page=&limit=` |
+| `GET /api/admin/suppliers/:id` | sesión | Ficha con las marcas que trae y la fecha del último ingreso |
+| `POST /api/admin/suppliers` | **owner** | Crea el proveedor; `brandIds` fija el vínculo con marcas |
+| `PATCH /api/admin/suppliers/:id` | **owner** | Igual; `brandIds` reemplaza la lista completa |
+| `GET /api/admin/products` | sesión | Líneas paginadas, borradores primero, con el número de variantes (no las variantes). `?q=&brandId=&category=&status=&page=&limit=` |
+| `GET /api/admin/products/:id` | sesión | Ficha con sus variantes y `meta.readiness` (qué falta para publicar) |
+| `POST /api/admin/products` | **owner** | Crea la línea. Nace en `draft` salvo que se pida otra cosa |
+| `PATCH /api/admin/products/:id` | **owner** | Precio, specs, publicación. `409` con `missing` si falta algo para publicar |
+| `GET /api/admin/products/:id/variants` | sesión | Variantes de la línea, en su orden de aparición |
+| `POST /api/admin/products/:id/variants` | **owner** | Crea la variante. El stock nace en cero y no se acepta del cuerpo |
+| `PATCH /api/admin/products/:id/variants/:variantId` | **owner** | Nombre, imagen, orden y `active` |
+| `GET /api/admin/content` | sesión | Las claves de contenido disponibles |
+| `GET /api/admin/content/:key` | sesión | Última versión publicada de la clave. `404` si nunca se publicó |
+| `GET /api/admin/content/:key/versions` | sesión | Historial para volver atrás. `?limit=` |
+| `PUT /api/admin/content/:key` | **owner** | Publica una **versión nueva**; no sobrescribe. `201` |
+| `GET /api/admin/audit` | **owner** | Registro de escrituras. `?entity=&entityId=&action=&userId=&from=&to=&page=&limit=` |
 | `POST /api/admin/users/invite` | **owner** | Invita a la consola y crea la fila en `User` |
 | `POST /api/admin/users/:id/deactivate` | **owner** | Desactiva la fila y deshabilita la cuenta en el pool |
+
+**Escribir es de `owner`; leer, de cualquier sesión.** La decisión #6 del plan
+(si habrá `operator` y para qué) sigue abierta, así que el reparto es el
+conservador: el `operator` hace lo que A4 ya le dio, que es el inventario
+diario, y el catálogo, el contenido y la auditoría quedan para `owner`.
+Relajarlo es una línea por ruta.
+
+**No hay DELETE en ninguna de estas entidades.** El libro de inventario
+referencia variantes y proveedores con `onDelete: Restrict`, y las líneas
+referencian marcas igual: borrar de verdad rompería el rastro contable. Retirar
+algo es `active: false`, y retirar una línea es `status: 'draft'`.
+
+**Qué falta para publicar.** Una línea se publica con precio, imagen y al menos
+una variante activa (A5.3). El detalle lo adelanta en `meta.readiness` y el
+intento de publicar sin eso responde `409` con la lista en `missing`, para que la
+consola pueda decir qué falta en vez de solo negarse. Tampoco se renombra una
+línea publicada: su URL está indexada y renombrarla exige una redirección 301.
 
 **Sesión.** Los tokens de Cognito viven en cookies `httpOnly` + `SameSite=Strict`
 limitadas a `/api/admin` (y `Secure` en producción). El JavaScript de la consola
@@ -95,9 +140,10 @@ porque reintentar el login no cambiaría nada. Desactivar a alguien es, por tant
 una escritura en la base; Cognito solo se usa además para cerrarle las sesiones
 abiertas.
 
-**El autor no se acepta del cliente.** `POST /stock/movements` ignora cualquier
-`userId` del cuerpo y firma el movimiento con el de la sesión: lo que queda en
-`AuditLog` es quien lo hizo de verdad.
+**El autor no se acepta del cliente.** Ninguna escritura lee el autor del
+cuerpo: `POST /stock/movements` y todo el CRUD lo toman de la sesión, así que lo
+que queda en `AuditLog` es quien lo hizo de verdad. Un `userId` colado en el
+cuerpo se descarta antes de llegar al servicio.
 
 **Primer acceso.** La ruta de invitación exige ser `owner`, así que el primero
 entra por script:

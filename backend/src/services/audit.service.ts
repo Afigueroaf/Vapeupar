@@ -4,6 +4,11 @@
  * después, dentro de la misma transacción que la escritura: por eso recibe el
  * destino (`AuditSink`) del repositorio en lugar de tener uno propio.
  */
+/** Quién firma una escritura. Sale de la sesión, nunca del cuerpo. */
+export interface Author {
+  userId: string;
+}
+
 export interface AuditEntry {
   /** Nulo solo para procesos sin usuario (comandos de mantenimiento). */
   userId: string | null;

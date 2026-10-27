@@ -4,11 +4,22 @@ import { verifyAccessToken } from '../../services/token-verifier.js';
 import { requireAuth } from '../../middleware/require-auth.js';
 import { PrismaUserRepository } from '../../repositories/prisma-user.repository.js';
 import { PrismaStockViewRepository } from '../../repositories/prisma-stock-view.repository.js';
+import { PrismaCatalogRepository } from '../../repositories/prisma-catalog.repository.js';
+import { PrismaAuditViewRepository } from '../../repositories/prisma-audit-view.repository.js';
+import { AuditViewRepository } from '../../repositories/audit-view.repository.js';
+import { CatalogRepository } from '../../repositories/catalog.repository.js';
 import { StockViewRepository } from '../../repositories/stock-view.repository.js';
 import { UserRepository } from '../../repositories/user.repository.js';
+import { CatalogWriter, catalogService as defaultCatalogService } from '../../services/catalog.service.js';
+import { ContentWriter, contentService as defaultContentService } from '../../services/content.service.js';
 import { StockService, stockService as defaultStockService } from '../../services/stock.service.js';
+import { createAuditRouter } from './audit.routes.js';
 import { createAuthRouter } from './auth.routes.js';
+import { createBrandsRouter } from './brands.routes.js';
+import { createContentRouter } from './content.routes.js';
+import { createProductsRouter } from './products.routes.js';
 import { createStockRouter } from './stock.routes.js';
+import { createSuppliersRouter } from './suppliers.routes.js';
 import { createUsersRouter } from './users.routes.js';
 
 /**
@@ -22,6 +33,10 @@ export interface AdminRouterDeps {
   users?: UserRepository;
   stockService?: Pick<StockService, 'recordMovement' | 'getKardex'>;
   stockView?: StockViewRepository;
+  catalog?: CatalogRepository;
+  catalogService?: CatalogWriter;
+  contentService?: ContentWriter;
+  auditView?: AuditViewRepository;
   auth?: Pick<typeof cognito, 'login' | 'completeNewPassword' | 'signOut' | 'inviteUser' | 'disableUser'>;
   verify?: typeof verifyAccessToken;
   /** Se sustituye en los tests para no hablar con Cognito ni con la base. */
@@ -47,6 +62,15 @@ export function createAdminRouter(deps: AdminRouterDeps = {}): Router {
     stockService: deps.stockService ?? defaultStockService,
     stockView: deps.stockView ?? new PrismaStockViewRepository()
   }));
+
+  const catalog = deps.catalog ?? new PrismaCatalogRepository();
+  const catalogWriter = deps.catalogService ?? defaultCatalogService;
+
+  router.use('/brands', createBrandsRouter({ catalog, service: catalogWriter }));
+  router.use('/suppliers', createSuppliersRouter({ catalog, service: catalogWriter }));
+  router.use('/products', createProductsRouter({ catalog, service: catalogWriter }));
+  router.use('/content', createContentRouter({ service: deps.contentService ?? defaultContentService }));
+  router.use('/audit', createAuditRouter({ audit: deps.auditView ?? new PrismaAuditViewRepository() }));
 
   router.use('/users', createUsersRouter({ users, auth: deps.auth }));
 
