@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Surface } from "@/components/ui/surface";
 import { adminApi, errorMessage, type ProductWithReadiness } from "@/lib/admin-api";
-import type { AdminVariantRow, BrandRow } from "@/types/admin";
+import type { AdminVariantRow, BrandRow, Readiness } from "@/types/admin";
 import { gapsOf } from "./catalog";
 import { FormError } from "./form";
 import { ProductForm } from "./product-form";
@@ -82,16 +84,83 @@ export function ProductPanel({
     );
   }
 
+  const apply = (result: ProductWithReadiness) => {
+    setDetail(result);
+    onSaved(result, false);
+  };
+
   return (
-    <ProductForm
-      product={detail.product}
-      brands={brands}
-      readiness={detail.readiness}
-      onSaved={(result, created) => {
-        setDetail(result);
-        onSaved(result, created);
-      }}
-      onCancel={onCancel}
-    />
+    <div className="space-y-4">
+      {canWrite && <PublishBar detail={detail} onApplied={apply} />}
+      <ProductForm
+        product={detail.product}
+        brands={brands}
+        readiness={detail.readiness}
+        onSaved={(result, created) => {
+          setDetail(result);
+          onSaved(result, created);
+        }}
+        onCancel={onCancel}
+      />
+    </div>
+  );
+}
+
+/**
+ * Publicar y despublicar con un gesto.
+ *
+ * El estado también está en el formulario, pero ahí se pierde: quien acaba de
+ * poner el precio lee «no le falta nada para publicarse» y se va, convencido de
+ * que ya está. Publicar es la decisión que pide A5.3 que sea explícita, así que
+ * tiene su propio botón y su propia frase.
+ */
+function PublishBar({
+  detail,
+  onApplied,
+}: {
+  detail: ProductWithReadiness;
+  onApplied: (result: ProductWithReadiness) => void;
+}) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const published = detail.product.status === "published";
+  const readiness: Readiness = detail.readiness;
+
+  async function change(status: "draft" | "published") {
+    setError(null);
+    setPending(true);
+    try {
+      onApplied(await adminApi.updateProduct(detail.product.id, { status }));
+    } catch (cause) {
+      setError(errorMessage(cause, "No se pudo cambiar el estado"));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <Surface border={published ? "muted" : "line"} className="space-y-2 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-foreground">
+          {published
+            ? "Esta línea está publicada: se ve en el sitio."
+            : readiness.canPublish
+              ? "Está en borrador y no se ve en el sitio. Ya cumple lo necesario para publicarse."
+              : "Está en borrador y no se ve en el sitio."}
+        </p>
+        {published ? (
+          <Button variant="secondary" disabled={pending} onClick={() => change("draft")}>
+            {pending ? "Guardando…" : "Pasar a borrador"}
+          </Button>
+        ) : (
+          readiness.canPublish && (
+            <Button variant="secondary" disabled={pending} onClick={() => change("published")}>
+              {pending ? "Publicando…" : "Publicar"}
+            </Button>
+          )
+        )}
+      </div>
+      {error && <FormError>{error}</FormError>}
+    </Surface>
   );
 }

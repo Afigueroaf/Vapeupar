@@ -76,14 +76,30 @@ export function ProductCard({ product }: ProductCardProps) {
       </div>
 
       <div className="relative mt-5 aspect-square w-full overflow-hidden border-2 border-muted bg-background rounded-vp">
-        <Image
-          src={product.imageUrl}
-          alt={`${product.name} - ${product.brand} (${product.specs.flavorProfile || product.category})`}
-          fill
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          className="object-cover object-center"
-          loading="lazy"
-        />
+        {/*
+          Una línea publicada puede no tener imagen todavía (la clave del bucket
+          se carga en la consola, y las imágenes son A8). `next/image` lanza
+          error con `src=""`, y al pintarse esto en el servidor eso romperia la
+          página entera, así que el hueco se dibuja a mano.
+        */}
+        {product.imageUrl ? (
+          <Image
+            src={product.imageUrl}
+            alt={`${product.name} - ${product.brand} (${product.specs.flavorProfile || product.category})`}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover object-center"
+            loading="lazy"
+          />
+        ) : (
+          <div
+            className="flex h-full w-full items-center justify-center bg-surface"
+            role="img"
+            aria-label={`${product.name} - sin imagen`}
+          >
+            <span className="vp-label text-muted">SIN IMAGEN</span>
+          </div>
+        )}
 
         {isOnSale && (
           <PixelLabel variant="lime" className="absolute left-3 top-3">
