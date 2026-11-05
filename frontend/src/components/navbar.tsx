@@ -4,9 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Menu, ShoppingBag, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { PixelLabel } from "@/components/ui/pixel-label";
-import { waLink } from "@/lib/contact";
 
 interface NavbarProps {
   cartCount?: number;
@@ -34,19 +32,18 @@ const MOBILE_COLLECTIONS = [
 
 export function Navbar({ cartCount = 0 }: NavbarProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const whatsappHref = waLink("Hola Vapeupar, quiero consultar sobre su catálogo");
 
   const closeMenu = () => setMobileMenuOpen(false);
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b-2 border-line bg-background">
+    <header className="vp-glitch sticky top-0 z-40 w-full border-b-2 border-line bg-background">
       <div className="mx-auto flex max-w-vp items-center justify-between gap-6 px-4 py-4 sm:px-6 xl:px-10">
         <Link href="/" className="flex items-center" aria-label="Vapeupar, inicio">
           <Image
             src="/logo-detalle.svg"
             alt="Vapeupar"
-            width={1860}
-            height={926}
+            width={1319}
+            height={786}
             priority
             className="h-10 w-auto sm:h-12"
           />
@@ -70,20 +67,12 @@ export function Navbar({ cartCount = 0 }: NavbarProps) {
           </ul>
         </nav>
 
-        {/* Acciones */}
+        {/* Acciones.
+            El CTA de WhatsApp ya no vive aquí: pasó a `whatsapp-fab.tsx`, un
+            botón flotante permanente. En esta fila competia con el logo, la
+            navegación, el carrito y el menú, y desaparecía en cuanto el
+            visitante bajaba al catálogo. */}
         <div className="flex items-center gap-3">
-          {whatsappHref && (
-            <Button
-              variant="secondary"
-              href={whatsappHref}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-4 text-xs sm:text-[0.9375rem] sm:px-6"
-            >
-              WhatsApp
-            </Button>
-          )}
-
           <button
             type="button"
             className="relative flex size-11 items-center justify-center rounded-vp border-2 border-muted transition-colors hover:border-line"

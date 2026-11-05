@@ -71,21 +71,147 @@ export function AgeVerificationModal() {
   const [confirmedNow, setConfirmedNow] = useState(false);
   const [hasRejected, setHasRejected] = useState(false);
   const confirmButtonRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const isOpen = needsVerification && !confirmedNow;
 
   useEffect(() => {
-    if (isOpen) {
-      // Lock body scroll
-      document.body.style.overflow = "hidden";
-      // Focus confirm button
-      setTimeout(() => confirmButtonRef.current?.focus(), 100);
-    } else {
-      document.body.style.overflow = "";
-    }
+    if (!isOpen) return;
+
+    // POR QUÉ NO `document.body.style.overflow = "hidden"`: en iOS Safari el
+    // elemento que desplaza la página es `documentElement`, y el navegador
+    // ignora el `overflow` del `body`. El resultado era una puerta que en
+    // móvil no bloqueaba la navegación: el catálogo seguía desplazándose
+    // por detrás.
+    //
+    // El bloqueo que sí funciona en los dos sistemas es fijar el `body` y
+    // compensar el desplazamiento actual con `top` negativo. Al cerrar hay que
+    // devolverlo con `window.scrollTo`, o el visitante aparece de vuelta en el
+    // principio de la página.
+    const scrollY = window.scrollY;
+    const { style } = document.body;
+    const previous = {
+      position: style.position,
+      top: style.top,
+      left: style.left,
+      right: style.right,
+      width: style.width,
+      overflow: style.overflow,
+    };
+
+    style.position = "fixed";
+    style.top = `-${scrollY}px`;
+    style.left = "0";
+    style.right = "0";
+    style.width = "100%";
+    style.overflow = "hidden";
+
+    // El foco inicial va al botón de confirmación (§9.1). El temporizador se
+    // cancela en la limpieza: si la puerta se cierra antes de los 100ms, mover
+    // el foco a un botón ya desmontado lo robaría a la página.
+    const focusTimer = setTimeout(() => confirmButtonRef.current?.focus(), 100);
+
     return () => {
-      document.body.style.overflow = "";
+      clearTimeout(focusTimer);
+      style.position = previous.position;
+      style.top = previous.top;
+      style.left = previous.left;
+      style.right = previous.right;
+      style.width = previous.width;
+      style.overflow = previous.overflow;
+      window.scrollTo(0, scrollY);
     };
   }, [isOpen]);
+
+  /**
+   * Trampa de foco (§9.1).
+   *
+   * El diálogo es una puerta legal: mientras esté abierto, el teclado no puede
+   * salir de él. Hasta ahora solo se movía el foco inicial al botón de
+   * confirmación, de modo que un `Tab` más llevaba al catálogo de detrás: el
+   * contenido seguía siendo alcanzable con teclado y con lector de pantalla
+   * aunque la capa opaca lo tapase.
+   *
+   * Dos piezas, porque una sola no basta:
+   *
+   * 1. `keydown` en captura reparte el ciclo de `Tab` / `Shift+Tab` entre el
+   *    primero y el último elemento enfocable del diálogo.
+   * 2. `focusin` es la red de seguridad para todo lo que no pasa por `Tab`:
+   *    un clic en el fondo, un `autofocus` tardío, el rotor de VoiceOver o el
+   *    regreso desde la barra de direcciones. Si el foco aparece fuera, vuelve
+   *    dentro.
+   *
+   * La lista de enfocables se recalcula en cada pulsación a propósito: al
+   * rechazar, el diálogo cambia de contenido y pasa a tener un solo enlace.
+   */
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    const SELECTOR =
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
+      'textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+    // `getClientRects()` y no `offsetParent`: dentro de un contenedor
+    // `position: fixed` el segundo da resultados engañosos, y aquí hay
+    // rótulos que existen en el DOM pero están ocultos por punto de corte.
+    const focusables = () =>
+      [...dialog.querySelectorAll<HTMLElement>(SELECTOR)].filter(
+        (element) => element.getClientRects().length > 0
+      );
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      // La puerta no se descarta: `Escape` no cierra nada.
+      if (event.key === "Escape") {
+        event.preventDefault();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const items = focusables();
+      if (items.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      const inside = active instanceof Node && dialog.contains(active);
+
+      if (event.shiftKey && (!inside || active === first)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (!inside || active === last)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    const onFocusIn = (event: FocusEvent) => {
+      const target = event.target;
+      if (target instanceof Node && dialog.contains(target)) return;
+      (focusables()[0] ?? dialog).focus();
+    };
+
+    // Al pasar a la pantalla de rechazo, el botón enfocado se desmonta y el
+    // foco cae al `body` SIN emitir `focusin`, así que la red de seguridad no
+    // llega a enterarse. Se recoge aquí, que es donde sí hay un cambio de
+    // estado que observar.
+    if (!dialog.contains(document.activeElement)) {
+      (focusables()[0] ?? dialog).focus();
+    }
+
+    document.addEventListener("keydown", onKeyDown, true);
+    document.addEventListener("focusin", onFocusIn, true);
+
+    return () => {
+      document.removeEventListener("keydown", onKeyDown, true);
+      document.removeEventListener("focusin", onFocusIn, true);
+    };
+  }, [isOpen, hasRejected]);
 
   const handleConfirmAge = () => {
     try {
@@ -107,6 +233,10 @@ export function AgeVerificationModal() {
 
   return (
     <div
+      ref={dialogRef}
+      // `tabIndex={-1}` para que la red de seguridad pueda devolver el foco al
+      // propio diálogo si en algún instante no hubiera nada enfocable dentro.
+      tabIndex={-1}
       role="dialog"
       aria-modal="true"
       aria-labelledby="age-dialog-title"
@@ -115,89 +245,107 @@ export function AgeVerificationModal() {
       // la transparencia como recurso de jerarquía ni el desenfoque de fondo
       // (§2.7 y §3.5). Y esto no es un modal sobre contenido, es una puerta:
       // mostrar el catálogo difuminado detrás es justo lo que no debe pasar.
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background p-4"
+      //
+      // LA CAPA DESPLAZA, NO CENTRA. El texto legal mide ~700px en un teléfono
+      // de 360px de ancho, más que el alto de la pantalla. Con `flex
+      // items-center` aplicado aquí mismo, el cuadro se recortaba por arriba y
+      // por abajo y los dos botones quedaban fuera de la pantalla, sin forma de
+      // alcanzarlos: un `position: fixed` no se desplaza, y el scroll de la
+      // página está bloqueado a propósito. Eso es lo que hacía la puerta
+      // inaccionable en móvil.
+      //
+      // El centrado baja al hijo con `min-h-full`: cuando el contenido cabe
+      // queda centrado, y cuando no cabe crece y esta capa lo desplaza.
+      // `overscroll-contain` impide que el gesto se propague a la página.
+      className="fixed inset-0 z-50 overflow-y-auto overscroll-contain bg-background"
     >
-      {/*
-        Desplazamiento duro en violeta en lugar de `shadow-2xl`. No se usa la
-        prop `offset` de `Surface` porque su sombra es negra y aquí el fondo
-        también es negro: sería invisible.
-      */}
-      <div className="w-full max-w-md border-2 border-line bg-surface p-6 shadow-[8px_8px_0_0_var(--color-accent)] rounded-vp sm:p-8">
-        {!hasRejected ? (
-          <>
-            <PixelLabel variant="lime">[ +18 ]</PixelLabel>
+      <div className="flex min-h-full items-center justify-center p-4">
+        {/*
+          Desplazamiento duro en violeta en lugar de `shadow-2xl`. No se usa la
+          prop `offset` de `Surface` porque su sombra es negra y aquí el fondo
+          también es negro: sería invisible.
+        */}
+        <div className="w-full max-w-md border-2 border-line bg-surface p-5 shadow-[8px_8px_0_0_var(--color-accent)] rounded-vp sm:p-8">
+          {!hasRejected ? (
+            <>
+              <PixelLabel variant="lime">[ +18 ]</PixelLabel>
 
-            <h2
-              id="age-dialog-title"
-              className="mt-6 text-[1.75rem] font-bold uppercase leading-[0.95] tracking-[-0.01em]"
-            >
-              Bienvenido a Vapeupar
-            </h2>
-
-            <p className="mt-2 text-base text-muted">
-              Control legal de mayoría de edad
-            </p>
-
-            <p id="age-dialog-desc" className="mt-6 text-base leading-relaxed text-muted">
-              Este sitio web comercializa vaporizadores y líquidos con y sin nicotina. La legislación colombiana (Ley 1335 de 2009) y normas sanitarias prohíben estrictamente el suministro o venta de estos productos a menores de 18 años.
-            </p>
-
-            {/* Antes en `amber-400`, que está fuera de la paleta (§2.5). El
-                énfasis pasa a blanco pleno: 14.9:1 sobre el panel. */}
-            <p className="mt-4 text-base font-semibold text-foreground">
-              ¿Confirmas bajo juramento que tienes 18 años o más?
-            </p>
-
-            <div className="mt-8 flex flex-col gap-3">
-              {/*
-                Botón crudo con `buttonStyles()` y no `<Button>`: necesita la
-                `ref` que enfoca el diálogo al abrirse, y la primitiva no
-                reenvía refs. Es el caso para el que `buttonStyles()` existe.
-              */}
-              <button
-                ref={confirmButtonRef}
-                type="button"
-                onClick={handleConfirmAge}
-                // Excepción deliberada a la regla global de `:focus-visible`:
-                // el diálogo mueve el foco aquí por programa al abrirse, y
-                // Chrome no considera "visible" un foco programático en un
-                // botón sin interacción previa de teclado. Sin este `:focus`
-                // explícito, quien llegue con teclado y pulse Enter no vería
-                // dónde está el foco.
-                className={buttonStyles(
-                  "primary",
-                  "w-full focus:outline-2 focus:outline-offset-2 focus:outline-action"
-                )}
+              {/* Escala y ritmo más cortos por debajo de `sm` para que la puerta
+                  entre de una vez en una pantalla de teléfono. El texto legal es
+                  el mismo palabra por palabra (§9.1); solo baja a 14px, que sobre
+                  el panel sigue dando 7.1:1. */}
+              <h2
+                id="age-dialog-title"
+                className="mt-5 text-2xl font-bold uppercase leading-[0.95] tracking-[-0.01em] sm:mt-6 sm:text-[1.75rem]"
               >
-                Sí, soy mayor de 18 años
-              </button>
+                Bienvenido a Vapeupar
+              </h2>
 
-              <Button variant="secondary" className="w-full" onClick={handleRejectAge}>
-                No, soy menor de edad
+              <p className="mt-2 text-sm text-muted sm:text-base">
+                Control legal de mayoría de edad
+              </p>
+
+              <p id="age-dialog-desc" className="mt-5 text-sm leading-relaxed text-muted sm:mt-6 sm:text-base">
+                Este sitio web comercializa vaporizadores y líquidos con y sin nicotina. La legislación colombiana (Ley 1335 de 2009) y normas sanitarias prohíben estrictamente el suministro o venta de estos productos a menores de 18 años.
+              </p>
+
+              {/* Antes en `amber-400`, que está fuera de la paleta (§2.5). El
+                  énfasis pasa a blanco pleno: 14.9:1 sobre el panel. */}
+              <p className="mt-4 text-sm font-semibold text-foreground sm:text-base">
+                ¿Confirmas bajo juramento que tienes 18 años o más?
+              </p>
+
+              <div className="mt-6 flex flex-col gap-3 sm:mt-8">
+                {/*
+                  Botón crudo con `buttonStyles()` y no `<Button>`: necesita la
+                  `ref` que enfoca el diálogo al abrirse, y la primitiva no
+                  reenvía refs. Es el caso para el que `buttonStyles()` existe.
+                */}
+                <button
+                  ref={confirmButtonRef}
+                  type="button"
+                  onClick={handleConfirmAge}
+                  // Excepción deliberada a la regla global de `:focus-visible`:
+                  // el diálogo mueve el foco aquí por programa al abrirse, y
+                  // Chrome no considera "visible" un foco programático en un
+                  // botón sin interacción previa de teclado. Sin este `:focus`
+                  // explícito, quien llegue con teclado y pulse Enter no vería
+                  // dónde está el foco.
+                  className={buttonStyles(
+                    "primary",
+                    "w-full focus:outline-2 focus:outline-offset-2 focus:outline-action"
+                  )}
+                >
+                  Sí, soy mayor de 18 años
+                </button>
+
+                <Button variant="secondary" className="w-full" onClick={handleRejectAge}>
+                  No, soy menor de edad
+                </Button>
+              </div>
+
+              <p className="mt-5 text-xs text-muted sm:mt-6 sm:text-sm">
+                La verificación se renueva cada 30 días. Se exigirá documento de identidad físico en la entrega.
+              </p>
+            </>
+          ) : (
+            <>
+              <PixelLabel variant="violet">[ DENEGADO ]</PixelLabel>
+
+              <h3 className="mt-6 text-[1.75rem] font-bold uppercase leading-[0.95] tracking-[-0.01em]">
+                Acceso restringido
+              </h3>
+
+              <p className="mt-6 text-base leading-relaxed text-muted">
+                De acuerdo con la legislación de protección a la infancia y la adolescencia, el acceso a este catálogo está restringido para menores de edad.
+              </p>
+
+              <Button variant="secondary" href="https://www.google.com" className="mt-8 w-full">
+                Salir de la página
               </Button>
-            </div>
-
-            <p className="mt-6 text-sm text-muted">
-              La verificación se renueva cada 30 días. Se exigirá documento de identidad físico en la entrega.
-            </p>
-          </>
-        ) : (
-          <>
-            <PixelLabel variant="violet">[ DENEGADO ]</PixelLabel>
-
-            <h3 className="mt-6 text-[1.75rem] font-bold uppercase leading-[0.95] tracking-[-0.01em]">
-              Acceso restringido
-            </h3>
-
-            <p className="mt-6 text-base leading-relaxed text-muted">
-              De acuerdo con la legislación de protección a la infancia y la adolescencia, el acceso a este catálogo está restringido para menores de edad.
-            </p>
-
-            <Button variant="secondary" href="https://www.google.com" className="mt-8 w-full">
-              Salir de la página
-            </Button>
-          </>
-        )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

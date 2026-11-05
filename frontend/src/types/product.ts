@@ -21,6 +21,14 @@ export interface Product {
   imageUrl: string;
   galleryUrls?: string[];
   featured: boolean;
+  /**
+   * Elegida desde la consola para el prisma 3D de la portada.
+   *
+   * Independiente de `featured`: aquel es merchandising del catálogo y este
+   * decide qué se ve girando en la vitrina. Lo consume
+   * `components/prism/faces.ts`.
+   */
+  showcase: boolean;
   isNewArrival?: boolean;
   isBestSeller?: boolean;
   specs: {

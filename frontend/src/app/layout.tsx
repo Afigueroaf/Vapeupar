@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Oxanium, Press_Start_2P } from "next/font/google";
 import { PageGlitch } from "@/components/page-glitch";
+import { VP_BLACK } from "@/lib/brand";
 import "./globals.css";
 
 /**
@@ -27,6 +28,29 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 5,
+
+  /**
+   * Color de la barra del navegador en móvil.
+   *
+   * El manifiesto ya declaraba `theme_color`, pero eso SOLO vale cuando la
+   * aplicación está instalada en la pantalla de inicio. En una visita normal
+   * desde el teléfono —que es casi todas— quien manda es esta etiqueta, y sin
+   * ella la barra de direcciones salía con su color por defecto contra una
+   * página casi negra. El escritorio no tiene barra que igualar, así que era un
+   * desajuste que solo se veía en móvil.
+   */
+  themeColor: VP_BLACK,
+
+  /**
+   * Declara el documento como oscuro.
+   *
+   * Sin esto el navegador asume claro y pinta de claro todo lo que dibuja él y
+   * no la hoja de estilos: las barras de desplazamiento y, lo que más se nota,
+   * el desplegable NATIVO de los `<select>` del catálogo, que en un teléfono se
+   * abre como un selector del sistema a pantalla casi completa. Con el tema
+   * declarado, ese cromo acompaña a la paleta en lugar de contradecirla.
+   */
+  colorScheme: "dark",
 };
 
 export const metadata: Metadata = {

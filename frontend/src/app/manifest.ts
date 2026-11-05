@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { VP_BLACK } from "@/lib/brand";
 
 /**
  * Manifiesto de aplicación web.
@@ -8,8 +9,9 @@ import type { MetadataRoute } from "next";
  * forma del lanzador y únicamente respeta el 80 % central, así que el monograma
  * va con más aire en esa variante que en las demás.
  *
- * Los colores son los únicos literales del frontend fuera de `globals.css`: un
- * manifiesto es JSON y no puede leer los tokens. Equivalen a `--color-vp-black`.
+ * Un manifiesto es JSON y no puede leer un token de CSS, así que el color llega
+ * de `lib/brand.ts`, que es donde vive el literal compartido con la etiqueta
+ * `theme-color` del documento. Equivale a `--color-vp-black`.
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -19,8 +21,8 @@ export default function manifest(): MetadataRoute.Manifest {
       "Catálogo de vaporizadores desechables, pods recargables, sales de nicotina y accesorios en Valledupar.",
     start_url: "/",
     display: "standalone",
-    background_color: "#080808",
-    theme_color: "#080808",
+    background_color: VP_BLACK,
+    theme_color: VP_BLACK,
     lang: "es-CO",
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },

@@ -1,6 +1,35 @@
 @import "tailwindcss";
 
 /* ============================================================================
+   LA VARIANTE `hover`, REDEFINIDA
+   ----------------------------------------------------------------------------
+   Tailwind genera `hover:*` como `@media (hover: hover) { &:hover }`, de modo
+   que en un teléfono esas utilidades NO EXISTEN. Es la decisión correcta por
+   defecto —en táctil el `:hover` se queda pegado tras el toque— y es también
+   la razón por la que la mitad del sistema no se veía nunca desde un móvil.
+
+   El cursor táctil (`components/touch-cursor.tsx`) resuelve las dos cosas a la
+   vez: marca con `.vp-hot` la cadena de elementos que hay bajo su punta y
+   limpia la marca al salir, así que no se queda pegada. Añadiendo esa segunda
+   rama aquí, las ~30 utilidades `hover:*` repartidas por el proyecto responden
+   al cursor virtual sin tocar ni un componente.
+
+   SE CONSERVA LA RAMA ORIGINAL TAL CUAL: en escritorio nada cambia, y la clase
+   nunca llega allí porque el componente no se monta con puntero fino.
+   ========================================================================== */
+@custom-variant hover {
+  @media (hover: hover) {
+    &:hover {
+      @slot;
+    }
+  }
+
+  &.vp-hot {
+    @slot;
+  }
+}
+
+/* ============================================================================
    TOKENS DEL SISTEMA VP
    ----------------------------------------------------------------------------
    Tailwind v4 genera utilidades a partir de este bloque: `--color-action`
@@ -46,8 +75,60 @@
      A 1920px deja 192px por lado; el `max-w-7xl` anterior dejaba 320px. */
   --container-vp: 96rem;
 
+  /* --- Punto de corte extra ---
+     `sm` (640px) es demasiado tarde para el catálogo a 2 columnas: entre 320px
+     y 360px de pantalla la tarjeta baja de 138px y el CTA ya no tiene sitio
+     para su icono. 360px es el ancho de los teléfonos pequeños en uso; por
+     debajo están los de 2016 (iPhone SE de primera generación). */
+  --breakpoint-xs: 22.5rem;
+
   /* --- Movimiento --- */
   --ease-vp: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* ============================================================================
+   ANCHO DE LA COLUMNA DE TEXTO DE LA INTRO
+   ----------------------------------------------------------------------------
+   Tamaño objetivo del logotipo a partir de `xl`.
+
+   Vive aquí porque DOS secciones dependen de él y tienen que coincidir al
+   píxel: el hero fija con él su columna de texto (`hero.tsx`) y la banda de
+   confianza el ancho mínimo de la suya (`trust-band.tsx`). Esa coincidencia es
+   lo que hace que las dos rejillas resuelvan sus columnas igual y las tarjetas
+   queden exactamente bajo el vaporizador. Con el valor escrito en los dos
+   sitios, tocar uno desalinearía el otro en silencio.
+
+   VARIABLE NORMAL Y NO TOKEN DE `@theme`: el espacio `--container-*` de
+   Tailwind v4 solo genera `max-w-*`, y aquí hacen falta además `w-` y
+   `min-w-`. Se consume con valor arbitrario: `w-[var(--vp-lead)]`.
+   ========================================================================== */
+:root {
+  --vp-lead: 48.125rem;
+}
+
+/* ============================================================================
+   PROPIEDADES REGISTRADAS DE LA INCLINACIÓN
+   ----------------------------------------------------------------------------
+   `--vp-rx` / `--vp-ry` valen de -1 a 1 y dicen dónde está el puntero dentro
+   de la tarjeta (0,0 = centro). Las escribe `<CardField />` en el mismo
+   `requestAnimationFrame` que ya calcula el brillo.
+
+   SE REGISTRAN CON `@property` POR UN MOTIVO CONCRETO: una variable CSS normal
+   no interpola. Metida dentro de un degradado, al cambiar de valor saltaría de
+   una posición a otra en lugar de desplazarse, y la lámina del holograma se
+   vería a tirones. Declarando `syntax: "<number>"` el navegador sabe que es un
+   número y puede transicionarla.
+   ========================================================================== */
+@property --vp-rx {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
+}
+
+@property --vp-ry {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0;
 }
 
 /* ============================================================================
@@ -84,6 +165,16 @@ button {
   text-transform: uppercase;
 }
 
+/* Variante del reclamo bajo el logotipo de la portada.
+   Mismo tipo y las mismas restricciones —tres palabras, una línea—, pero a
+   10px debajo de un logotipo de 640px el reclamo se perdía. El tamaño va aquí
+   y no como utilidad de Tailwind porque `.vp-label` está fuera de capa y
+   ganaría a cualquier `text-*`. */
+.vp-label-lead {
+  font-size: 0.875rem; /* 14px */
+  letter-spacing: 0.14em;
+}
+
 /* ============================================================================
    FOCO VISIBLE
    ----------------------------------------------------------------------------
@@ -97,25 +188,105 @@ button {
 /* ============================================================================
    GLITCH RGB DE PÁGINA
    ----------------------------------------------------------------------------
-   Dos capas: el filtro SVG `#vp-rgb-glitch` separa los canales R/B del
-   contenido, y un velo de scanlines fijo sobre el viewport acompaña el burst.
+   Dos capas: un filtro SVG separa los canales R/B del contenido, y un velo de
+   scanlines fijo sobre el viewport acompaña el burst.
 
    `<PageGlitch />` marca `html.glitch-ready` mientras está montado, escribe
-   `--glitch-shift` (0–14, sin unidad) y alterna `html.glitch-active`.
+   `--glitch-shift` (0–17, sin unidad) y alterna `html.glitch-active`.
 
-   El filtro cuelga de `glitch-ready`, no de `glitch-active`: debe estar
-   aplicado de forma estable (con dx=0 es neutro) en vez de entrar y salir en
-   cada burst. Y es obligatorio que dependa del montaje, porque un
-   `filter: url(#id)` que apunte a un filtro inexistente hace que Chromium no
-   pinte el elemento: sin este gate, bajo `prefers-reduced-motion` —donde el
-   componente no monta nada— la página entera desaparecería.
+   EL FILTRO SOLO SE APLICA MIENTRAS DURA LA RÁFAGA, Y SOLO A LO QUE ESTÁ EN
+   PANTALLA. Dos condiciones, y las dos las pone `<PageGlitch />`:
 
-   El modal +18 queda FUERA de `.vp-glitch` a propósito: `filter` sobre un
-   ancestro lo convierte en bloque contenedor de sus descendientes
-   `position: fixed`, lo que rompería el overlay a pantalla completa.
+     html.glitch-armed   el efecto está vivo (entrada o ráfaga, más ~120 ms de
+                         precalentado antes de cada una)
+     .vp-glitch-on       este bloque concreto estaba a la vista cuando se armó
+
+   POR QUÉ. Antes el filtro colgaba solo de `glitch-ready`, o sea que estaba
+   aplicado durante toda la visita. Con `dx=0` es visualmente neutro, así que el
+   94% del tiempo se pagaba rasterizar cada bloque en una superficie aparte para
+   no cambiar ni un píxel. Y lo peor: los lienzos WebGL caen dentro de bloques
+   filtrados, de modo que cada fotograma de 3D invalidaba el filtro y lo obligaba
+   a recalcularse 60 veces por segundo. Medido en un Moto G15 (DPR 2,5), el
+   recorrido completo de la página pasaba de 49 fps con un parón de 532 ms a
+   59,5 fps quitando este filtro; ver `docs/performance-optimization-plan.md`.
+
+   La segunda condición es por área: el documento mide ~7000px y la pantalla
+   ~800. Filtrar los bloques que nadie está viendo es repintar ocho pantallas
+   para enseñar una. Lo que no está a la vista no se ve glitchear por
+   definición, así que el efecto es idéntico.
+
+   EL PRECALENTADO NO ES UN DETALLE. Poner y quitar `filter` promociona y degrada
+   capas de composición, y hacerlo en el primer fotograma de la ráfaga metería
+   justo ahí el tirón que esto viene a quitar. Armando ~120 ms antes con `dx=0`
+   —que no se ve—, el cambio de capa ocurre en un momento tranquilo y la ráfaga
+   arranca sobre una capa ya preparada. `will-change: filter` mientras está
+   armado se lo dice explícitamente al navegador, y se retira al desarmar para
+   no dejar capas colgando (que es el error clásico con esa propiedad).
+
+   SIGUE DEPENDIENDO DEL MONTAJE, y es obligatorio: un `filter: url(#id)` que
+   apunte a un filtro inexistente hace que Chromium no pinte el elemento. Como
+   `glitch-armed` solo se pone desde el efecto, bajo `prefers-reduced-motion`
+   —donde el componente no monta nada— no hay clase, no hay filtro y no hay
+   página invisible. `glitch-ready` se mantiene para quien quiera colgar de ahí
+   estilos que no sean el filtro.
+
+   POR QUÉ SE APLICA POR BLOQUES Y NO A LA PÁGINA ENTERA. Esto colgaba de un
+   único envoltorio en `page.tsx` que abarcaba todo el documento, y en móvil no
+   se veía: el navegador descarta un filtro cuyo búfer no puede rasterizar, y
+   un documento de unos 7000px en un teléfono de 360px con DPR 3 son ~1080×23000
+   píxeles de dispositivo, muy por encima del tamaño máximo de textura. En
+   escritorio el mismo documento sí cabe —más ancho, menos alto y DPR 1— y por
+   eso allí sí se veía. El botón flotante, de 56×56, nunca tuvo el problema:
+   era la única pieza que seguía glitcheando en el teléfono, y de esa asimetría
+   —mismo bucle, mismo `dx`, misma clase, distinto tamaño— salió el
+   diagnóstico.
+
+   Así que el filtro lo llevan BLOQUES, de la altura de una pantalla como mucho,
+   y nunca anidados: un filtro dentro de otro separaría los canales dos veces.
+   Lo que se ve es lo mismo que en escritorio, porque los huecos entre bloques
+   son fondo plano y separar los canales de un negro plano da negro. Y sale más
+   barato, porque solo se rasteriza lo que hay en pantalla en vez del documento
+   completo.
+
+   Tres variantes, que solo se diferencian en el margen de la región del filtro.
+   La región se mide en porcentaje de la caja y tiene que dar de sí más que el
+   desplazamiento máximo —17px: 14 de `GLITCH_MAX_SHIFT` más 3 de jitter—, o
+   las copias de color se cortan contra el borde:
+
+     .vp-glitch       franja  (8%, sirve de 210px de ancho para arriba) — nav,
+                      intro, banda, cabecera del catálogo, FAQ, pie, lienzo 3D
+     .vp-glitch-card  tarjeta (15%, desde 115px) — tarjeta de producto
+     .vp-glitch-chip  pieza   (40%, desde 45px)  — botón flotante de WhatsApp
+
+   La rejilla del catálogo no se filtra como bloque —crece con el catálogo, no
+   tiene techo de altura—: la lleva cada tarjeta. Y las `.vp-card` de la banda
+   de confianza no la llevan, porque ya van dentro de una franja filtrada.
+
+   El modal +18 queda FUERA de los tres a propósito: `filter` sobre un ancestro
+   lo convierte en bloque contenedor de sus descendientes `position: fixed`, lo
+   que rompería el overlay a pantalla completa.
    ========================================================================== */
-html.glitch-ready .vp-glitch {
+html.glitch-armed .vp-glitch.vp-glitch-on {
   filter: url(#vp-rgb-glitch);
+}
+
+html.glitch-armed .vp-glitch-card.vp-glitch-on {
+  filter: url(#vp-rgb-glitch-card);
+}
+
+/* El botón flotante lo lleva en SÍ MISMO, no en un ancestro. Un `filter`
+   convierte al elemento en bloque contenedor de sus descendientes
+   `position: fixed`, pero no afecta a su propio posicionamiento: por eso el
+   botón puede glitchear y seguir anclado al viewport, mientras que meterlo
+   dentro de una franja filtrada lo habría anclado al contenido. */
+html.glitch-armed .vp-glitch-chip.vp-glitch-on {
+  filter: url(#vp-rgb-glitch-chip);
+}
+
+/* Solo mientras está armado: `will-change` permanente es peor que no ponerlo,
+   porque mantiene una capa por bloque durante toda la visita. */
+html.glitch-armed .vp-glitch-on {
+  will-change: filter;
 }
 
 .vp-glitch-scanlines {
@@ -183,15 +354,97 @@ html.glitch-active .vp-glitch-scanlines {
    ========================================================================== */
 .vp-card {
   position: relative;
-  isolation: isolate;
+  /* `z-index: 0` Y NO `isolation: isolate`, QUE ES LO QUE HABÍA.
+     Los dos hacen exactamente el mismo trabajo aquí —crear un contexto de
+     apilamiento, que es lo que contiene la mezcla `screen` de la lámina y lo
+     que hace que los pseudo-elementos en `z-index` negativo se pinten encima
+     del fondo de la tarjeta en vez de detrás— pero `isolation` está en la
+     lista de propiedades que fuerzan `transform-style: flat` y `z-index` no.
+     Cambiar uno por otro es lo que le devuelve el giro al borde: ver la nota
+     de la inclinación, más abajo. */
+  z-index: 0;
   /* Lista explícita de propiedades: el efecto original usa `transition: 0.5s`,
      que es `transition: all` y acaba animando `visibility` y cualquier
      propiedad que se añada después (`docs/design-reset-inventory.md` §8.2). */
+  /* INCLINACIÓN 3D.
+     La `perspective()` va DENTRO de la transformada de la propia tarjeta, no
+     como propiedad `perspective` en un ancestro. La diferencia no es de estilo:
+     `perspective` en un ancestro lo convierte en bloque contenedor de sus
+     descendientes `position: fixed` —medido: un elemento fijo bajo un ancestro
+     con perspectiva se desplaza -300px al hacer scroll de 300— y eso rompería
+     la puerta +18 y el botón flotante igual que lo haría un `filter`.
+
+     11 grados, no los 20 del modelo de referencia: aquí dentro hay un precio
+     que leer y un CTA de 44px que pulsar, y a 20 grados el texto se deforma y
+     el objetivo táctil se escora.
+
+     EL PUNTO DE FUGA SE ALEJÓ (de 1200 a 2000px) EN VEZ DE ACERCARSE, que es
+     lo contrario de lo que pide la intuición. El motivo es que las dos cosas
+     que produce la profundidad no dependen de lo mismo:
+
+       separación al inclinar = Z * sen(ángulo)   ← no depende del punto de fuga
+       aumento de tamaño       = P / (P - Z)       ← sí depende, y es el efecto
+                                                      feo: texto inflado y
+                                                      capas corridas del sitio
+
+     Con P=1200 y Z=46 (lo que había) una capa se separaba 4.8px del fondo:
+     un matiz. Alejando el punto de fuga se pueden subir las Z mucho más
+     pagando poco tamaño: a P=2000 y Z=108, la separación sube a 20.6px —más
+     de cuatro veces— y el aumento se queda en el 5.7%. */
+  /* EL GIRO ESTÁ AQUÍ, EN LA TARJETA, Y NO EN UNA CAPA INTERIOR.
+     Importa cuál de los dos gira: lo que gira es lo que se ve inclinarse, y
+     el borde pertenece a la tarjeta. Con el giro en una capa interior el
+     contenido se inclinaba dentro de un marco que se quedaba quieto, y el
+     borde dejaba de responder al puntero.
+
+     Costaba trabajo dejarlo aquí. Para que una capa hija se adelante de
+     verdad al inclinar —paralaje— el elemento que gira tiene que conservar
+     el 3D de sus hijos, y el navegador lo aplana en cuanto el elemento forma
+     un grupo de composición. La tarjeta tenía DOS propiedades de esas.
+     Medido, con un giro fijo y comparando el desplazamiento de una capa a
+     Z=72 contra la misma capa a Z=0:
+
+       aislamiento + recorte ................. -5.1px   (no hay paralaje)
+       sin la lámina ......................... -5.1px
+       sin recorte, con aislamiento .......... -5.1px
+       sin aislamiento, con recorte .......... -5.1px
+       SIN aislamiento y SIN recorte ......... +17px    (paralaje real)
+
+     Las dos tenían un trabajo que hacer, así que en vez de renunciar a ellas
+     se reubicaron:
+
+       `isolation: isolate` -> `z-index: 0`, que crea el mismo contexto de
+       apilamiento sin aplanar (ver la nota de arriba).
+
+       `overflow: hidden`   -> se fue de la tarjeta a la propia lámina, que
+       era la única que necesitaba recorte porque desborda a propósito. La
+       imagen nunca lo necesitó: es `object-contain`.
+
+     Con las dos reubicadas, y midiendo el nombre con la tarjeta girando:
+
+       aislamiento + recorte (lo que había) ... 0.16px
+       z-index:0 + recorte ................... 0.16px
+       aislamiento + sin recorte ............. 0.16px
+       z-index:0 + SIN recorte ............... 12.85px
+
+     Hacen falta los dos cambios a la vez; cualquiera por separado no sirve de
+     nada.
+
+     11 grados, no los 20 del modelo de referencia: aquí dentro hay un precio
+     que leer y un CTA de 44px que pulsar, y a 20 grados el texto se deforma y
+     el objetivo táctil se escora. */
+  perspective: 2000px;
+  transform-style: preserve-3d;
+  transform: rotateX(calc(var(--vp-ry) * -11deg))
+    rotateY(calc(var(--vp-rx) * 11deg));
   transition:
     background-color 0.25s var(--ease-vp),
     border-color 0.25s var(--ease-vp),
     box-shadow 0.25s var(--ease-vp),
-    translate 0.25s var(--ease-vp);
+    translate 0.25s var(--ease-vp),
+    transform 0.2s linear,
+    --vp-rx 0.18s linear,
+    --vp-ry 0.18s linear;
 }
 
 .vp-card::before,
@@ -234,17 +487,314 @@ html.glitch-active .vp-glitch-scanlines {
   transition: opacity 0.3s var(--ease-vp);
 }
 
-/* Capa 3: estado activo. `:focus-within` espeja el hover para el teclado. */
-.vp-card:hover,
+/* Capa 3: estado activo. `:focus-within` espeja el hover para el teclado, y
+   `.vp-hot` lo espeja para el cursor táctil.
+
+   EL `:hover` REAL SE DESCUELGA CON EL CURSOR ENCENDIDO. No es un adorno: el
+   navegador decide el `:hover` por donde está el DEDO, que va 56px por debajo
+   de la punta del cursor y casi siempre sobre otra tarjeta. Sin la guarda se
+   encenderían dos a la vez, la señalada y la tapada por el dedo.
+
+   `:where()` para que la guarda no sume especificidad: el selector sigue
+   pesando lo mismo que `.vp-card:hover` pesaba solo. */
+:where(html:not([data-vp-cursor="on"])) .vp-card:hover,
+.vp-card.vp-hot,
 .vp-card:focus-within {
   border-color: var(--color-action);
   box-shadow: 4px 4px 0 0 var(--color-accent);
   translate: -2px -2px;
 }
 
-.vp-card:hover::after,
+:where(html:not([data-vp-cursor="on"])) .vp-card:hover::after,
+.vp-card.vp-hot::after,
 .vp-card:focus-within::after {
   opacity: 1;
+}
+
+/* ============================================================================
+   LÁMINA HOLOGRÁFICA
+   ----------------------------------------------------------------------------
+   Capa propia (`<span class="vp-holo">` en `product-card.tsx`) porque los dos
+   pseudo-elementos de `.vp-card` ya están ocupados por el campo y por el
+   brillo. Va en `z-index: -1`: DEBAJO del contenido, nunca encima. Un velo
+   sobre el texto le robaría contraste al gris `--color-muted`, que es justo el
+   que sostiene el 7.1:1 del sistema.
+
+   Dos capas de fondo:
+   - El destello blanco, que se mueve en sentido contrario al puntero.
+   - Las bandas de lámina, en lima y violeta. El modelo de referencia las
+     recorta con un PNG alojado en CodePen; aquí son un
+     `repeating-linear-gradient`, sin pedirle un recurso a un tercero.
+
+   LA MÁSCARA ES LO QUE PROTEGE LA LECTURA: el holograma vive a plena fuerza
+   sobre la etiqueta de marca y la imagen (el producto viene recortado, así que
+   la lámina se ve alrededor de su silueta) y se apaga al 10% a la altura del
+   nombre, el precio y el pie.
+
+   `mix-blend-mode: screen` aclara lo que tiene debajo; como `.vp-card` tiene
+   `isolation: isolate`, la mezcla no se escapa de la tarjeta.
+   ========================================================================== */
+.vp-holo {
+  position: absolute;
+  /* SE RECORTA ELLA SOLA. Antes desbordaba 28px y la recortaba el
+     `overflow: hidden` de la tarjeta; ese recorte tuvo que irse de la tarjeta
+     porque aplanaba el 3D (ver `.vp-card`), así que baja aquí, que es el
+     único sitio donde hacía falta: sin él la lámina se derramaría sobre las
+     tarjetas vecinas. Recortar aquí no cuesta nada, porque lo único que esta
+     capa tiene dentro es su propio `::before`.
+
+     El desborde se mantiene, pero movido al `::before`: la lámina ocupa justo
+     la tarjeta y el color nace 30px más afuera, de modo que el desenfoque
+     entra ya hecho por el borde en vez de desvanecerse contra él. */
+  inset: 0;
+  overflow: hidden;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.28;
+  mix-blend-mode: screen;
+  transition: opacity 0.35s var(--ease-vp);
+
+  /* La lámina se hunde detrás de todo. Al inclinar la tarjeta, el velo se
+     queda rezagado respecto a lo que flota delante, que es justamente lo que
+     hace que un holograma parezca tener fondo.
+
+     EL `scale` NO ES DECORATIVO: a 55px de distancia y con el punto de fuga a
+     2000, la perspectiva encoge esta capa un 2.7% (2000 / 2055). Antes daba
+     igual, porque desbordaba 28px por cada lado y sobraba tela; ahora que se
+     recorta justo en la tarjeta, ese 2.7% dejaría un marco apagado de unos
+     4px pegado al borde. 1.0275 es la inversa exacta del encogimiento. */
+  transform: translateZ(-55px) scale(1.0275);
+
+  /* ESTA CAPA SOLO RECORTA; EL COLOR LO PONE EL `::before`. No es una
+     floritura: con el degradado y el `filter: blur()` en el MISMO elemento,
+     Chrome desenfoca DESPUÉS de aplicar la máscara, y el velo se derrama unos
+     40px por debajo de donde la máscara lo corta. Medido en la franja del
+     precio anterior, con el puntero encima:
+
+       sin lámina (referencia) ............ 5.29:1
+       lámina con máscara, SIN desenfoque .. 5.29:1  (la máscara funciona)
+       lámina con máscara Y desenfoque ..... 4.78:1  (el desenfoque se derrama)
+       lámina con desenfoque, SIN máscara .. 3.06:1
+
+     Separándolas en padre e hijo el orden queda garantizado: el hijo se
+     desenfoca primero, y el padre recorta lo ya desenfocado.
+
+     ---------------------------------------------------------------------
+     LO QUE CUESTA LA LÁMINA, MEDIDO. Mismo punto (el precio anterior, gris
+     `--color-muted`, el texto más frágil de la tarjeta), leyendo los píxeles
+     reales del fondo tras volver el texto transparente:
+
+       sin lámina, sin puntero (referencia) ... 4.98:1
+       con lámina, sin puntero ................ 4.92:1
+       con lámina, puntero encima ............. 5.11:1
+       sin lámina, puntero encima ............. 5.29:1
+
+     El holograma cuesta 0.06 puntos. Y un aviso para quien venga después: el
+     7.1:1 que el inventario le atribuye a `--color-muted` es sobre el fondo
+     plano de la página; dentro de una tarjeta, el campo que ya existía antes
+     de todo esto lo deja en ~5:1. Sigue por encima del 4.5 de AA, pero el
+     margen real es ese y no el que dice la ficha. Si se tocan estas paradas,
+     hay que volver a medirlo. */
+  mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 50%,
+    rgb(0 0 0 / 0.07) 64%,
+    rgb(0 0 0 / 0.05) 100%
+  );
+}
+
+/* ----------------------------------------------------------------------------
+   DESTELLOS DIFUSOS, SIN UN SOLO BORDE DURO
+   ----------------------------------------------------------------------------
+   La primera versión pintaba franjas macizas: las paradas dobles del tipo
+   `0% 5%` mantienen un color plano durante todo el tramo y luego cortan en
+   seco, así que se veían listas con filo. Aquí cada color nace y muere en
+   transparente —una rampa, no un escalón— y el periodo es el doble de largo,
+   de modo que la transición se reparte en más píxeles.
+
+   El `blur` remata lo que el degradado no puede: deshace la juntura entre
+   rampas y convierte las bandas en halos. Es barato porque esta capa no tiene
+   contenido —solo fondo— y porque la opacidad, que es lo único que cambia al
+   pasar el puntero, vive en el padre y no obliga a rehacer el desenfoque.
+
+   El `inset: -30px` extra existe porque el desenfoque arrastra hacia dentro lo
+   que haya en el borde; sin material de sobra, la lámina se apagaba en una
+   orla alrededor de todo el contenido. */
+.vp-holo::before {
+  content: "";
+  position: absolute;
+  inset: -30px;
+  background:
+    radial-gradient(
+      ellipse 95% 72% at calc(50% + var(--vp-rx) * 24%) calc(44% + var(--vp-ry) * 24%),
+      color-mix(in srgb, var(--color-vp-white) 20%, transparent) 0%,
+      color-mix(in srgb, var(--color-vp-white) 8%, transparent) 42%,
+      transparent 78%
+    ),
+    repeating-linear-gradient(
+      calc(108deg + var(--vp-rx) * 14deg),
+      transparent 0%,
+      color-mix(in srgb, var(--color-action) 20%, transparent) 14%,
+      transparent 28%,
+      color-mix(in srgb, var(--color-accent) 24%, transparent) 42%,
+      transparent 56%
+    );
+  background-position:
+    0 0,
+    calc(var(--vp-rx) * -60px) calc(var(--vp-ry) * -60px);
+  filter: blur(18px);
+}
+
+
+/* LA GUARDA DE MEDIO NO ES DECORATIVA. Sin ella, en táctil `:hover` se queda
+   pegado tras el toque: medido en Chrome móvil, al levantar el dedo la tarjeta
+   seguía en `:hover` y la lámina se quedaba encendida al 92% hasta tocar en
+   otro sitio. Es el mismo motivo por el que el campo de la tarjeta ya se
+   limitaba a puntero fino más abajo. */
+@media (hover: hover) and (pointer: fine) {
+  .vp-card:hover .vp-holo {
+    opacity: 0.92;
+  }
+}
+
+/* El foco sí vale a cualquier ancho: llega por teclado, y ahí encender la
+   lámina señala qué tarjeta está activa sin depender del puntero. */
+.vp-card:focus-within .vp-holo {
+  opacity: 0.92;
+}
+
+/* Y el cursor táctil, que es la respuesta a la guarda de arriba: en un
+   teléfono la lámina se enciende por la punta del cursor, que es un punto
+   conocido y que se apaga al salir, en vez de por un `:hover` que se queda
+   clavado donde se tocó por última vez. */
+.vp-card.vp-hot .vp-holo {
+  opacity: 0.92;
+}
+
+/* En táctil la lámina responde al dedo mantenido. AVISO HONESTO: esto no se
+   ha podido confirmar con el emulador —Chrome no aplica `:active` a los
+   eventos de toque sintéticos del protocolo, verificado: `matches(':active')`
+   devuelve false con el dedo puesto—, así que queda pendiente de probarlo en
+   un teléfono real. Si no llegara a dispararse, en móvil la lámina se queda en
+   su 28% de reposo, que es un estado correcto y no un fallo visible. */
+@media (hover: none) {
+  :where(html:not([data-vp-cursor="on"])) .vp-card:active .vp-holo {
+    opacity: 0.9;
+  }
+}
+
+/* ----------------------------------------------------------------------------
+   PROFUNDIDAD DE LAS CAPAS
+   ----------------------------------------------------------------------------
+   Una sola regla; cada elemento declara a qué altura vuela donde se usa
+   (`[--vp-plano:32px]` en `product-card.tsx`). Así la escala de profundidad se
+   lee de un vistazo en el JSX en vez de estar repartida en cinco clases.
+
+   LAS ALTURAS SON PEQUEÑAS A PROPÓSITO. Con la perspectiva en 1200px, un
+   elemento a 46px se dibuja un 4% más grande (1200 / (1200 - 46)), y lo que
+   está lejos del centro se desplaza hacia afuera en esa misma proporción. Con
+   estos valores el máximo son 4 píxeles de corrimiento, que la tarjeta absorbe
+   con su propio relleno. Subirlos agranda el texto, lo desplaza y acaba
+   recortándose contra el borde.
+
+   NO MUEVE LA MAQUETACIÓN: `translateZ` solo cambia cómo se pinta, no la caja
+   que el navegador reserva. La rejilla sigue alineada exactamente igual. */
+/* ----------------------------------------------------------------------------
+   LA ESCENA
+   ----------------------------------------------------------------------------
+   Hereda el punto de fuga de la tarjeta, gira, y —esto es lo único que no
+   podía hacer la tarjeta— conserva el 3D de sus hijos. Ocupa todo el hueco
+   (`flex-1`) para que el `mt-auto` del pie siga empujando contra el borde de
+   abajo.
+
+   11 grados, no los 20 del modelo de referencia: aquí dentro hay un precio que
+   leer y un CTA de 44px que pulsar, y a 20 grados el texto se deforma y el
+   objetivo táctil se escora. */
+/* La columna de contenido. YA NO GIRA —el giro volvió a la tarjeta, con su
+   borde— pero sigue haciendo falta: es quien mantiene el 3D vivo para las
+   capas `.vp-plano`, que tienen que ser hijas DIRECTAS suyas. */
+.vp-escena {
+  transform-style: preserve-3d;
+}
+
+.vp-plano {
+  transform: translateZ(var(--vp-plano, 0));
+}
+
+/* ----------------------------------------------------------------------------
+   SOMBRA PROYECTADA DE LAS CAPAS
+   ----------------------------------------------------------------------------
+   La inclinación sola no basta: en reposo la tarjeta está de frente y una capa
+   empujada en Z únicamente se ve un 5% más grande, que nadie lee como
+   volumen. Lo que despega de verdad una cosa de su fondo es su sombra.
+
+   SIN DESENFOQUE (§3.3 del inventario: nada de sombras difusas). Es sombra
+   dura, de las del sistema, y por eso encaja con el `4px 4px 0` de los
+   botones en vez de pelearse con él.
+
+   El desplazamiento tiene dos sumandos:
+   - Uno fijo hacia abajo, proporcional a la altura de la capa: existe en
+     reposo, y es lo que da volumen sin tocar el ratón.
+   - Otro que sigue al puntero: la sombra se va al lado contrario del gesto,
+     como si la luz viniera de donde está el cursor.
+
+   Ambos se calculan DESDE `--vp-plano`, así que una capa más alta proyecta
+   más sombra sin que haya que ajustar nada a mano. `calc()` admite
+   longitud * número, y `--vp-rx` / `--vp-ry` están registradas como número
+   con `@property`, de modo que la multiplicación es válida. */
+.vp-plano-sombra {
+  box-shadow:
+    calc(var(--vp-plano, 0px) * var(--vp-rx) * -0.16)
+    calc(var(--vp-plano, 0px) * var(--vp-ry) * -0.16 + var(--vp-plano, 0px) * 0.1)
+    0 0 rgb(0 0 0 / 0.55);
+}
+
+/* SOMBRA DURA DEL TEXTO PROYECTADO.
+   Misma idea que `.vp-plano-sombra` pero con `text-shadow`, que sigue las
+   letras en vez de la caja. Sin ella el texto se adelanta y no se nota: la
+   medición dice que el nombre se separa 11.6px del fondo, pero en la captura
+   no había ninguna pista visual de esa distancia, porque un bloque de texto
+   sin borde no tiene silueta que proyectar.
+
+   LOS FACTORES SON LA MITAD QUE LOS DE LA CAJA (-0.07 frente a -0.16): una
+   sombra dura detrás de una letra deja de leerse como relieve y pasa a
+   leerse como texto mal impreso en cuanto se separa demasiado. A 56px de
+   altura y con el puntero en la esquina, el desplazamiento máximo es de
+   3.9px horizontales y 2.5px verticales.
+
+   SOLO PARA EL TEXTO FUERTE —nombre y precio—, nunca para el gris
+   `--color-muted` de la descripción, las especificaciones y el tachado: ese
+   gris mide 4.67:1 sobre la lámina encendida (AA pide 4.5) y no tiene margen
+   para que le oscurezcan los bordes. */
+.vp-plano-texto {
+  text-shadow:
+    calc(var(--vp-plano, 0px) * var(--vp-rx) * -0.07)
+    calc(var(--vp-plano, 0px) * var(--vp-ry) * -0.07 + var(--vp-plano, 0px) * 0.045)
+    0 rgb(0 0 0 / 0.75);
+}
+
+/* Movimiento reducido: la tarjeta se queda plana y las capas se posan.
+   `<CardField />` ya no publica las variables en ese caso, pero las reglas lo
+   dejan por escrito y cubren cualquier valor heredado. */
+@media (prefers-reduced-motion: reduce) {
+  .vp-card,
+  .vp-escena {
+    transform: none;
+  }
+
+  .vp-plano,
+  .vp-holo {
+    transform: none;
+  }
+
+  .vp-plano-sombra {
+    box-shadow: none;
+  }
+
+  .vp-plano-texto {
+    text-shadow: none;
+  }
 }
 
 /* El entorno se apaga solo con puntero fino: en táctil el `:hover` se queda
@@ -253,6 +803,54 @@ html.glitch-active .vp-glitch-scanlines {
   .vp-field:has(.vp-card:hover) .vp-card:not(:hover)::before {
     opacity: 0.2;
   }
+}
+
+/* Con el cursor táctil sí se puede: la marca entra y sale con la punta, así
+   que atenuar el resto del campo vuelve a ser reversible. */
+.vp-field:has(.vp-card.vp-hot) .vp-card:not(.vp-hot)::before {
+  opacity: 0.2;
+}
+
+/* ============================================================================
+   CONTORNO DE SILUETA
+   ----------------------------------------------------------------------------
+   La tarjeta de producto ya no encierra la foto en un recuadro: el borde lo
+   dibuja la propia imagen. `drop-shadow` lee el canal alfa, así que cuatro
+   copias desplazadas un píxel en cruz trazan una línea que SIGUE la forma del
+   producto. Las imágenes del catálogo son WebP con alfa (VP8X + ALPH), y esa
+   es la condición para que esto funcione.
+
+   Por qué `drop-shadow` y no `outline`, `border` ni `box-shadow`: esas tres se
+   aplican a la caja del elemento, no al contenido, y devolverían el mismo
+   rectángulo que se acaba de quitar.
+
+   Por qué cuatro filtros y no ocho: cada `drop-shadow` se aplica al resultado
+   del anterior, de modo que la propagación ya cubre las diagonales; añadir las
+   cuatro direcciones diagonales solo engordaría el contorno.
+
+   Desenfoque 0 explícito: el sistema no admite sombra difusa
+   (`docs/design-reset-inventory.md` §3.3).
+
+   Degradación: si la imagen es opaca —como las fotos de respaldo de Unsplash—
+   su alfa es un rectángulo y el contorno se lee como un filo de 1px en el
+   canto. No se rompe; solo deja de ser silueta.
+   ========================================================================== */
+.vp-silhouette {
+  --vp-silhouette-color: var(--color-line);
+  filter:
+    drop-shadow(1px 0 0 var(--vp-silhouette-color))
+    drop-shadow(-1px 0 0 var(--vp-silhouette-color))
+    drop-shadow(0 1px 0 var(--vp-silhouette-color))
+    drop-shadow(0 -1px 0 var(--vp-silhouette-color))
+    /* La sombra del producto, con la forma del producto: `drop-shadow` lee el
+       canal alfa, así que sigue su silueta en vez de dibujar un rectángulo.
+       Sin desenfoque (§3.3). En reposo cae 7px hacia abajo —de ahí el volumen
+       cuando nadie toca nada— y al mover el puntero se va al lado contrario
+       del gesto. */
+    drop-shadow(
+      calc(var(--vp-rx) * -16px) calc(var(--vp-ry) * -16px + 7px) 0
+        rgb(0 0 0 / 0.6)
+    );
 }
 
 /* ============================================================================
@@ -267,4 +865,90 @@ html.glitch-active .vp-glitch-scanlines {
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ============================================================================
+   CURSOR TÁCTIL
+   ----------------------------------------------------------------------------
+   Solo la parte que tiene que vivir en la hoja de estilos. El gesto, las zonas
+   de desplazamiento y los eventos sintéticos están en
+   `components/touch-cursor.tsx`; los números, en `lib/touch-cursor.ts`.
+   ========================================================================== */
+
+/* EN TÁCTIL NO SE SELECCIONA TEXTO, Y SE APAGA DE ENTRADA.
+   ----------------------------------------------------------------------------
+   Esto estaba colgado de `[data-vp-cursor="on"]`, es decir que entraba 350 ms
+   TARDE: mientras el dedo esperaba a cumplir el tiempo, el navegador ya había
+   arrancado su propia selección —la de las pinzas azules y la barra de
+   copiar—, y apagarla después no la retira. El resultado era que el gesto para
+   encender el cursor seleccionaba el párrafo que hubiera debajo.
+
+   Así que la selección no se apaga durante el gesto: no existe en el teléfono.
+   El mismo medio que monta el cursor (`components/touch-cursor.tsx` solo se
+   monta con puntero grueso), de modo que el escritorio conserva intacto el
+   seleccionar y copiar.
+
+   COSTE ACEPTADO: desde el móvil ya no se puede seleccionar un precio ni el
+   nombre de un producto para copiarlos. El pedido va por WhatsApp con el
+   mensaje ya redactado (`lib/contact.ts`), que es el único sitio donde hacía
+   falta copiar algo.
+
+   LOS CAMPOS DE FORMULARIO QUEDAN FUERA: sin selección no hay cursor de texto
+   que arrastrar, y editar lo escrito se vuelve imposible. Afecta a la búsqueda
+   del catálogo y a la consola de administración, que comparten esta hoja. */
+@media (hover: none) and (pointer: coarse) {
+  html {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  input,
+  textarea,
+  [contenteditable=""],
+  [contenteditable="true"] {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+}
+
+/* Mientras el cursor está encendido el dedo deja de ser un dedo: no desplaza,
+   no selecciona y no abre el menú de la pulsación larga.
+
+   `touch-action: none` NO ES SUFICIENTE por sí solo y está aquí como segunda
+   línea: el navegador fija el valor al EMPEZAR el gesto, y el cursor nace
+   350 ms después. Lo que de verdad frena el desplazamiento es el
+   `preventDefault` sobre `touchmove` del componente. Esta declaración cubre el
+   gesto siguiente y los navegadores que reevalúan la propiedad.
+
+   De la selección y del menú contextual ya se ha encargado el bloque de
+   arriba, que no espera al gesto. Repetirlos aquí no añadiría nada: este
+   atributo solo puede existir donde ese medio ya ha dado positivo, porque el
+   componente que lo escribe tampoco se monta en ningún otro sitio. */
+html[data-vp-cursor="on"] {
+  touch-action: none;
+  /* El desplazamiento lo pide el bucle fotograma a fotograma: si la página
+     tuviera desplazamiento suave, cada petición arrancaría una animación y la
+     siguiente la interrumpiría. */
+  scroll-behavior: auto;
+}
+
+/* La capa del cursor existe siempre —sus nodos se mueven por atributo, no por
+   render de React— y solo se enciende con el gesto. */
+.vp-cursor-layer {
+  opacity: 0;
+  transition: opacity 0.12s var(--ease-vp);
+}
+
+.vp-cursor-layer[data-on] {
+  opacity: 1;
+}
+
+/* El rótulo se retira mientras el cursor está en uso: ya se ha entendido. */
+.vp-cursor-hint {
+  transition: opacity 0.2s var(--ease-vp);
+}
+
+html[data-vp-cursor="on"] .vp-cursor-hint {
+  opacity: 0;
 }

@@ -25,7 +25,7 @@ export function Footer() {
   const phoneHref = telLink();
 
   return (
-    <footer className="border-t-2 border-line pb-10 pt-12">
+    <footer className="vp-glitch border-t-2 border-line pb-10 pt-12">
       {/* Obligatory health and legal warning for nicotine products */}
       <div className="mx-auto max-w-vp px-4 sm:px-6 xl:px-10">
         <div className="border-2 border-accent bg-surface p-5 rounded-vp sm:p-6">
@@ -45,8 +45,8 @@ export function Footer() {
           <Image
             src="/logo-detalle.svg"
             alt="Vapeupar"
-            width={1860}
-            height={926}
+            width={1319}
+            height={786}
             className="h-9 w-auto"
           />
 

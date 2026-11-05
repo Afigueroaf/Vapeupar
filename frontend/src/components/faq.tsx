@@ -68,7 +68,7 @@ export function FAQ() {
     <section
       id="faq"
       aria-label="Preguntas Frecuentes"
-      className="border-t-2 border-line scroll-mt-20"
+      className="vp-glitch border-t-2 border-line scroll-mt-20"
     >
       <div className="mx-auto grid max-w-vp gap-10 px-4 py-16 sm:px-6 xl:px-10 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
         <div>

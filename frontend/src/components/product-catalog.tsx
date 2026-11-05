@@ -112,7 +112,7 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
       <div id="pods" className="scroll-mt-24" />
       <div id="liquidos" className="scroll-mt-24" />
 
-      <div className="flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
+      <div className="vp-glitch flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
         <div>
           <PixelLabel variant="outline">[ CATALOGO ]</PixelLabel>
 
@@ -148,7 +148,7 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
         id="colecciones"
         role="group"
         aria-label="Filtro de categorías"
-        className="mt-10 flex flex-wrap gap-3 scroll-mt-24"
+        className="vp-glitch mt-10 flex flex-wrap gap-3 scroll-mt-24"
       >
         {CATEGORIES.map((cat) => (
           <button
@@ -163,13 +163,29 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
         ))}
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t-2 border-muted pt-6">
+      {/*
+        Fila de filtros.
+
+        EN MÓVIL SE APILA Y LOS CONTROLES LLENAN EL ANCHO. Antes era una fila
+        envolvente con los dos selectores a ancho fijo de escritorio (192px y
+        208px): sobre los 328px útiles de un teléfono de 360px no cabían juntos,
+        así que caían a dos líneas y, como el grupo de orden lleva `ml-auto`,
+        uno quedaba pegado a la izquierda y el otro a la derecha. El buscador de
+        arriba ya se había hecho responsive (`w-full md:w-80`) y estos dos se
+        quedaron atrás.
+
+        El `ml-auto` pasa a `sm:ml-auto`: en columna no tiene nada que empujar y
+        solo servía para desalinear.
+      */}
+      <div className="vp-glitch mt-6 flex flex-col gap-4 border-t-2 border-muted pt-6 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         {brands.length > 2 && (
           <div className="flex items-center gap-3">
-            <label htmlFor="brand-select" className="text-[0.9375rem] text-muted">
+            {/* `shrink-0`: en la fila de móvil el selector se lleva el espacio
+                sobrante y la etiqueta no debe partirse para dárselo. */}
+            <label htmlFor="brand-select" className="shrink-0 text-[0.9375rem] text-muted">
               Marca
             </label>
-            <div className="w-48">
+            <div className="flex-1 sm:w-48 sm:flex-none">
               <SelectField
                 id="brand-select"
                 value={selectedBrand}
@@ -184,11 +200,11 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
           </div>
         )}
 
-        <div className="flex items-center gap-3 ml-auto">
-          <label htmlFor="sort-select" className="text-[0.9375rem] text-muted">
+        <div className="flex items-center gap-3 sm:ml-auto">
+          <label htmlFor="sort-select" className="shrink-0 text-[0.9375rem] text-muted">
             Ordenar
           </label>
-          <div className="w-52">
+          <div className="flex-1 sm:w-52 sm:flex-none">
             <SelectField
               id="sort-select"
               value={sortBy}
@@ -206,14 +222,20 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
       {filteredProducts.length > 0 ? (
         <CardField
           watch={filteredProducts.length}
-          className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
+          // 2 columnas en móvil y 4 en escritorio, con un paso de 3 en tablet
+          // para no saltar de 2 tarjetas anchas a 4 estrechas de golpe.
+          // El `gap` baja a 12px en móvil: con 2 columnas sobre 328px útiles,
+          // cada 12px de hueco son 6px que se le quitan a cada tarjeta.
+          // `product-card.tsx` entra en modo compacto por debajo de `sm` para
+          // acompañar este ancho.
+          className="mt-10 grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-4"
         >
-          {filteredProducts.map((product) => (
-            <ProductCard key={product.id} product={product} />
+          {filteredProducts.map((product, index) => (
+            <ProductCard key={product.id} product={product} eagerImage={index === 0} />
           ))}
         </CardField>
       ) : (
-        <Surface className="mt-12 flex flex-col items-center p-12 text-center">
+        <Surface className="vp-glitch mt-12 flex flex-col items-center p-12 text-center">
           {/* Sin tilde ni eñe a propósito: Press Start 2P no garantiza esos
               glifos, y una etiqueta mal escrita es peor que una neutra. */}
           <PixelLabel variant="violet">[ 0 RESULTADOS ]</PixelLabel>

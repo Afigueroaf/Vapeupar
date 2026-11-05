@@ -25,6 +25,7 @@ export const FALLBACK_PRODUCTS: Product[] = [
     stock: 24,
     imageUrl: "https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=600&q=80",
     featured: true,
+    showcase: true,
     isBestSeller: true,
     specs: {
       puffCount: 10000,
@@ -50,6 +51,7 @@ export const FALLBACK_PRODUCTS: Product[] = [
     stock: 12,
     imageUrl: "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80",
     featured: true,
+    showcase: true,
     isNewArrival: true,
     specs: {
       nicotineStrength: "Variable según e-líquido",
@@ -73,6 +75,7 @@ export const FALLBACK_PRODUCTS: Product[] = [
     stock: 35,
     imageUrl: "https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=600&q=80",
     featured: true,
+    showcase: true,
     specs: {
       nicotineStrength: "35mg (3.5%)",
       flavorProfile: "Mango Tropical Maduro",
@@ -93,6 +96,7 @@ export const FALLBACK_PRODUCTS: Product[] = [
     stock: 8,
     imageUrl: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=600&q=80",
     featured: true,
+    showcase: true,
     isBestSeller: true,
     specs: {
       nicotineStrength: "Variable",
@@ -116,6 +120,7 @@ export const FALLBACK_PRODUCTS: Product[] = [
     stock: 19,
     imageUrl: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=600&q=80",
     featured: false,
+    showcase: true,
     specs: {
       puffCount: 10000,
       nicotineStrength: "50mg (5%)",
@@ -139,6 +144,7 @@ export const FALLBACK_PRODUCTS: Product[] = [
     stock: 0,
     imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=600&q=80",
     featured: false,
+    showcase: true,
     specs: {
       nicotineStrength: "N/A",
       resistance: "0.2 / 0.3 / 0.8 ohm"
