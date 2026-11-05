@@ -6,6 +6,7 @@ import { TextAreaField, TextField } from "@/components/ui/field";
 import { adminApi, errorMessage } from "@/lib/admin-api";
 import type { BrandRow, SupplierDetail, SupplierInput, SupplierRow } from "@/types/admin";
 import { CheckField, FieldGroup, FormError, Labelled } from "./form";
+import { ImageUploadField } from "./image-upload-field";
 
 /**
  * Alta y edición de proveedor, con el vínculo N↔N con marcas (plan A5.2).
@@ -33,6 +34,14 @@ export function SupplierForm({ supplier, brands, onSaved, onCancel }: SupplierFo
   const [whatsapp, setWhatsapp] = useState(supplier?.whatsapp ?? "");
   const [paymentTerms, setPaymentTerms] = useState(supplier?.paymentTerms ?? "");
   const [notes, setNotes] = useState(supplier?.notes ?? "");
+  const [imageKey, setImageKey] = useState(supplier?.imageKey ?? "");
+  /**
+   * Una carga cuenta como cambio aunque la clave sea la misma: es el caso
+   * normal al reemplazar la imagen de una entidad que ya tenía una, porque la
+   * clave se deriva de la entidad. Sin esto el PATCH saldría vacío y el
+   * formulario diría que no hay nada que guardar justo después de subirla.
+   */
+  const [imageUploaded, setImageUploaded] = useState(false);
   const [active, setActive] = useState(supplier?.active ?? true);
   const [brandIds, setBrandIds] = useState<string[]>(
     supplier ? supplier.brands.map((brand) => brand.id) : [],
@@ -61,6 +70,7 @@ export function SupplierForm({ supplier, brands, onSaved, onCancel }: SupplierFo
       whatsapp: text(whatsapp),
       paymentTerms: text(paymentTerms),
       notes: text(notes),
+      imageKey: text(imageKey),
       active,
       brandIds,
     };
@@ -79,6 +89,7 @@ export function SupplierForm({ supplier, brands, onSaved, onCancel }: SupplierFo
       if (values.whatsapp !== supplier.whatsapp) patch.whatsapp = values.whatsapp;
       if (values.paymentTerms !== supplier.paymentTerms) patch.paymentTerms = values.paymentTerms;
       if (values.notes !== supplier.notes) patch.notes = values.notes;
+      if (values.imageKey !== supplier.imageKey || imageUploaded) patch.imageKey = values.imageKey;
       if (values.active !== supplier.active) patch.active = values.active;
       if ([...brandIds].sort().join() !== original.join()) patch.brandIds = brandIds;
 
@@ -161,6 +172,21 @@ export function SupplierForm({ supplier, brands, onSaved, onCancel }: SupplierFo
             onChange={(event) => setNotes(event.target.value)}
           />
         </Labelled>
+
+        <div className="sm:col-span-2 lg:col-span-3">
+          <ImageUploadField
+            id={`${prefix}-image`}
+            label="Imagen del proveedor"
+            target="supplier-image"
+            entityId={supplier?.id ?? null}
+            imageKey={imageKey || null}
+            onUploaded={(key) => {
+              setImageKey(key);
+              setImageUploaded(true);
+            }}
+            onClear={() => setImageKey("")}
+          />
+        </div>
       </div>
 
       <FieldGroup title="MARCAS QUE TRAE">

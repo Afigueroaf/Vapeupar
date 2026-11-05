@@ -6,11 +6,15 @@ import type {
   AdminVariantRow,
   BrandInput,
   BrandRow,
+  CdnInvalidation,
   Kardex,
+  InventoryNote,
+  ImageUploadTarget,
   MovementResult,
   PagedResponse,
   ProductInput,
   ProductStatus,
+  PresignedUpload,
   Readiness,
   StockMovementType,
   StockRow,
@@ -150,6 +154,11 @@ export interface MovementInput {
   operationKey: string;
 }
 
+export interface InventoryNotesQuery {
+  variantId?: string;
+  resolved?: boolean;
+}
+
 export interface BrandQuery {
   q?: string;
   active?: boolean;
@@ -170,6 +179,8 @@ export interface ProductQuery {
   brandId?: string;
   category?: ProductCategory;
   status?: ProductStatus;
+  /** Solo las elegidas para la vitrina, o solo las que no lo están. */
+  showcase?: boolean;
   page?: number;
   limit?: number;
 }
@@ -243,6 +254,59 @@ export const adminApi = {
     const body = await request<{ data: MovementResult }>("/stock/movements", {
       method: "POST",
       body: JSON.stringify(input),
+    });
+    return body.data;
+  },
+
+  async presignImage(input: {
+    target: ImageUploadTarget;
+    entityId: string;
+    contentType: "image/webp" | "image/jpeg" | "image/png";
+    size: number;
+  }): Promise<PresignedUpload> {
+    const body = await request<{ data: PresignedUpload }>("/uploads/presign", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    return body.data;
+  },
+
+  /**
+   * Invalida la caché del CDN para una clave recién subida. Reemplazar una
+   * imagen no cambia su clave, así que sin esto el CDN seguiría sirviendo la
+   * anterior hasta un día.
+   */
+  async invalidateImage(key: string): Promise<CdnInvalidation> {
+    const body = await request<{ data: CdnInvalidation }>("/uploads/invalidate", {
+      method: "POST",
+      body: JSON.stringify({ key }),
+    });
+    return body.data;
+  },
+
+  async imageAlerts(): Promise<StockRow[]> {
+    const body = await request<{ data: StockRow[] }>("/stock/image-alerts");
+    return body.data;
+  },
+
+  async inventoryNotes(query: InventoryNotesQuery = {}): Promise<InventoryNote[]> {
+    const body = await request<{ data: InventoryNote[] }>(
+      `/inventory-notes${toSearchParams({ ...query })}`,
+    );
+    return body.data;
+  },
+
+  async createInventoryNote(input: { variantId?: string | null; text: string }): Promise<InventoryNote> {
+    const body = await request<{ data: InventoryNote }>("/inventory-notes", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    return body.data;
+  },
+
+  async resolveInventoryNote(id: string): Promise<InventoryNote> {
+    const body = await request<{ data: InventoryNote }>(`/inventory-notes/${id}/resolve`, {
+      method: "PATCH",
     });
     return body.data;
   },

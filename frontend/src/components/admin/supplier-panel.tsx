@@ -5,10 +5,12 @@ import { adminApi, errorMessage } from "@/lib/admin-api";
 import { formatDateTimeCO, formatNumberCO } from "@/lib/utils";
 import type { BrandRow, SupplierDetail, SupplierRow } from "@/types/admin";
 import { FormError } from "./form";
+import { ImageOnlyForm } from "./image-only-form";
 import { SupplierForm } from "./supplier-form";
 
 /**
- * Panel de un proveedor (plan A5.2): la ficha o el formulario de edición.
+ * Panel de un proveedor (plan A5.2): la ficha, el formulario de edición o,
+ * para un operador, solo la imagen (§4.5 del traspaso de imágenes).
  *
  * Los dos necesitan la ficha completa —el formulario, por el vínculo con
  * marcas, que la fila del listado no trae—, así que se pide una vez aquí al
@@ -54,6 +56,23 @@ export function SupplierPanel({
   if (panel === "edit") {
     return (
       <SupplierForm supplier={detail} brands={brands} onSaved={onSaved} onCancel={onCancel} />
+    );
+  }
+
+  if (panel === "image") {
+    return (
+      <ImageOnlyForm
+        label="Imagen del proveedor"
+        target="supplier-image"
+        entityId={detail.id}
+        imageKey={detail.imageKey}
+        save={async (imageKey) => {
+          const row = await adminApi.updateSupplier(detail.id, { imageKey });
+          setDetail({ ...detail, imageKey: row.imageKey });
+          onSaved(row, false);
+        }}
+        onCancel={onCancel}
+      />
     );
   }
 

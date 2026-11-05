@@ -315,13 +315,18 @@ export default function ProductsPage() {
           headers={["Linea", "Marca", "Categoria", "Precio", "Variantes", "Acciones"]}
           open={open}
           onToggle={toggle}
+          // El operador no edita la línea, pero sí su imagen (§4.5 del traspaso
+          // de imágenes): un panel propio, no el formulario completo.
           panelsFor={() =>
             canWrite
               ? [
                   { key: "edit", label: "Editar" },
                   { key: "variants", label: "Variantes" },
                 ]
-              : [{ key: "variants", label: "Variantes" }]
+              : [
+                  { key: "variants", label: "Variantes" },
+                  { key: "image", label: "Imagen" },
+                ]
           }
           renderCells={(row: AdminProductRow) => (
             <>

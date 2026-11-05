@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Search } from "lucide-react";
 import { BrandForm } from "@/components/admin/brand-form";
+import { ImageOnlyForm } from "@/components/admin/image-only-form";
 import { useAdminSession } from "@/components/admin/admin-shell";
 import { Cell, RecordList, type OpenPanel } from "@/components/admin/record-list";
 import { EmptyState, Pager, ScreenHeader } from "@/components/admin/screen";
@@ -233,7 +234,11 @@ export default function BrandsPage() {
           headers={["Marca", "Slug", "Aliada", "Orden", "Lineas", "Acciones"]}
           open={open}
           onToggle={toggle}
-          panelsFor={() => (canWrite ? [{ key: "edit", label: "Editar" }] : [])}
+          // El operador no edita la marca, pero sí su logo (§4.5 del traspaso
+          // de imágenes): por eso tiene un panel propio, no el formulario.
+          panelsFor={() =>
+            canWrite ? [{ key: "edit", label: "Editar" }] : [{ key: "image", label: "Logo" }]
+          }
           renderCells={(row) => (
             <>
               <Cell label="Marca">
@@ -258,16 +263,28 @@ export default function BrandsPage() {
               <Cell label="Líneas">{formatNumberCO(row.productCount)}</Cell>
             </>
           )}
-          renderPanel={(row) => (
-            // `key` por marca: el formulario arranca con los datos de esta fila
-            // en vez de tener que sincronizarlos al cambiar de fila.
-            <BrandForm
-              key={row.id}
-              brand={row}
-              onSaved={onSaved}
-              onCancel={() => setOpen(null)}
-            />
-          )}
+          renderPanel={(row, panel) =>
+            panel === "image" ? (
+              <ImageOnlyForm
+                key={`${row.id}-image`}
+                label="Logo"
+                target="brand-logo"
+                entityId={row.id}
+                imageKey={row.logoKey}
+                save={async (logoKey) => onSaved(await adminApi.updateBrand(row.id, { logoKey }), false)}
+                onCancel={() => setOpen(null)}
+              />
+            ) : (
+              // `key` por marca: el formulario arranca con los datos de esta fila
+              // en vez de tener que sincronizarlos al cambiar de fila.
+              <BrandForm
+                key={row.id}
+                brand={row}
+                onSaved={onSaved}
+                onCancel={() => setOpen(null)}
+              />
+            )
+          }
         />
       )}
 

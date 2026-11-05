@@ -42,6 +42,7 @@ export function useAdminSession(): AdminSession {
 const NAV = [
   { href: "/admin/stock", label: "Inventario" },
   { href: "/admin/products", label: "Líneas" },
+  { href: "/admin/showcase", label: "Vitrina" },
   { href: "/admin/brands", label: "Marcas" },
   { href: "/admin/suppliers", label: "Proveedores" }
 ];
@@ -115,8 +116,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <Image
               src="/logo-detalle.svg"
               alt="Vapeupar"
-              width={1860}
-              height={926}
+              width={1319}
+              height={786}
               priority
               className="h-7 w-auto"
             />

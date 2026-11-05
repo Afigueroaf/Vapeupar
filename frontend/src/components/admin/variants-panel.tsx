@@ -10,6 +10,7 @@ import { cn, formatNumberCO } from "@/lib/utils";
 import type { AdminProductDetail, AdminVariantRow, VariantInput } from "@/types/admin";
 import { VARIANT_KIND_LABELS, slugify, toInteger } from "./catalog";
 import { CheckField, FormError, FormStatus, Labelled } from "./form";
+import { ImageUploadField } from "./image-upload-field";
 
 /**
  * Variantes de una línea: los sabores o colores entre los que elige el cliente
@@ -175,6 +176,13 @@ function VariantForm({
   const [slug, setSlug] = useState(variant?.slug ?? "");
   const [slugTouched, setSlugTouched] = useState(variant !== null);
   const [imageKey, setImageKey] = useState(variant?.imageKey ?? "");
+  /**
+   * Una carga cuenta como cambio aunque la clave sea la misma: es el caso
+   * normal al reemplazar la imagen de una entidad que ya tenía una, porque la
+   * clave se deriva de la entidad. Sin esto el PATCH saldría vacío y el
+   * formulario diría que no hay nada que guardar justo después de subirla.
+   */
+  const [imageUploaded, setImageUploaded] = useState(false);
   const [sortOrder, setSortOrder] = useState(String(variant?.sortOrder ?? 0));
   const [active, setActive] = useState(variant?.active ?? true);
   const [pending, setPending] = useState(false);
@@ -211,7 +219,7 @@ function VariantForm({
       const patch: Partial<VariantInput> = {};
       if (values.name !== variant.name) patch.name = values.name;
       if (values.slug !== variant.slug) patch.slug = values.slug;
-      if (values.imageKey !== variant.imageKey) patch.imageKey = values.imageKey;
+      if (values.imageKey !== variant.imageKey || imageUploaded) patch.imageKey = values.imageKey;
       if (values.active !== variant.active) patch.active = values.active;
       if (values.sortOrder !== variant.sortOrder) patch.sortOrder = values.sortOrder;
       if (values.kind !== variant.kind) patch.kind = values.kind;
@@ -286,19 +294,25 @@ function VariantForm({
           />
         </Labelled>
 
-        <Labelled
-          label="Imagen"
-          htmlFor={`${prefix}-image`}
-          hint="Clave en el bucket. Vacío usa la de la línea."
-          className="sm:col-span-2"
-        >
-          <TextField
+        <div className="sm:col-span-2">
+          <ImageUploadField
             id={`${prefix}-image`}
-            maxLength={255}
-            value={imageKey}
-            onChange={(event) => setImageKey(event.target.value)}
+            label="Imagen de la variante"
+            target="variant-image"
+            entityId={variant?.id ?? null}
+            imageKey={imageKey || null}
+            onUploaded={(key) => {
+              setImageKey(key);
+              setImageUploaded(true);
+            }}
+            onClear={() => setImageKey("")}
+            onError={setError}
           />
-        </Labelled>
+          <p className="mt-1 text-xs text-muted">
+            Opcional: sin imagen propia se usa la de la línea. Lo habitual es
+            adjuntarla al registrar el ingreso en inventario.
+          </p>
+        </div>
 
         <CheckField label="Activa" checked={active} onChange={setActive} className="self-end" />
       </div>

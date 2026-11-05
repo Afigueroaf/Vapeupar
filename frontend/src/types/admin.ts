@@ -31,6 +31,8 @@ export interface StockRow {
   variantId: string;
   variantName: string;
   variantSlug: string;
+  /** Imagen propia de la variante; una imagen de línea no reemplaza esta. */
+  variantImageKey?: string | null;
   kind: "flavor" | "color";
   /** `false` retira la variante del sitio; agotada no es lo mismo que inactiva. */
   active: boolean;
@@ -116,6 +118,7 @@ export interface SupplierRow {
   whatsapp: string | null;
   paymentTerms: string | null;
   notes: string | null;
+  imageKey: string | null;
   active: boolean;
 }
 
@@ -136,6 +139,7 @@ export interface SupplierInput {
   whatsapp?: string | null;
   paymentTerms?: string | null;
   notes?: string | null;
+  imageKey?: string | null;
   active?: boolean;
   /** Si viaja, reemplaza la lista completa de marcas. */
   brandIds?: string[];
@@ -195,6 +199,40 @@ export interface VariantInput {
   sortOrder?: number;
 }
 
+export type ImageUploadTarget =
+  | "brand-logo"
+  | "supplier-image"
+  | "product-line-image"
+  | "variant-image";
+
+export interface PresignedUpload {
+  key: string;
+  uploadUrl: string;
+  expiresIn: number;
+}
+
+/** Resultado de invalidar la caché del CDN para una clave. */
+export interface CdnInvalidation {
+  invalidationId: string | null;
+  path: string;
+}
+
+export interface InventoryNote {
+  id: string;
+  variantId: string | null;
+  text: string;
+  resolved: boolean;
+  authorId: string;
+  /** Correo de quien la escribió, para que la lista diga de quién es. */
+  authorEmail: string;
+  /** Variante anotada y su línea; nulas en una nota general. */
+  variantName: string | null;
+  productName: string | null;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt: string | null;
+}
+
 export interface AdminProductRow {
   id: string;
   slug: string;
@@ -212,6 +250,8 @@ export interface AdminProductRow {
   status: ProductStatus;
   imageKey: string | null;
   featured: boolean;
+  /** Elegida para el prisma 3D de la portada (pantalla «Vitrina»). */
+  showcase: boolean;
   isNewArrival: boolean;
   isBestSeller: boolean;
   tags: string[];
@@ -236,6 +276,7 @@ export interface ProductInput {
   status?: ProductStatus;
   imageKey?: string | null;
   featured?: boolean;
+  showcase?: boolean;
   isNewArrival?: boolean;
   isBestSeller?: boolean;
   tags?: string[];

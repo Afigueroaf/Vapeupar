@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Search } from "lucide-react";
+import { useAdminSession } from "@/components/admin/admin-shell";
 import { FormError } from "@/components/admin/form";
+import { InventoryNotes } from "@/components/admin/inventory-notes";
 import { KardexPanel } from "@/components/admin/kardex-panel";
 import { MovementForm } from "@/components/admin/movement-form";
 import { EmptyState, Pager, ScreenHeader } from "@/components/admin/screen";
@@ -13,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/field";
 import { Surface } from "@/components/ui/surface";
 import { adminApi } from "@/lib/admin-api";
-import type { SupplierRow } from "@/types/admin";
+import type { StockRow, SupplierRow } from "@/types/admin";
 
 /**
  * Pantalla de stock (plan A5.1): la que se usa a diario y por eso va primera.
@@ -58,11 +60,18 @@ const INITIAL_FILTERS: Filters = {
 };
 
 export default function StockPage() {
+  const { identity } = useAdminSession();
+  const canWrite = identity.role === "owner";
+
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Filters>(INITIAL_FILTERS);
 
   const [alertsTick, setAlertsTick] = useState(0);
   const [alerts, setAlerts] = useState<{ out: number; low: number } | null>(null);
+  // La lista entera, no solo el conteo: la alerta tiene que poder decir cuáles.
+  const [missingImages, setMissingImages] = useState<StockRow[] | null>(null);
+  const [imagesOpen, setImagesOpen] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const [expanded, setExpanded] = useState<{ variantId: string; panel: RowPanel } | null>(null);
   const [suppliers, setSuppliers] = useState<SupplierRow[] | null>(null);
 
@@ -107,15 +116,20 @@ export default function StockPage() {
     Promise.all([
       adminApi.stock({ lowStock: true, threshold: 0, limit: 1 }),
       adminApi.stock({ lowStock: true, threshold: LOW_STOCK_THRESHOLD, limit: 1 }),
+      adminApi.imageAlerts(),
     ]).then(
-      ([outOfStock, belowThreshold]) => {
+      ([outOfStock, belowThreshold, missing]) => {
         if (!alive) return;
         const out = outOfStock.pagination.total;
         setAlerts({ out, low: Math.max(0, belowThreshold.pagination.total - out) });
+        setMissingImages(missing);
       },
       () => {
         // Las alertas son un extra: si fallan, la tabla sigue sirviendo.
-        if (alive) setAlerts(null);
+        if (alive) {
+          setAlerts(null);
+          setMissingImages(null);
+        }
       },
     );
     return () => {
@@ -152,6 +166,18 @@ export default function StockPage() {
     setFilters((current) => ({ ...current, lowStock: true, threshold, page: 1 }));
   }, []);
 
+  /**
+   * Trae una variante de la alerta a la tabla. La lista de «sin imagen» no
+   * respeta la paginación, así que buscarla es la única forma de abrir su
+   * ingreso y adjuntar la foto. Los filtros se ponen a la vez que el texto para
+   * no esperar el freno de la búsqueda.
+   */
+  const findVariant = useCallback((row: StockRow) => {
+    setExpanded({ variantId: row.variantId, panel: "movement" });
+    setSearch(row.variantName);
+    setFilters((current) => ({ ...current, q: row.variantName, lowStock: false, page: 1 }));
+  }, []);
+
   /** Recargar es pedir los mismos filtros otra vez, con otra identidad. */
   const reload = useCallback(() => setFilters((current) => ({ ...current })), []);
 
@@ -163,6 +189,14 @@ export default function StockPage() {
         title="Inventario"
         description="Disponible por variante, de menos a más: lo urgente, arriba."
       >
+        <Button
+          variant="secondary"
+          onClick={() => setNotesOpen((open) => !open)}
+          aria-expanded={notesOpen}
+          aria-controls="inventory-notes"
+        >
+          Anotaciones
+        </Button>
         <Button variant="secondary" onClick={reload} disabled={loading}>
           {loading ? "Actualizando…" : "Actualizar"}
         </Button>
@@ -173,8 +207,72 @@ export default function StockPage() {
         low={alerts?.low ?? 0}
         threshold={LOW_STOCK_THRESHOLD}
         loading={alerts === null}
+        missingImages={missingImages?.length ?? 0}
+        imagesLoading={missingImages === null}
         onShowLowStock={showLowStock}
+        onShowMissingImages={() => setImagesOpen((open) => !open)}
+        missingImagesOpen={imagesOpen}
       />
+
+      {imagesOpen && missingImages !== null && missingImages.length > 0 && (
+        <Surface border="accent" id="stock-missing-images" className="space-y-4 p-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="font-display text-lg font-bold uppercase tracking-[0.02em]">
+                Variantes sin imagen
+              </h2>
+              <p className="mt-1 text-sm text-muted">
+                Publicadas y con stock disponible. La imagen es opcional: esto
+                avisa, no bloquea. «Buscar» trae la variante a la tabla para
+                adjuntarla desde su ingreso.
+              </p>
+            </div>
+            <Button variant="ghost" onClick={() => setImagesOpen(false)}>
+              Cerrar
+            </Button>
+          </div>
+
+          <ul className="space-y-2">
+            {missingImages.map((row) => (
+              <li
+                key={row.variantId}
+                className="flex flex-wrap items-center justify-between gap-3 border-2 border-muted bg-surface p-3 rounded-vp"
+              >
+                <div className="min-w-0">
+                  <p className="font-display text-sm font-bold uppercase tracking-[0.02em]">
+                    {row.productName} · {row.variantName}
+                  </p>
+                  <p className="text-xs text-muted">
+                    {row.brandName} · {row.stock} disponible(s)
+                  </p>
+                </div>
+                <Button variant="ghost" onClick={() => findVariant(row)}>
+                  Buscar
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </Surface>
+      )}
+
+      {notesOpen && (
+        <Surface border="muted" id="inventory-notes" className="space-y-4 p-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="font-display text-lg font-bold uppercase tracking-[0.02em]">
+                Anotaciones de inventario
+              </h2>
+              <p className="mt-1 text-sm text-muted">
+                Notas generales o por variante; las resueltas se conservan.
+              </p>
+            </div>
+            <Button variant="ghost" onClick={() => setNotesOpen(false)}>
+              Cerrar
+            </Button>
+          </div>
+          <InventoryNotes rows={rows} canWrite={canWrite} />
+        </Surface>
+      )}
 
       <Surface border="muted" className="flex flex-wrap items-end gap-4 p-4">
         <div className="min-w-0 flex-1">

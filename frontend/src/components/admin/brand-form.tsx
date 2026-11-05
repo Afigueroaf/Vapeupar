@@ -7,6 +7,7 @@ import { adminApi, errorMessage } from "@/lib/admin-api";
 import type { BrandInput, BrandRow } from "@/types/admin";
 import { slugify, toInteger } from "./catalog";
 import { CheckField, FormError, Labelled } from "./form";
+import { ImageUploadField } from "./image-upload-field";
 
 /**
  * Alta y edición de marca (plan A5.2).
@@ -31,6 +32,13 @@ export function BrandForm({ brand, onSaved, onCancel }: BrandFormProps) {
   const [slug, setSlug] = useState(brand?.slug ?? "");
   const [slugTouched, setSlugTouched] = useState(brand !== null);
   const [logoKey, setLogoKey] = useState(brand?.logoKey ?? "");
+  /**
+   * Una carga cuenta como cambio aunque la clave sea la misma: es el caso
+   * normal al reemplazar la imagen de una entidad que ya tenía una, porque la
+   * clave se deriva de la entidad. Sin esto el PATCH saldría vacío y el
+   * formulario diría que no hay nada que guardar justo después de subirla.
+   */
+  const [imageUploaded, setImageUploaded] = useState(false);
   const [isPartner, setIsPartner] = useState(brand?.isPartner ?? false);
   const [sortOrder, setSortOrder] = useState(String(brand?.sortOrder ?? 0));
   const [active, setActive] = useState(brand?.active ?? true);
@@ -74,7 +82,7 @@ export function BrandForm({ brand, onSaved, onCancel }: BrandFormProps) {
       const patch: Partial<BrandInput> = {};
       if (values.name !== brand.name) patch.name = values.name;
       if (values.slug !== brand.slug) patch.slug = values.slug;
-      if (values.logoKey !== brand.logoKey) patch.logoKey = values.logoKey;
+      if (values.logoKey !== brand.logoKey || imageUploaded) patch.logoKey = values.logoKey;
       if (values.isPartner !== brand.isPartner) patch.isPartner = values.isPartner;
       if (values.sortOrder !== brand.sortOrder) patch.sortOrder = values.sortOrder;
       if (values.active !== brand.active) patch.active = values.active;
@@ -121,20 +129,21 @@ export function BrandForm({ brand, onSaved, onCancel }: BrandFormProps) {
           />
         </Labelled>
 
-        <Labelled
-          label="Logo"
-          htmlFor={`${prefix}-logo`}
-          hint="Clave en el bucket, no una URL."
-          className="sm:col-span-2"
-        >
-          <TextField
+        <div className="sm:col-span-2">
+          <ImageUploadField
             id={`${prefix}-logo`}
-            maxLength={255}
-            placeholder="marcas/lifepod.webp"
-            value={logoKey}
-            onChange={(event) => setLogoKey(event.target.value)}
+            label="Logo"
+            target="brand-logo"
+            entityId={brand?.id ?? null}
+            imageKey={logoKey || null}
+            onUploaded={(key) => {
+              setLogoKey(key);
+              setImageUploaded(true);
+            }}
+            onClear={() => setLogoKey("")}
+            onError={setError}
           />
-        </Labelled>
+        </div>
 
         <Labelled
           label="Orden"

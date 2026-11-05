@@ -7,6 +7,7 @@ import { AdminApiError, adminApi } from "@/lib/admin-api";
 import { formatNumberCO } from "@/lib/utils";
 import type { StockMovementType, StockRow, SupplierRow } from "@/types/admin";
 import { FormError, FormStatus, Labelled } from "./form";
+import { ImageUploadField } from "./image-upload-field";
 import { MOVEMENT_HINTS, MOVEMENT_LABELS, MOVEMENT_TYPES } from "./movement-labels";
 
 /**
@@ -38,6 +39,8 @@ export function MovementForm({ row, suppliers, onNeedSuppliers, onApplied }: Mov
   const [supplierId, setSupplierId] = useState("");
   const [unitCost, setUnitCost] = useState("");
   const [lot, setLot] = useState("");
+  const [imageKey, setImageKey] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [operationKey, setOperationKey] = useState(() => crypto.randomUUID());
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,9 +71,17 @@ export function MovementForm({ row, suppliers, onNeedSuppliers, onApplied }: Mov
       setError("Un ajuste exige motivo");
       return;
     }
+    if (imageError) {
+      setError("Corrige la carga de imagen antes de registrar el ingreso");
+      return;
+    }
 
     setPending(true);
     try {
+      // La clave solo se persiste si la carga directa ya terminó correctamente.
+      if (isInbound && imageKey) {
+        await adminApi.updateVariant(row.productId, row.variantId, { imageKey });
+      }
       const movement = await adminApi.movement({
         variantId: row.variantId,
         type,
@@ -163,6 +174,18 @@ export function MovementForm({ row, suppliers, onNeedSuppliers, onApplied }: Mov
                 onChange={(event) => setUnitCost(event.target.value)}
               />
             </Labelled>
+
+            <div className="sm:col-span-2 lg:col-span-4">
+              <ImageUploadField
+                id={`variant-image-${row.variantId}`}
+                label="Imagen propia de la variante"
+                target="variant-image"
+                entityId={row.variantId}
+                imageKey={imageKey ?? row.variantImageKey ?? null}
+                onUploaded={setImageKey}
+                onError={setImageError}
+              />
+            </div>
           </>
         )}
 

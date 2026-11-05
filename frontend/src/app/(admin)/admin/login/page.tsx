@@ -90,8 +90,8 @@ export default function AdminLoginPage() {
           <Image
             src="/logo-detalle.svg"
             alt="Vapeupar"
-            width={1860}
-            height={926}
+            width={1319}
+            height={786}
             priority
             className="h-9 w-auto"
           />

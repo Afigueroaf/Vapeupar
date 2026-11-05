@@ -7,11 +7,13 @@ import { adminApi, errorMessage, type ProductWithReadiness } from "@/lib/admin-a
 import type { AdminVariantRow, BrandRow, Readiness } from "@/types/admin";
 import { gapsOf } from "./catalog";
 import { FormError } from "./form";
+import { ImageOnlyForm } from "./image-only-form";
 import { ProductForm } from "./product-form";
 import { VariantsPanel } from "./variants-panel";
 
 /**
- * Panel de una línea (plan A5.3): su edición o sus variantes.
+ * Panel de una línea (plan A5.3): su edición, sus variantes o, para un
+ * operador, solo la imagen (§4.5 del traspaso de imágenes).
  *
  * Los dos necesitan la ficha completa, que el listado no trae: las variantes no
  * caben en una fila y pedir veinte fichas para pintar la tabla sería absurdo.
@@ -88,6 +90,19 @@ export function ProductPanel({
     setDetail(result);
     onSaved(result, false);
   };
+
+  if (panel === "image") {
+    return (
+      <ImageOnlyForm
+        label="Imagen de la línea"
+        target="product-line-image"
+        entityId={detail.product.id}
+        imageKey={detail.product.imageKey}
+        save={async (imageKey) => apply(await adminApi.updateProduct(detail.product.id, { imageKey }))}
+        onCancel={onCancel}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">

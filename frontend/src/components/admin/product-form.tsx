@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { SelectField, TextAreaField, TextField } from "@/components/ui/field";
@@ -16,6 +17,7 @@ import type {
 } from "@/types/admin";
 import { CATEGORIES, CATEGORY_LABELS, slugify, toInteger } from "./catalog";
 import { CheckField, FieldGroup, FormError, Labelled } from "./form";
+import { ImageUploadField } from "./image-upload-field";
 import { ReadinessNotice } from "./readiness";
 
 /**
@@ -76,8 +78,16 @@ export function ProductForm({ product, brands, readiness, onSaved, onCancel }: P
     product?.compareAtPrice === null ? "" : String(product?.compareAtPrice ?? ""),
   );
   const [imageKey, setImageKey] = useState(product?.imageKey ?? "");
+  /**
+   * Una carga cuenta como cambio aunque la clave sea la misma: es el caso
+   * normal al reemplazar la imagen de una entidad que ya tenía una, porque la
+   * clave se deriva de la entidad. Sin esto el PATCH saldría vacío y el
+   * formulario diría que no hay nada que guardar justo después de subirla.
+   */
+  const [imageUploaded, setImageUploaded] = useState(false);
   const [status, setStatus] = useState<ProductStatus>(product?.status ?? "draft");
   const [featured, setFeatured] = useState(product?.featured ?? false);
+  const [showcase, setShowcase] = useState(product?.showcase ?? false);
   const [isNewArrival, setIsNewArrival] = useState(product?.isNewArrival ?? false);
   const [isBestSeller, setIsBestSeller] = useState(product?.isBestSeller ?? false);
   const [tags, setTags] = useState((product?.tags ?? []).join(", "));
@@ -189,6 +199,7 @@ export function ProductForm({ product, brands, readiness, onSaved, onCancel }: P
       status,
       imageKey: imageKey.trim() || null,
       featured,
+      showcase,
       isNewArrival,
       isBestSeller,
       tags: tags
@@ -219,8 +230,9 @@ export function ProductForm({ product, brands, readiness, onSaved, onCancel }: P
         patch.compareAtPrice = values.compareAtPrice;
       }
       if (values.status !== product.status) patch.status = values.status;
-      if (values.imageKey !== product.imageKey) patch.imageKey = values.imageKey;
+      if (values.imageKey !== product.imageKey || imageUploaded) patch.imageKey = values.imageKey;
       if (values.featured !== product.featured) patch.featured = values.featured;
+      if (values.showcase !== product.showcase) patch.showcase = values.showcase;
       if (values.isNewArrival !== product.isNewArrival) patch.isNewArrival = values.isNewArrival;
       if (values.isBestSeller !== product.isBestSeller) patch.isBestSeller = values.isBestSeller;
       if ((values.tags ?? []).join("\u0000") !== product.tags.join("\u0000")) patch.tags = values.tags;
@@ -306,19 +318,19 @@ export function ProductForm({ product, brands, readiness, onSaved, onCancel }: P
           </SelectField>
         </Labelled>
 
-        <Labelled
-          label="Imagen"
-          htmlFor={`${prefix}-image`}
-          hint="Clave en el bucket, no una URL."
-        >
-          <TextField
-            id={`${prefix}-image`}
-            maxLength={255}
-            placeholder="lifepod/eco-pro.webp"
-            value={imageKey}
-            onChange={(event) => setImageKey(event.target.value)}
-          />
-        </Labelled>
+        <ImageUploadField
+          id={`${prefix}-image`}
+          label="Imagen de la línea"
+          target="product-line-image"
+          entityId={product?.id ?? null}
+          imageKey={imageKey || null}
+          onUploaded={(key) => {
+            setImageKey(key);
+            setImageUploaded(true);
+          }}
+          onClear={() => setImageKey("")}
+          onError={setError}
+        />
 
         <Labelled
           label="Estado"
@@ -460,7 +472,19 @@ export function ProductForm({ product, brands, readiness, onSaved, onCancel }: P
           <CheckField label="Destacada" checked={featured} onChange={setFeatured} />
           <CheckField label="Novedad" checked={isNewArrival} onChange={setIsNewArrival} />
           <CheckField label="Más vendida" checked={isBestSeller} onChange={setIsBestSeller} />
+          {/* La vitrina se lleva mejor desde su propia pantalla, donde se ven
+              las fotos y el recuento de caras; la casilla está aquí para poder
+              elegirla de paso al crear o editar la línea. */}
+          <CheckField label="Vitrina 3D" checked={showcase} onChange={setShowcase} />
         </div>
+        <p className="mt-2 text-xs text-muted">
+          «Vitrina 3D» pone la línea en el prisma de la portada. Son seis caras:
+          mejor elegirlas en{" "}
+          <Link href="/admin/showcase" className="font-bold text-action underline">
+            Vitrina
+          </Link>
+          , que enseña las fotos y avisa si sobran o faltan.
+        </p>
         <Labelled
           label="Etiquetas"
           htmlFor={`${prefix}-tags`}

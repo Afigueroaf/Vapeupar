@@ -230,13 +230,18 @@ export default function SuppliersPage() {
           headers={["Proveedor", "Contacto", "WhatsApp", "Pago", "Acciones"]}
           open={open}
           onToggle={toggle}
+          // El operador no edita el proveedor, pero sí su imagen (§4.5 del
+          // traspaso de imágenes): un panel propio, no el formulario.
           panelsFor={() =>
             canWrite
               ? [
                   { key: "ficha", label: "Ficha" },
                   { key: "edit", label: "Editar" },
                 ]
-              : [{ key: "ficha", label: "Ficha" }]
+              : [
+                  { key: "ficha", label: "Ficha" },
+                  { key: "image", label: "Imagen" },
+                ]
           }
           renderCells={(row) => (
             <>
