@@ -131,6 +131,10 @@ model Product {
   /// Imagen de la línea (clave en el bucket).
   imageKey         String?         @map("image_key")
   featured         Boolean         @default(false)
+  /// Elegida para el prisma 3D de la portada. Independiente de `featured`:
+  /// aquel es merchandising del catálogo, este es qué cara se ve en la vitrina.
+  /// La pieza tiene 6 caras; con menos, las fotos se repiten (lo avisa la consola).
+  showcase         Boolean         @default(false)
   isNewArrival     Boolean         @default(false) @map("is_new_arrival")
   isBestSeller     Boolean         @default(false) @map("is_best_seller")
   tags             String[]        @default([])

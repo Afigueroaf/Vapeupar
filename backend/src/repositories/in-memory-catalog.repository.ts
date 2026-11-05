@@ -103,6 +103,7 @@ export class InMemoryCatalogRepository implements CatalogRepository {
       status: product.status ?? 'draft',
       imageKey: product.imageKey ?? null,
       featured: product.featured ?? false,
+      showcase: product.showcase ?? false,
       isNewArrival: product.isNewArrival ?? false,
       isBestSeller: product.isBestSeller ?? false,
       tags: product.tags ?? []
@@ -198,6 +199,9 @@ export class InMemoryCatalogRepository implements CatalogRepository {
       .filter(p => (!filter.brandId || p.brandId === filter.brandId)
         && (!filter.category || p.category === filter.category)
         && (!filter.status || p.status === filter.status)
+        // Comparacion explicita contra `undefined`: `showcase: false` es un
+        // filtro («las que NO estan en la vitrina») y no la ausencia de filtro.
+        && (filter.showcase === undefined || p.showcase === filter.showcase)
         && (!filter.q || matches(p.name, filter.q) || matches(p.slug, filter.q)))
       .map(p => {
         const { variants, ...row } = this.detail(this.state, p);
@@ -345,6 +349,7 @@ export class InMemoryCatalogRepository implements CatalogRepository {
           status: data.status ?? 'draft',
           imageKey: data.imageKey ?? null,
           featured: data.featured ?? false,
+          showcase: data.showcase ?? false,
           isNewArrival: data.isNewArrival ?? false,
           isBestSeller: data.isBestSeller ?? false,
           tags: data.tags ?? []

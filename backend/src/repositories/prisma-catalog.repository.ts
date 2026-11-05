@@ -86,6 +86,7 @@ function toProduct(row: ProductPayload): AdminProductDetail {
     status: row.status,
     imageKey: row.imageKey,
     featured: row.featured,
+    showcase: row.showcase,
     isNewArrival: row.isNewArrival,
     isBestSeller: row.isBestSeller,
     tags: row.tags,
@@ -360,6 +361,7 @@ export class PrismaCatalogRepository implements CatalogRepository {
       ...(filter.brandId && { brandId: filter.brandId }),
       ...(filter.category && { category: toDbCategory(filter.category) }),
       ...(filter.status && { status: filter.status }),
+      ...(filter.showcase !== undefined && { showcase: filter.showcase }),
       ...(filter.q && {
         OR: [
           { name: { contains: filter.q, mode: 'insensitive' } },

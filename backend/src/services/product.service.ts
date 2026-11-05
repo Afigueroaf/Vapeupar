@@ -28,6 +28,10 @@ export class ProductService {
         result = result.filter(p => p.featured === filters.featured);
       }
 
+      if (filters.showcase !== undefined) {
+        result = result.filter(p => p.showcase === filters.showcase);
+      }
+
       if (filters.minPrice !== undefined) {
         result = result.filter(p => p.price >= filters.minPrice!);
       }

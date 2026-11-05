@@ -133,6 +133,11 @@ const ProductCore = z.object({
   status: z.enum(['draft', 'published']),
   imageKey: imageKey.optional(),
   featured: z.boolean(),
+  /**
+   * Elegida para el prisma 3D de la portada. No es `featured`: aquel marca
+   * merchandising del catálogo y este decide qué se ve girando en la vitrina.
+   */
+  showcase: z.boolean(),
   isNewArrival: z.boolean(),
   isBestSeller: z.boolean(),
   tags: z.array(z.string().trim().min(1).max(40)).max(20)
@@ -144,6 +149,7 @@ export const ProductBodySchema = ProductCore.extend({
   specs: jsonObject(16 * 1024).default({}),
   status: z.enum(['draft', 'published']).default('draft'),
   featured: z.boolean().default(false),
+  showcase: z.boolean().default(false),
   isNewArrival: z.boolean().default(false),
   isBestSeller: z.boolean().default(false),
   tags: z.array(z.string().trim().min(1).max(40)).max(20).default([])
@@ -156,6 +162,7 @@ export const ProductQuerySchema = z.object({
   brandId: z.uuid().optional(),
   category: CategorySchema.optional(),
   status: z.enum(['draft', 'published']).optional(),
+  showcase: optionalBoolean,
   page,
   limit
 });

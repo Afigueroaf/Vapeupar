@@ -56,6 +56,7 @@ export function toProduct(row: ProductRow): Product {
     stock,
     imageUrl: imageUrl(row.imageKey),
     featured: row.featured,
+    showcase: row.showcase,
     isNewArrival: row.isNewArrival,
     isBestSeller: row.isBestSeller,
     specs: SpecsSchema.parse(row.specs),

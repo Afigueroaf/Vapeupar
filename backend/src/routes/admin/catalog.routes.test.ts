@@ -313,6 +313,40 @@ describe('CRUD de /api/admin', () => {
       const categoriaInventada = await call(url, '/api/admin/products?category=vapes', { as: OWNER });
       expect(categoriaInventada.status).toBe(400);
     });
+
+    // La pantalla «Vitrina» pide las dos mitades del catálogo por separado, y
+    // la elección viaja en el PATCH de siempre: no hay endpoint propio.
+    it('filtra el listado por la vitrina y la elección se guarda con un PATCH', async () => {
+      const { url } = await start();
+      const { productId } = await conLinea(url);
+
+      const nace = await call(url, '/api/admin/products?showcase=true', { as: OWNER });
+      expect((nace.body?.data as unknown[]).length).toBe(0);
+
+      const elegida = await call(url, `/api/admin/products/${productId}`, {
+        method: 'PATCH', as: OWNER, body: { showcase: true }
+      });
+      expect(elegida.status).toBe(200);
+      expect(data(elegida).showcase).toBe(true);
+      // `featured` es otra cosa y no se ha tocado.
+      expect(data(elegida).featured).toBe(false);
+
+      const enVitrina = await call(url, '/api/admin/products?showcase=true', { as: OWNER });
+      expect((enVitrina.body?.data as unknown[]).length).toBe(1);
+
+      const fuera = await call(url, '/api/admin/products?showcase=false', { as: OWNER });
+      expect((fuera.body?.data as unknown[]).length).toBe(0);
+    });
+
+    it('no deja que el operador cambie la vitrina', async () => {
+      const { url } = await start();
+      const { productId } = await conLinea(url);
+
+      const intento = await call(url, `/api/admin/products/${productId}`, {
+        method: 'PATCH', as: OPERATOR, body: { showcase: true }
+      });
+      expect(intento.status).toBe(403);
+    });
   });
 
   describe('proveedores', () => {

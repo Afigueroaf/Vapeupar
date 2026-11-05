@@ -15,6 +15,12 @@ export const ProductQuerySchema = z.object({
     if (val === 'false') return false;
     return val;
   }, z.boolean().optional()),
+  /** La portada pide `?showcase=true&limit=6` para las caras del prisma 3D. */
+  showcase: z.preprocess((val) => {
+    if (val === 'true') return true;
+    if (val === 'false') return false;
+    return val;
+  }, z.boolean().optional()),
   page: z.coerce.number().int().positive().default(1),
   limit: z.coerce.number().int().positive().max(50).default(20),
   sortBy: z.enum(['price', 'name', 'puffCount']).optional(),

@@ -92,6 +92,8 @@ export interface AdminProductRow {
   status: 'draft' | 'published';
   imageKey: string | null;
   featured: boolean;
+  /** Elegida para el prisma 3D de la portada (pantalla «Vitrina»). */
+  showcase: boolean;
   isNewArrival: boolean;
   isBestSeller: boolean;
   tags: string[];
@@ -143,6 +145,7 @@ export interface NewProduct {
   status?: 'draft' | 'published';
   imageKey?: string | null;
   featured?: boolean;
+  showcase?: boolean;
   isNewArrival?: boolean;
   isBestSeller?: boolean;
   tags?: string[];
@@ -189,6 +192,8 @@ export interface ProductFilter extends Paging {
   brandId?: string;
   category?: ApiCategory;
   status?: 'draft' | 'published';
+  /** Solo las elegidas para la vitrina, o solo las que no lo están. */
+  showcase?: boolean;
 }
 
 /** Ya existe otra fila con ese slug. `entity` es la tabla, en singular. */

@@ -21,6 +21,13 @@ export interface Product {
   imageUrl: string;
   galleryUrls?: string[];
   featured: boolean;
+  /**
+   * Elegida para el prisma 3D de la portada.
+   *
+   * El cliente la usa para repartir las caras de la vitrina; es independiente
+   * de `featured`, que es merchandising del catálogo.
+   */
+  showcase: boolean;
   isNewArrival?: boolean;
   isBestSeller?: boolean;
   // Atributos específicos del mundo del vapeo
@@ -44,6 +51,7 @@ export interface ProductFilters {
   maxPrice?: number;
   search?: string;
   featured?: boolean;
+  showcase?: boolean;
   page?: number;
   limit?: number;
   sortBy?: 'price' | 'name' | 'puffCount';

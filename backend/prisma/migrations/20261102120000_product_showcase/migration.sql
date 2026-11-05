@@ -1,0 +1,20 @@
+-- Selección de la vitrina 3D de la portada (prisma de 6 caras).
+--
+-- Columna aparte de `featured` a propósito: «destacada» es merchandising del
+-- catálogo y «vitrina» es qué producto se ve girando en la portada. Antes el
+-- prisma se alimentaba de `featured`, lo que impedía tener una cosa sin la otra.
+--
+-- Nace en `false` para todas: la portada cae a su comportamiento de reserva
+-- (el catálogo entero) hasta que alguien elija desde la consola.
+--
+-- Sin GRANT: el rol de la aplicación ya tiene UPDATE a nivel de tabla sobre
+-- `products` (migración 20261027015227_app_role), y eso alcanza a las columnas
+-- que se añadan después.
+--
+-- Sin índice: la consulta de la portada es
+-- `WHERE status = 'published' AND showcase = true`, y el índice que ya existe
+-- (`products_status_category_idx`) resuelve la parte selectiva. Filtrar seis
+-- filas entre las publicadas de un catálogo de este tamaño no justifica otro
+-- índice, y el que de verdad serviría —parcial sobre `showcase = true`— no se
+-- puede declarar en el esquema de Prisma, así que quedaría como deriva.
+ALTER TABLE "products" ADD COLUMN "showcase" BOOLEAN NOT NULL DEFAULT false;

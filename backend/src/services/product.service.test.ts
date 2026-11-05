@@ -14,6 +14,7 @@ function product(overrides: Partial<Product> & Pick<Product, 'id' | 'slug' | 'ca
     stock: 10,
     imageUrl: '',
     featured: false,
+    showcase: false,
     specs: { nicotineStrength: '20mg (2%)' },
     tags: [],
     ...overrides
@@ -24,7 +25,7 @@ const FIXTURE: Product[] = [
   product({ id: 'p1', slug: 'alfa-10k-sandia', name: 'Alfa 10K Sandía', category: 'disposables', price: 65000,
     brand: 'Alfa', featured: true, specs: { nicotineStrength: '50mg (5%)', puffCount: 10000 } }),
   product({ id: 'p2', slug: 'beta-pod-kit', name: 'Beta Pod Kit', category: 'pod-systems', price: 135000,
-    brand: 'Beta', specs: { nicotineStrength: 'Variable' } }),
+    brand: 'Beta', showcase: true, specs: { nicotineStrength: 'Variable' } }),
   product({ id: 'p3', slug: 'gamma-salt-mango', name: 'Gamma Salt', category: 'salt-nic', price: 48000,
     brand: 'Gamma', specs: { nicotineStrength: '20mg (2%)', flavorProfile: 'Mango maduro' } }),
   product({ id: 'p4', slug: 'delta-6k-menta', name: 'Delta 6K Menta', category: 'disposables', price: 52000,
@@ -63,6 +64,15 @@ describe('ProductService', () => {
   it('filtra por destacados', async () => {
     const result = await service.getAll({ featured: true });
     expect(result.items.map(p => p.id)).toEqual(['p1']);
+  });
+
+  // `showcase` es la vitrina 3D de la portada y `featured` el merchandising del
+  // catalogo: columnas distintas. p1 esta destacada sin estar en la vitrina y
+  // p2 al contrario, que es justo lo que no se podia expresar antes.
+  it('filtra por la vitrina, con independencia de los destacados', async () => {
+    expect((await service.getAll({ showcase: true })).items.map(p => p.id)).toEqual(['p2']);
+    expect((await service.getAll({ showcase: false })).items.map(p => p.id))
+      .toEqual(['p1', 'p3', 'p4', 'p5']);
   });
 
   it('busca en nombre, perfil de sabor y etiquetas', async () => {
