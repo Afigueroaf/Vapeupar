@@ -221,7 +221,9 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
 
       {filteredProducts.length > 0 ? (
         <CardField
-          watch={filteredProducts.length}
+          // El array entero, no su longitud: ordenar o cambiar a otro filtro
+          // con el mismo número de tarjetas también las mueve de sitio.
+          watch={filteredProducts}
           // 2 columnas en móvil y 4 en escritorio, con un paso de 3 en tablet
           // para no saltar de 2 tarjetas anchas a 4 estrechas de golpe.
           // El `gap` baja a 12px en móvil: con 2 columnas sobre 328px útiles,

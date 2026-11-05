@@ -179,6 +179,16 @@ export function CardField({ watch, className, children, ...props }: CardFieldPro
       const next = event.relatedTarget;
       if (next instanceof Node && card.contains(next)) return;
 
+      // Si quedaba un `pointermove` de esta tarjeta sin escribir, se descarta:
+      // `flush` correría después de esta salida y la dejaría inclinada.
+      if (pending?.card === card) {
+        pending = null;
+        if (frame) {
+          cancelAnimationFrame(frame);
+          frame = 0;
+        }
+      }
+
       card.style.removeProperty("--vp-rx");
       card.style.removeProperty("--vp-ry");
     };

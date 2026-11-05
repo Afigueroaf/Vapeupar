@@ -451,9 +451,9 @@ html.glitch-active .vp-glitch-scanlines {
      fotograma mientras el puntero se mueve, cada escritura dejaba detrás 180 ms
      de animación propia, solapándose con la siguiente.
 
-     Medido en un Moto G15 durante un recorrido con el cursor táctil, quitarlas
-     pasó de 40,7 a 47,1 fps: más que cualquier otro efecto de la tarjeta
-     (la lámina daba 46,5 y la silueta 45,5).
+     En caliente la ganancia en fps no es medible (ver el aviso de método en
+     `docs/performance-optimization-plan.md`); lo que sí se ve en las trazas
+     es que ese trabajo por fotograma desaparece.
 
      EL MOVIMIENTO NO SE PIERDE. `transform` se sigue transicionando aquí
      abajo, así que la inclinación llega suavizada igual; lo que desaparece es

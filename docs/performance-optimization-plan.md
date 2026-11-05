@@ -549,7 +549,7 @@ justamente lo que debe ocurrir cuando el cambio ya está en el código.
 
 | Pendiente | Ganancia medida | Riesgo |
 |---|---|---|
-| Desenfoque de la lámina (`blur(18px)`) | ~+5,8 fps | **Contraste**: está documentado al límite de AA (~4,67:1). Hay que volver a medirlo antes de tocarlo |
+| Desenfoque de la lámina (`blur(18px)`) | ~~+5,8 fps~~ — refutado en caliente, ver «El desenfoque de la lámina» | — |
 | `content-visibility: auto` | sin medir | Bajo |
 | Sustituir `:has(.vp-card:hover)` por una clase | sin medir | Bajo. No se puede aislar inyectando CSS, hay que cambiarlo para medirlo |
 
@@ -582,7 +582,120 @@ era volver a dibujarlo sesenta veces por segundo sin motivo.
 contorno, el envoltorio lleva el dinámico (`0px 7px` en reposo) y la caja de la
 imagen no se mueve ni un píxel.
 
-**Acumulado del escenario del cursor en esta sesión:** 43,2 → 47,8 fps.
+**Acumulado del escenario del cursor en esta sesión:** 43,2 → 47,8 fps *(cifra medida en frío: no reproducible en caliente, ver «AVISO DE MÉTODO»)*.
+
+### Fase 3 — lo que se probó y NO entró (2026-11-05)
+
+Dos candidatos del plan, los dos medidos y los dos descartados por no rendir.
+
+**Sustituir `:has(.vp-card.vp-hot)` por una clase.** Se implementó —el cursor
+marcaba el `.vp-field` y la regla pasaba a ser un descendiente normal— y se
+midió reintroduciendo el `:has()` por CSS sobre el build ya sin él, que es la
+forma de aislar su coste dentro de una sola sesión. La variante CON `:has()`
+dio 50,0 fps frente a 47,5 y 47,7 de la línea base: como añadir una regla no
+puede acelerar nada, lo que dice la medida es que el coste del `:has()` aquí
+está por debajo del ruido (±2 fps). Revertido: no compensa mantener una clase
+gestionada desde JS, con sus dos barridos de limpieza, para no ganar nada.
+
+**`content-visibility: auto` en `.vp-card`.** +0,7 fps, dentro del ruido. No se
+implementa: además tiene riesgo real, porque `<CardField />` mide la posición de
+todas las tarjetas para encajar el fondo continuo y la contención de layout
+podría romper esa medida.
+
+### Fase 4 — el diagnóstico del arranque estaba equivocado (2026-11-05)
+
+El plan daba por hecho que el coste de la carga era el muestreo de 55 000
+puntos y las siluetas por `getImageData`. **Un perfil de CPU del teléfono dice
+otra cosa.** Tiempo propio de JS durante los 6 s de carga:
+
+| | ms | Qué es |
+|---|---|---|
+| `getParameters` | 144 | consultas al contexto WebGL |
+| `e3` (three.js) | 90 | — |
+| `getImageData` | **89** | las siluetas: el sospechoso del plan, y es el cuarto |
+| `texSubImage2D` | 79 | subida de texturas |
+| `getProgramCacheKey` | 61 | compilación de shaders |
+| `setSize` + `getContext` (varios) | ~160 | creación e inicialización del contexto |
+
+O sea: **lo caro es levantar el contexto WebGL y compilar sus shaders**, no
+muestrear la geometría. El muestreo ni siquiera aparece por nombre propio en el
+top 20. Llevarlo a un Web Worker —la acción principal que proponía la fase 4—
+atacaría 89 ms de 1 565 ms de tareas largas.
+
+Y el otro punto de la fase 4, diferir el montaje del prisma, **ya está hecho**:
+`product-prism.tsx` espera a que el hueco entre en pantalla
+(`IntersectionObserver` con 120 px de margen) antes de montar nada, así que
+durante la carga solo se inicializa el contexto de la nube.
+
+**Lo que queda, entonces, es intrínseco a mostrar la pieza**: o se arranca el
+lienzo más tarde (`requestIdleCallback`, que no quita trabajo pero lo saca del
+camino crítico) o se reduce el trabajo de inicialización (menos partículas y DPR
+adaptativo en móvil, que es fase 2). Antes de escribir código conviene decidir
+cuál de las dos, porque la primera es cosmética para la métrica y la segunda
+toca el aspecto de la pieza.
+
+### AVISO DE MÉTODO: el teléfono frío miente (2026-11-05)
+
+**Léase esto antes de creerse cualquier cifra de este documento.**
+
+Al medir el desenfoque de la lámina apareció un resultado imposible: `blur(8px)`
+daba 58,7 fps frente a 48,3 de la línea base, pero al repetir la comparación
+alternando las dos variantes, **la línea base también daba 58,5 y 57,6**. La
+diferencia no era del desenfoque: era de la posición en el lote.
+
+**La primera medición de cada tanda es sistemáticamente la más lenta.** Con el
+teléfono recién puesto a trabajar —cachés frías, CPU todavía subiendo de
+frecuencia, y probablemente temperatura— el mismo código da 40-48 fps; en
+caliente, 57-58. Como la línea base se medía casi siempre la primera, buena
+parte de las ganancias atribuidas a los cambios de hoy son de ese escalón y no
+del código.
+
+**Cómo medir a partir de ahora:** una pasada de calentamiento que se descarta,
+y después las variantes **alternadas** (A, B, A, B), nunca una sola vez cada
+una. Dos líneas base en la misma tanda son la forma barata de ver cuánto vale
+el ruido antes de interpretar nada.
+
+### El desenfoque de la lámina: no hay nada que ganar (2026-11-05)
+
+Medido en caliente, alternando, el radio del desenfoque **no cambia nada**:
+
+| Variante | FPS | p95 | >33 ms |
+|---|---|---|---|
+| Línea base (`blur(18px)`) | 58,5 / 57,6 | 16,7 | 8 / 10 |
+| `blur(8px)` | 58,8 / 58,7 | 16,7 | 5 / 5 |
+
+Y lo mismo con el resto de la tarjeta en una tanda en caliente: lámina
+congelada 57,8, sin lámina 57,8, sin inclinación 57,0, línea base 58,1 y 58,2.
+**Ningún efecto de la tarjeta es medible cuando el aparato no está frío.**
+
+Conclusión: no se toca el desenfoque. El `+5,8 fps` que este documento le
+atribuía era el escalón de arranque descrito arriba.
+
+**Y una corrección sobre el riesgo:** se dijo que tocarlo era delicado por el
+contraste. Es al revés, y está medido en el propio `globals.css`: la lámina con
+máscara y sin desenfoque da 5,29:1 —la misma cifra que sin lámina— mientras que
+con desenfoque baja a 4,78:1, porque el desenfoque se derrama por debajo de
+donde la máscara corta. Quitarlo mejoraría el contraste. Lo que se perdería es
+el efecto: sin él, las bandas del degradado se ven como rayas diagonales de
+borde duro.
+
+### Qué queda en pie de los cambios ya aplicados
+
+Verificados en caliente reintroduciendo por CSS lo que el commit quitó:
+
+| | Línea base | Con lo quitado de vuelta |
+|---|---|---|
+| Transición de `--vp-rx` / `--vp-ry` | 58,0 / 57,9 | 57,5 |
+| Silueta y sombra en un solo `filter` | 58,0 / 57,9 | 58,0 |
+
+O sea: **en caliente tampoco se nota su ausencia**. Lo que sí es real y no
+depende del orden de medición es lo que dicen las trazas: el trabajo existía
+—4 245 recálculos forzados en 14 s, una cadena de cinco filtros rehecha por
+fotograma— y ahora no se hace. Eso deja margen para cuando el aparato esté
+frío, cargado o térmicamente limitado, que es la situación en la que la página
+se sentía mal. Pero las ganancias en fps que figuran en el mensaje del commit
+`a83c512` están infladas por el escalón de arranque y **no son reproducibles en
+caliente**.
 
 ## 4. Orden recomendado y estimación
 
