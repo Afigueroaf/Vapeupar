@@ -24,7 +24,7 @@ V4 y V5.
 | **A5** | Consola `/admin` en Next | `frontend/src/app/(admin)/` | 🟡 **Parcial** (2026-10-27): A5.1 (stock), A5.2 (marcas y proveedores) y A5.3 (lineas y variantes), ejecutadas; falta A5.4, que depende de A7.1 |
 | **A6** | Catálogo público con variantes | `product-card.tsx`, `product-catalog.tsx`, tipos | ⬜ Pendiente |
 | **A7** | `SiteContent` + revalidación + barrido de textos | `faq.tsx`, `layout.tsx`, `trust-band.tsx` | ⬜ Pendiente |
-| **A8** | Imágenes en S3 + CloudFront | `next.config.ts`, `storage.service.ts` | ⬜ Pendiente (bucket y CDN ya desplegados) |
+| **A8** | Imágenes en S3 + CloudFront | `next.config.ts`, `storage.service.ts` | 🟡 **Parcial** (2026-10-27): código terminado y verificado de extremo a extremo —migración aplicada, subida real con URL prefirmada y lectura `200` por CloudFront—. Falta subir las imágenes del catálogo al bucket. Ver `docs/session-handoff-2026-10-27-inventory-images.md` |
 
 Orden recomendado de valor entregado: A1 → A2 → A3 → A4 → **A5.1 (pantalla de
 stock)** → A8 → A5.2–A5.4 → A6 → A7. Con A5.1 y A8 ya se administra el inventario
@@ -1232,3 +1232,93 @@ test verde podría estar tapando una regresión:
 | Coerción desde cadenas de `query` | ✅ `'true'`, `'3'`, `'2'`, `'10'` siguen llegando como booleano y enteros |
 | Claves desconocidas en el cuerpo | ✅ Se **descartan**, no rechazan la petición: un `userId` colado en un movimiento desaparece antes del servicio |
 | Normalización del correo | ✅ `'  OWNER@Vapeupar.COM '` → `owner@vapeupar.com`, y un correo inválido se rechaza |
+
+---
+
+# Vitrina 3D desde la consola (2026-11-02)
+
+La portada tiene un prisma de seis caras con fotos de producto
+(`frontend/src/components/prism/`). Hasta ahora las caras las decidía
+`featured`, y no había forma de elegirlas: solo la casilla «Destacada» dentro
+del formulario de cada línea, una a una y sin ver el resultado.
+
+## La decisión: columna nueva, no reutilizar `featured`
+
+`featured` es merchandising del catálogo; la vitrina es qué se ve girando en la
+portada. Eran la misma casilla por accidente —el prisma se colgó del único
+campo que había— y eso impedía tener una cosa sin la otra.
+
+Así que `products.showcase`, columna propia
+(`20261102120000_product_showcase`). Cuesta una migración y atravesar la pila,
+y a cambio las dos marcas quedan independientes: hoy mismo ya hay un test con
+una línea destacada que no está en la vitrina y otra al contrario.
+
+Se descartó un orden explícito (`showcaseOrder`). La pieza gira sola, así que
+ninguna cara es «la primera» durante mucho tiempo, y una columna más con su
+endpoint de reordenado no compraba nada.
+
+## La pantalla
+
+`/admin/showcase`, cuarta del menú. Rejilla con la foto de cada línea y un
+botón por tarjeta, porque la pregunta que responde es visual.
+
+Dos listas y dos peticiones: las elegidas arriba (`?showcase=true`) y el resto
+del catálogo abajo, paginado y con buscador. Con una sola lista paginada —el
+listado ordena por estado y nombre— una elegida podía caer en la página 3 y
+quedar fuera de la vista.
+
+**Cuenta las caras**, que es su razón de ser: el desajuste entre lo elegido y
+las seis caras no se ve en la portada. Una foto repetida parece intencionada y
+una séptima línea ausente no deja rastro. La pantalla dice «4 de 6 caras» y
+avisa de los dos casos, más de un tercero que tampoco se notaría: una elegida
+en borrador, sin precio o sin imagen no llega al prisma, porque el contrato
+público solo sirve publicadas con precio y el reparto de caras descarta las que
+no traen foto.
+
+Sin endpoint nuevo: `showcase` es columna de la línea y viaja en el
+`PATCH /api/admin/products/:id` de siempre, de modo que el cambio queda
+auditado con autor como cualquier otra edición. Por lo mismo, escribir es de
+`owner`; el operador ve la pantalla en solo lectura.
+
+## Corregido de paso: el prisma recortaba las fotos
+
+`prism/scene.ts` encajaba cada textura con el equivalente a
+`object-fit: cover`. Con fotos de producto eso se come el producto:
+
+| Imagen de línea | Tamaño real | Proporción | Se recortaba |
+|---|---|---|---|
+| `ONE/one.webp` | 220×514 | 0.43 | **43% del alto** (boquilla y base) |
+| `eco-3/eco-3.webp` | 700×700 | 1.00 | 25% del ancho |
+| `fit/FIT.webp` | 1000×1000 | 1.00 | 25% del ancho |
+| `eco.pro/ECO-PRO.webp` | 409×450 | 0.91 | 17% del ancho |
+
+Las cuatro, contra una cara de 3/4. LifePod ONE se notaba porque es el más
+alargado, y era el que se veía «como un recorte».
+
+Ahora contiene en lugar de recortar, igual que la tarjeta del catálogo, que ya
+usaba `object-contain` por esta misma razón. El cambio va en la **geometría**,
+no en la textura: el mapa se queda 1:1 y es el panel el que se estrecha o se
+achata hasta la proporción de la foto. Por la textura no se puede —`repeat` por
+encima de 1 saca los bordes del rango y con `ClampToEdgeWrapping` se ven como
+el último píxel estirado—, y el material ya es transparente, así que un panel
+más pequeño que su cara deja ver el fondo como el `contain` de CSS.
+
+Efecto lateral que conviene saber: las caras dejan de ser todas del mismo
+tamaño, porque las fotos no comparten proporción. Un panel de 0.43 ocupa el 57%
+del ancho de su cara. Si se quiere la vitrina con caras uniformes, el arreglo
+no es en el código sino en el asset: reexportar las fotos de línea con relleno
+transparente a una proporción común.
+
+## Verificado
+
+| Comprobación | Resultado |
+|---|---|
+| `npm run test:backend` | ✅ **142/142** (3 nuevos: filtro público, filtro del admin + PATCH, 403 del operador) |
+| `tsc --noEmit` backend y frontend | ✅ Sin errores |
+| `eslint` frontend | ✅ Sin avisos |
+| `npm run build:frontend` | ✅ Compila; `/admin/showcase` en la lista de rutas |
+| Proporción de la textura que recibe el motor | ✅ Servida por `/_next/image` desde el servidor de desarrollo: `one.webp` llega 220×514 (no se amplía) y `eco-3.webp` 640×640, o sea que el optimizador conserva la proporción y el encaje se calcula sobre la buena |
+
+No verificado en navegador: la extensión de Chrome no estaba conectada en la
+sesión. El encaje se comprobó sobre las dimensiones reales que sirve
+`/_next/image`, no sobre el render.

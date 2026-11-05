@@ -75,8 +75,117 @@ se actualiza solo.
 | `DB_APP_SECRET_ARN` | ARN del secreto del rol `vapeupar_app` (runtime del backend) |
 | `BASTION_INSTANCE_ID` | Instancia destino del túnel |
 | `S3_CATALOG_BUCKET`, `CDN_DOMAIN` | Bucket de imágenes y dominio de CloudFront |
+| `CDN_DISTRIBUTION_ID` | Distribución a invalidar cuando se reemplaza una imagen |
 | `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID` | Pool y cliente del backend |
 | `COGNITO_CLIENT_SECRET_ARN` | ARN del secreto del cliente confidencial |
+
+### Subida de imágenes al bucket (URL prefirmada)
+
+El bucket es privado y se lee **solo** por CloudFront con OAC. Escribir en él
+tiene una única vía desde la consola:
+
+1. La consola pide `POST /api/admin/uploads/presign` con `target`, `entityId`,
+   `contentType` y `size`.
+2. El backend comprueba que la entidad existe, **deriva la clave del objeto** y
+   firma un `PutObject` de 5 minutos con `ContentType` y `ContentLength`
+   incluidos en la firma.
+3. El navegador sube el archivo con `PUT` a esa URL. No recibe credenciales de
+   AWS en ningún momento.
+4. La consola guarda la **clave** con el PATCH de la entidad. La URL pública se
+   compone con `CDN_DOMAIN`; la base nunca guarda URLs.
+
+Claves que genera el backend (`backend/src/catalog/image-keys.ts`), las mismas
+que usa la semilla:
+
+```txt
+marcas/<marca-slug>/logo.<ext>
+proveedores/<proveedor-id>/logo.<ext>
+productos/<linea-slug>/linea.<ext>
+productos/<linea-slug>/<variante-slug>.<ext>
+```
+
+**CORS.** El `PUT` lo hace el navegador, así que el bucket lleva una regla CORS
+con `allowedMethods: [PUT]` y `allowedOrigins: config.storage.uploadOrigins`
+(`infra/lib/storage-stack.ts`). En dev es `http://localhost:3000`; en prod
+`config.prod.storage.uploadOrigins` está **vacío** y sin el dominio de la
+consola toda subida fallará en el navegador, no en el backend. Sin orígenes no
+se crea la regla, que es lo correcto para un bucket que no se escribe desde web.
+
+**Quién firma.** El backend firma con las credenciales de su propio proceso. En
+local son las del AWS CLI (sesión que caduca: si la subida empieza a dar 503,
+renovar la sesión del CLI y comprobar con `aws sts get-caller-identity`). En producción tiene que ser el
+rol de la tarea del backend con `s3:PutObject` **limitado al prefijo del
+catálogo**, nunca el usuario administrador compartido de la cuenta: quien pueda
+llamar al presign puede escribir hasta donde alcance ese rol. El reparto de
+permisos de la ruta está en `docs/security.md` §2.2.
+
+**Verificación tras desplegar:**
+
+```powershell
+aws s3api head-bucket --bucket vapeupar-dev-catalog-342284838697
+aws s3api get-bucket-cors --bucket vapeupar-dev-catalog-342284838697
+# Subir una imagen desde la consola y después:
+aws s3api head-object --bucket vapeupar-dev-catalog-342284838697 --key productos/<linea>/<variante>.webp
+curl -I https://<CDN_DOMAIN>/productos/<linea>/<variante>.webp   # 200
+```
+
+> Un `403` de CloudFront en una clave que nunca se subió es lo esperado: S3
+> responde `404` y la distribución lo presenta como `403` porque el bucket es
+> privado. Antes de buscar el fallo en el frontend, comprobar que el objeto
+> existe.
+
+#### Reemplazar una imagen: invalidación del CDN
+
+La clave se deriva de la entidad, así que **cambiar la foto de algo que ya
+tenía una no cambia la clave**, y la distribución usa la política gestionada
+`Managed-CachingOptimized`: `DefaultTTL` de 86 400 s, con las cadenas de
+consulta **fuera** de la clave de caché (un `?v=` no sirve de nada). Sin hacer
+nada, reemplazar una imagen se veía hasta 24 h después:
+
+```txt
+objeto reemplazado en S3   -> 3612 bytes
+GET por CloudFront         -> 3648 bytes, X-Cache: Hit    (la anterior)
+```
+
+Por eso la consola, **después de que el `PUT` termina bien**, llama a
+`POST /api/admin/uploads/invalidate` con la clave, y el backend crea una
+invalidación de esa ruta. Verificado el 2026-10-27 por el camino real:
+
+```txt
+PUT con una imagen distinta -> 200, S3 pasa a 3612 bytes
+invalidación                -> I5DWHSR3CG3MYSYM3EGZ9QEPB6, Completed
+GET por CloudFront          -> 3612 bytes, X-Cache: Miss   (la nueva)
+```
+
+Detalles que importan:
+
+- Se invalida **una ruta concreta**, nunca un comodín. `/*` costaría lo mismo
+  pero vaciaría la caché del catálogo entero y toda la carga volvería al
+  origen. El servicio rechaza cualquier clave que no empiece por `marcas/`,
+  `proveedores/` o `productos/`, y también `*` y `..`.
+- Se invalida también al subir una clave **nueva**: CloudFront pudo cachear el
+  `403` de cuando el objeto no existía.
+- **Si la invalidación falla, la carga no se da por fallida**: la imagen ya
+  está en el bucket. La consola lo dice y avisa de que hasta que caduque la
+  caché se seguirá viendo la anterior.
+- Coste: 1000 rutas gratis al mes y 0,005 USD por ruta después. Una
+  invalidación por imagen subida; las 89 imágenes del catálogo entran de
+  sobra en el tramo gratuito.
+- El id de la distribución llega por `CDN_DISTRIBUTION_ID`, publicado en SSM
+  por el stack de almacenamiento. Sin esa variable el endpoint responde `503`
+  y la consola trata el aviso como tal, sin romper la subida.
+
+**Permiso que hace falta.** En local la invalidación la firma la sesión del
+AWS CLI. Cuando el backend se despliegue, su rol necesita, además de
+`s3:PutObject` sobre el prefijo del catálogo, `cloudfront:CreateInvalidation`
+sobre esta distribución **y nada más de CloudFront** (ver §8.1).
+
+Para invalidar a mano, en Git Bash hace falta `MSYS_NO_PATHCONV=1`: sin eso
+convierte la ruta en una de Windows y AWS responde `InvalidArgument`.
+
+```bash
+MSYS_NO_PATHCONV=1 aws cloudfront create-invalidation   --distribution-id E2NZNVPW0QI2LA --paths "/productos/<linea>/<variante>.webp"
+```
 
 ## 3. Cuenta compartida con DeliPan
 
@@ -328,6 +437,12 @@ que falta no es código de infraestructura nuevo, sino estas decisiones y tareas
 4. **Correo.** Verificar el dominio en SES (DKIM, SPF, DMARC), solicitar el
    acceso de producción de SES (sale del sandbox en ~24 h) y cambiar el User
    Pool a `UserPoolEmail.withSES`.
+5. **Rol del backend.** Hoy el backend corre en local y firma con la sesión del
+   AWS CLI. Su rol en prod necesita exactamente dos permisos sobre el
+   catálogo, y ninguno más: `s3:PutObject` limitado al prefijo del catálogo y
+   `cloudfront:CreateInvalidation` sobre la distribución del catálogo. Nunca el
+   administrador compartido de la cuenta: quien pueda llamar al presign escribe
+   donde ese rol alcance.
 
 ### 8.2 Diferencias dev → prod ya codificadas
 

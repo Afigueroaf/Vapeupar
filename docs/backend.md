@@ -88,21 +88,27 @@ nace protegida.
 | `GET /api/admin/stock` | sesión | Inventario paginado. `?q=&brandId=&lowStock=&threshold=&page=&limit=` |
 | `POST /api/admin/stock/movements` | sesión | Registra un movimiento. `201`, o `200` si fue un reintento (`replayed`) |
 | `GET /api/admin/stock/:variantId/kardex` | sesión | Kardex de la variante. `?from=&to=` |
+| `GET /api/admin/stock/image-alerts` | sesión | Variantes `published` con stock y sin `imageKey`; alimenta la alerta de imágenes del inventario |
+| `POST /api/admin/uploads/presign` | sesión | URL `PUT` prefirmada (5 min) para logos, líneas y variantes. La clave la deriva el backend; `contentType` limitado a webp/jpeg/png y `size` a 5 MB |
+| `POST /api/admin/uploads/invalidate` | sesión | Invalida en CloudFront la clave recién subida. Solo una ruta concreta del catálogo; `503` si falta `CDN_DISTRIBUTION_ID` |
+| `GET /api/admin/inventory-notes` | sesión | Notas de inventario, con `authorEmail` y el nombre de la variante y su línea. `?variantId=&resolved=` |
+| `POST /api/admin/inventory-notes` | **owner** | Crea una nota general o asociada a una variante. Audita `inventory_note.create` |
+| `PATCH /api/admin/inventory-notes/:id/resolve` | **owner** | Marca la nota como resuelta. Audita `inventory_note.resolve` |
 | `GET /api/admin/brands` | sesión | Marcas paginadas. `?q=&active=&isPartner=&page=&limit=` |
 | `GET /api/admin/brands/:id` | sesión | Una marca, con su número de líneas |
 | `POST /api/admin/brands` | **owner** | Crea la marca. `201` con la fila resultante |
-| `PATCH /api/admin/brands/:id` | **owner** | Cambia solo los campos que trae el cuerpo |
+| `PATCH /api/admin/brands/:id` | **owner**, u `operator` solo con `logoKey` | Cambia solo los campos que trae el cuerpo |
 | `GET /api/admin/suppliers` | sesión | Proveedores paginados. `?q=&active=&page=&limit=` |
 | `GET /api/admin/suppliers/:id` | sesión | Ficha con las marcas que trae, las variantes distintas que ha abastecido (`suppliedVariantCount`) y la fecha del último ingreso |
 | `POST /api/admin/suppliers` | **owner** | Crea el proveedor; `brandIds` fija el vínculo con marcas |
-| `PATCH /api/admin/suppliers/:id` | **owner** | Igual; `brandIds` reemplaza la lista completa |
+| `PATCH /api/admin/suppliers/:id` | **owner**, u `operator` solo con `imageKey` | Igual; `brandIds` reemplaza la lista completa |
 | `GET /api/admin/products` | sesión | Líneas paginadas, borradores primero, con el número de variantes (no las variantes). `?q=&brandId=&category=&status=&page=&limit=` |
 | `GET /api/admin/products/:id` | sesión | Ficha con sus variantes y `meta.readiness` (qué falta para publicar) |
 | `POST /api/admin/products` | **owner** | Crea la línea. Nace en `draft` salvo que se pida otra cosa |
-| `PATCH /api/admin/products/:id` | **owner** | Precio, specs, publicación. `409` con `missing` si falta algo para publicar |
+| `PATCH /api/admin/products/:id` | **owner**, u `operator` solo con `imageKey` | Precio, specs, publicación. `409` con `missing` si falta algo para publicar |
 | `GET /api/admin/products/:id/variants` | sesión | Variantes de la línea, en su orden de aparición |
 | `POST /api/admin/products/:id/variants` | **owner** | Crea la variante. El stock nace en cero y no se acepta del cuerpo |
-| `PATCH /api/admin/products/:id/variants/:variantId` | **owner** | Nombre, imagen, orden y `active` |
+| `PATCH /api/admin/products/:id/variants/:variantId` | **owner**, u `operator` solo con `imageKey` | Nombre, imagen, orden y `active` |
 | `GET /api/admin/content` | sesión | Las claves de contenido disponibles |
 | `GET /api/admin/content/:key` | sesión | Última versión publicada de la clave. `404` si nunca se publicó |
 | `GET /api/admin/content/:key/versions` | sesión | Historial para volver atrás. `?limit=` |
@@ -117,6 +123,13 @@ conservador: el `operator` hace lo que A4 ya le dio, que es el inventario
 diario, y el catálogo, el contenido y la auditoría quedan para `owner`.
 Relajarlo es una línea por ruta.
 
+**Las imágenes son la excepción** (decisión del 2026-10-27, en
+`docs/security.md` §2.2). Quien hace el ingreso diario es quien tiene la foto,
+así que el `operator` firma subidas y guarda la clave de marca, proveedor,
+línea y variante. Lo impone `requireOwnerOrFields`, que mira el cuerpo **sin
+validar**: un PATCH de `operator` con cualquier campo de más se rechaza entero
+con `403` en vez de que Zod lo descarte y pase como si solo trajera la imagen.
+
 **No hay DELETE en ninguna de estas entidades.** El libro de inventario
 referencia variantes y proveedores con `onDelete: Restrict`, y las líneas
 referencian marcas igual: borrar de verdad rompería el rastro contable. Retirar
@@ -127,6 +140,34 @@ una variante activa (A5.3). El detalle lo adelanta en `meta.readiness` y el
 intento de publicar sin eso responde `409` con la lista en `missing`, para que la
 consola pueda decir qué falta en vez de solo negarse. Tampoco se renombra una
 línea publicada: su URL está indexada y renombrarla exige una redirección 301.
+
+**Imagen de variante.** Es opcional: no bloquea publicar ni activar la variante.
+Se sube desde el ingreso de stock con una URL prefirmada y se guarda su
+`imageKey`. El inventario alerta de las variantes publicadas con stock y sin
+imagen; la revisión final es responsabilidad de los administradores.
+
+**Imagen de proveedor.** `Supplier.imageKey` es opcional y se edita desde la
+ficha del proveedor con el mismo flujo de subida.
+
+**Claves del bucket.** Una sola convención, en español, para la semilla y para
+las subidas desde la consola (`catalog/image-keys.ts`):
+
+```txt
+marcas/<marca-slug>/logo.<ext>
+proveedores/<proveedor-id>/logo.<ext>
+productos/<linea-slug>/linea.<ext>
+productos/<linea-slug>/<variante-slug>.<ext>
+```
+
+La base guarda la clave, nunca la URL: la pública se compone con `CDN_DOMAIN`.
+El proveedor va por `id` y no por slug porque no tiene uno.
+
+**Reemplazar una imagen.** La clave sale de la entidad, así que cambiar la foto
+de algo que ya tenía una **no cambia la clave**. Dos consecuencias, las dos
+resueltas: la consola manda igualmente el PATCH con la misma clave —es el
+único sitio donde queda rastro del cambio, y la ruta lo acepta—, y pide
+`POST /uploads/invalidate` tras el `PUT`, porque si no CloudFront seguiría
+sirviendo la imagen anterior hasta un día. Ver `docs/infrastructure-aws.md` §2.
 
 **Sesión.** Los tokens de Cognito viven en cookies `httpOnly` + `SameSite=Strict`
 limitadas a `/api/admin` (y `Secure` en producción). El JavaScript de la consola
