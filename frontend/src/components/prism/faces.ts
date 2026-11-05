@@ -28,7 +28,7 @@ const FACE_IMAGE_QUALITY = 75;
  *
  * 1. CORS. `TextureLoader` sube la imagen a una textura WebGL, y para eso el
  *    navegador exige que el origen la sirva con `Access-Control-Allow-Origin`.
- *    Las fotos del catálogo vienen de CloudFront o de Unsplash; si alguno deja
+ *    Las fotos del catálogo vienen de CloudFront; si deja
  *    de mandar esa cabecera, la cara se queda en negro y el fallo aparece en
  *    producción, no aquí. Por `/_next/image` la imagen es del mismo origen y
  *    el problema no existe.

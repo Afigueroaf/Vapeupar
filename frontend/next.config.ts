@@ -40,12 +40,8 @@ const nextConfig: NextConfig = {
     // Las imágenes reales del catálogo vienen del CloudFront del entorno
     // (`CDN_DOMAIN` en el backend, el mismo valor aquí como público: es un
     // nombre de dominio, no un secreto). Sin la variable, el patrón no se
-    // añade y solo quedan las de respaldo.
+    // añade y solo se ven las de respaldo, que son locales.
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "images.unsplash.com",
-      },
       ...(process.env.NEXT_PUBLIC_CDN_DOMAIN
         ? [
             {

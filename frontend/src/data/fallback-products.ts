@@ -3,152 +3,95 @@ import { Product } from "@/types/product";
 /**
  * Datos de respaldo usados cuando la API del backend no responde.
  *
- * Los mismos datos de muestra que servía el backend antes de la persistencia
- * real (A1); se retiran del backend en A2 y quedan solo aquí hasta A6.
+ * Son una copia del catálogo real (los cuatro productos LifePod dados de alta
+ * en la consola, 2026-11-05), no datos de muestra: si la API cae, la portada
+ * sigue enseñando lo que de verdad se vende.
  *
- * NOTA DE DISEÑO: las `imageUrl` son fotografías de stock que NO corresponden
- * a los productos reales. Se reemplazan en una fase posterior del rediseño.
- * Ver `docs/design-reset-inventory.md` §7.1.
+ * LAS FOTOS SON LOCALES (`public/productos/`), copiadas del CDN. Así el
+ * respaldo no depende de `NEXT_PUBLIC_CDN_DOMAIN` ni de que CloudFront
+ * responda, que es justo el escenario en el que se usa este archivo.
+ *
+ * El stock que figura aquí es el de la fecha de la copia y puede estar
+ * desactualizado; el bueno es siempre el de la API.
  */
 export const FALLBACK_PRODUCTS: Product[] = [
   {
-    id: "prod-001",
-    name: "Lost Mary MO10000 Watermelon Ice",
-    slug: "lost-mary-mo10000-watermelon-ice",
-    brand: "Lost Mary",
+    id: "01a17b11-c979-7258-bd65-62e4899c92c0",
+    name: "LifePod ECO 3",
+    slug: "lifepod-eco-3",
+    brand: "LifePod",
     category: "disposables",
-    shortDescription: "10,000 Puffs con pantalla inteligente y sabor refrescante a sandía fresca.",
-    description: "El vaporizador desechable Lost Mary MO10000 ofrece hasta 10,000 caladas de puro sabor a sandía fresca con toque mentolado. Equipado con pantalla LED inteligente que indica porcentaje de líquido y batería en tiempo real.",
-    price: 65000,
-    compareAtPrice: 75000,
+    description: "",
+    shortDescription: "",
+    price: 50000,
+    compareAtPrice: 60000,
     inStock: true,
-    stock: 24,
-    imageUrl: "https://images.unsplash.com/photo-1527661591475-527312dd65f5?auto=format&fit=crop&w=600&q=80",
+    stock: 20,
+    imageUrl: "/productos/lifepod-eco-3.webp",
     featured: true,
-    showcase: true,
-    isBestSeller: true,
-    specs: {
-      puffCount: 10000,
-      nicotineStrength: "50mg (5%)",
-      flavorProfile: "Sandía Helada / Mentol",
-      liquidCapacity: "18ml",
-      batteryCapacity: "600mAh USB-C",
-      rechargeable: true
-    },
-    tags: ["desechable", "pantalla led", "sandia", "bestseller"]
-  },
-  {
-    id: "prod-002",
-    name: "Geekvape Wenax Q Pro Pod Kit",
-    slug: "geekvape-wenax-q-pro",
-    brand: "Geekvape",
-    category: "pod-systems",
-    shortDescription: "Kit de Pod recargable de alta precisión, potencia ajustable hasta 30W.",
-    description: "El Wenax Q Pro eleva la experiencia de pods recargables con pantalla táctil háptica, batería de 1200mAh de larga duración y compatibilidad total con toda la serie de cartuchos Geekvape Q.",
-    price: 135000,
-    compareAtPrice: 150000,
-    inStock: true,
-    stock: 12,
-    imageUrl: "https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80",
-    featured: true,
-    showcase: true,
+    showcase: false,
     isNewArrival: true,
-    specs: {
-      nicotineStrength: "Variable según e-líquido",
-      liquidCapacity: "2ml",
-      batteryCapacity: "1200mAh USB-C",
-      resistance: "0.6 / 0.8 / 1.2 ohm",
-      rechargeable: true
-    },
-    tags: ["pod system", "recargable", "geekvape", "30W"]
+    isBestSeller: false,
+    specs: { puffCount: 10000, nicotineStrength: "" },
+    tags: [],
   },
   {
-    id: "prod-003",
-    name: "Nasty Juice Cush Man Mango Salt Nic 30ml",
-    slug: "nasty-juice-cush-man-mango-salt-30ml",
-    brand: "Nasty Juice",
-    category: "salt-nic",
-    shortDescription: "El legendario mango maduro tropical en sales de nicotina.",
-    description: "Cush Man de Nasty Juice es mundialmente aclamado por recrear el sabor auténtico, dulce y jugoso del mango maduro con una sensación suave y satisfactoria de sales de nicotina.",
-    price: 55000,
-    inStock: true,
-    stock: 35,
-    imageUrl: "https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=600&q=80",
-    featured: true,
-    showcase: true,
-    specs: {
-      nicotineStrength: "35mg (3.5%)",
-      flavorProfile: "Mango Tropical Maduro",
-      liquidCapacity: "30ml"
-    },
-    tags: ["sales de nicotina", "mango", "nasty juice"]
-  },
-  {
-    id: "prod-004",
-    name: "Oxva Xlim Pro Pod Kit",
-    slug: "oxva-xlim-pro-pod-kit",
-    brand: "OXVA",
-    category: "pod-systems",
-    shortDescription: "El rey del sabor MTL / RDL con pantalla RGB y batería de 1000mAh.",
-    description: "El OXVA Xlim Pro destaca por su increíble entrega de sabor tanto en sales de nicotina como en líquidos base libre. Chasis de aleación de zinc y acabado brillante de fibra de carbono.",
-    price: 140000,
-    inStock: true,
-    stock: 8,
-    imageUrl: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=600&q=80",
-    featured: true,
-    showcase: true,
-    isBestSeller: true,
-    specs: {
-      nicotineStrength: "Variable",
-      liquidCapacity: "2ml Top Fill",
-      batteryCapacity: "1000mAh USB-C",
-      resistance: "0.6 / 0.8 ohm"
-    },
-    tags: ["oxva", "xlim", "pod kit", "top fill"]
-  },
-  {
-    id: "prod-005",
-    name: "Elf Bar BC10000 Strawberry Kiwi",
-    slug: "elf-bar-bc10000-strawberry-kiwi",
-    brand: "Elf Bar",
+    id: "01a17b11-e0e7-758b-9a28-63cfa72898b0",
+    name: "LifePod ECO PRO",
+    slug: "lifepod-eco-pro",
+    brand: "LifePod",
     category: "disposables",
-    shortDescription: "10,000 Puffs con tecnología Quaq Mesh Coil.",
-    description: "Fusión perfecta de fresas dulces y kiwi ácido con la tecnología Quaq Mesh Coil que previene sabor a quemado hasta la última gota de e-líquido.",
-    price: 60000,
-    compareAtPrice: 70000,
-    inStock: true,
-    stock: 19,
-    imageUrl: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?auto=format&fit=crop&w=600&q=80",
-    featured: false,
-    showcase: true,
-    specs: {
-      puffCount: 10000,
-      nicotineStrength: "50mg (5%)",
-      flavorProfile: "Fresa Kiwi Helado",
-      liquidCapacity: "18ml",
-      batteryCapacity: "620mAh USB-C",
-      rechargeable: true
-    },
-    tags: ["desechable", "elf bar", "fresa kiwi"]
-  },
-  {
-    id: "prod-006",
-    name: "Vaporesso GTX Coils Pack x5",
-    slug: "vaporesso-gtx-coils-pack-5",
-    brand: "Vaporesso",
-    category: "coils-accessories",
-    shortDescription: "Resistencias de malla de alto rendimiento para Target, Luxe y Gen.",
-    description: "Pack de 5 resistencias Vaporesso GTX Mesh diseñadas para una producción de vapor densa y vida útil prolongada con algodón de lino antibacteriano.",
-    price: 52000,
+    description: "",
+    shortDescription: "",
+    price: 70000,
+    compareAtPrice: 80000,
     inStock: false,
     stock: 0,
-    imageUrl: "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?auto=format&fit=crop&w=600&q=80",
+    imageUrl: "/productos/lifepod-eco-pro.webp",
     featured: false,
-    showcase: true,
-    specs: {
-      nicotineStrength: "N/A",
-      resistance: "0.2 / 0.3 / 0.8 ohm"
-    },
-    tags: ["resistencias", "coils", "vaporesso", "repuesto"]
-  }
+    showcase: false,
+    isNewArrival: true,
+    isBestSeller: true,
+    specs: { puffCount: 15000, nicotineStrength: "" },
+    tags: [],
+  },
+  {
+    id: "01a17b12-10e2-74c8-9aac-a45f7120fe7a",
+    name: "LifePod ONE",
+    slug: "lifepod-one",
+    brand: "LifePod",
+    category: "pod-systems",
+    description: "",
+    shortDescription: "",
+    price: 100000,
+    compareAtPrice: 120000,
+    inStock: false,
+    stock: 0,
+    imageUrl: "/productos/lifepod-one.webp",
+    featured: true,
+    showcase: false,
+    isNewArrival: false,
+    isBestSeller: false,
+    specs: { nicotineStrength: "" },
+    tags: [],
+  },
+  {
+    id: "01a17b12-1885-735c-96d0-78d42af0dfd5",
+    name: "LifePod FIT",
+    slug: "lifepod-fit",
+    brand: "LifePod",
+    category: "disposables",
+    description: "",
+    shortDescription: "",
+    price: 70000,
+    inStock: false,
+    stock: 0,
+    imageUrl: "/productos/lifepod-fit.webp",
+    featured: false,
+    showcase: false,
+    isNewArrival: false,
+    isBestSeller: false,
+    specs: { nicotineStrength: "" },
+    tags: [],
+  },
 ];
