@@ -697,6 +697,30 @@ se sentía mal. Pero las ganancias en fps que figuran en el mensaje del commit
 `a83c512` están infladas por el escalón de arranque y **no son reproducibles en
 caliente**.
 
+### Fase 3 — 3D y lámina solo en la tarjeta activa (2026-11-05)
+
+`preserve-3d` + `translateZ` en las `.vp-plano` y la lámina holográfica (blend +
+máscara + `blur(18px)`) pasan a montarse solo en la tarjeta activa (`:hover` con
+puntero fino, `:focus-within`, `.vp-hot` o `:active` táctil). En reposo la
+tarjeta es plana y la lámina está apagada. **Cambia el aspecto**: las tarjetas
+quietas pierden el velo al 28 % y el leve agrandado por profundidad; al
+activarse, las capas "despegan" con una transición de 0,25 s.
+
+Medido en caliente, alternando, catálogo real (Moto G15):
+
+| Escenario | Antes | Solo la activa |
+|---|---|---|
+| Scroll · FPS | 53,3 / 56,5 | 57,4 / 56,4 / 54,9 |
+| Scroll · >33 ms | 19 / 11 | 7 / 8 / 13 |
+| Cursor táctil · FPS | 52,8 / 52,7 · 54,1 / 53,8 | 52,1 / 53,8 · 54,1 / 52,8 |
+| Cursor táctil · >33 ms | 20 / 18 · 18 / 16 | 28 / 23 · 20 / 25 |
+
+Gana algo en scroll (el gesto más común) y pierde algo con el cursor táctil,
+que monta y desmonta las capas de cada tarjeta que toca. Se probó una variante
+intermedia —3D en todas mientras el cursor está encendido— y se descartó: mismos
+fps y los peores picos de la tanda (200–216 ms), probablemente al montar de golpe
+las capas de todas las tarjetas.
+
 ## 4. Orden recomendado y estimación
 
 | Fase | Esfuerzo | Impacto esperado |

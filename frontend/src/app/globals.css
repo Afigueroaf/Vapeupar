@@ -438,7 +438,8 @@ html.glitch-active .vp-glitch-scanlines {
      que leer y un CTA de 44px que pulsar, y a 20 grados el texto se deforma y
      el objetivo táctil se escora. */
   perspective: 2000px;
-  transform-style: preserve-3d;
+  /* `preserve-3d` solo en la tarjeta activa: ver «3D SOLO EN LA TARJETA
+     ACTIVA» más abajo. */
   transform: rotateX(calc(var(--vp-ry) * -11deg))
     rotateY(calc(var(--vp-rx) * 11deg));
   /* NO SE TRANSICIONAN `--vp-rx` NI `--vp-ry`, Y ES LA OPTIMIZACIÓN MÁS
@@ -572,9 +573,17 @@ html.glitch-active .vp-glitch-scanlines {
   overflow: hidden;
   z-index: -1;
   pointer-events: none;
-  opacity: 0.28;
+  /* APAGADA EN REPOSO, y `visibility: hidden` para que no se pinte: con
+     blend + máscara + `blur(18px)` en cada tarjeta, el velo del 28% costaba
+     una superficie desenfocada por tarjeta aunque ninguna estuviera activa.
+     Solo se enciende en la activa (reglas de abajo). El `visibility` se
+     retrasa al apagar para que el fundido de salida se vea entero. */
+  opacity: 0;
+  visibility: hidden;
   mix-blend-mode: screen;
-  transition: opacity 0.35s var(--ease-vp);
+  transition:
+    opacity 0.35s var(--ease-vp),
+    visibility 0s linear 0.35s;
 
   /* La lámina se hunde detrás de todo. Al inclinar la tarjeta, el velo se
      queda rezagado respecto a lo que flota delante, que es justamente lo que
@@ -677,6 +686,8 @@ html.glitch-active .vp-glitch-scanlines {
 @media (hover: hover) and (pointer: fine) {
   .vp-card:hover .vp-holo {
     opacity: 0.92;
+    visibility: visible;
+    transition: opacity 0.35s var(--ease-vp), visibility 0s;
   }
 }
 
@@ -684,6 +695,8 @@ html.glitch-active .vp-glitch-scanlines {
    lámina señala qué tarjeta está activa sin depender del puntero. */
 .vp-card:focus-within .vp-holo {
   opacity: 0.92;
+  visibility: visible;
+  transition: opacity 0.35s var(--ease-vp), visibility 0s;
 }
 
 /* Y el cursor táctil, que es la respuesta a la guarda de arriba: en un
@@ -692,17 +705,21 @@ html.glitch-active .vp-glitch-scanlines {
    clavado donde se tocó por última vez. */
 .vp-card.vp-hot .vp-holo {
   opacity: 0.92;
+  visibility: visible;
+  transition: opacity 0.35s var(--ease-vp), visibility 0s;
 }
 
 /* En táctil la lámina responde al dedo mantenido. AVISO HONESTO: esto no se
    ha podido confirmar con el emulador —Chrome no aplica `:active` a los
    eventos de toque sintéticos del protocolo, verificado: `matches(':active')`
    devuelve false con el dedo puesto—, así que queda pendiente de probarlo en
-   un teléfono real. Si no llegara a dispararse, en móvil la lámina se queda en
-   su 28% de reposo, que es un estado correcto y no un fallo visible. */
+   un teléfono real. Si no llegara a dispararse, en móvil la lámina se queda
+   apagada como en reposo, que es un estado correcto y no un fallo visible. */
 @media (hover: none) {
   :where(html:not([data-vp-cursor="on"])) .vp-card:active .vp-holo {
     opacity: 0.9;
+    visibility: visible;
+    transition: opacity 0.35s var(--ease-vp), visibility 0s;
   }
 }
 
@@ -736,12 +753,54 @@ html.glitch-active .vp-glitch-scanlines {
 /* La columna de contenido. YA NO GIRA —el giro volvió a la tarjeta, con su
    borde— pero sigue haciendo falta: es quien mantiene el 3D vivo para las
    capas `.vp-plano`, que tienen que ser hijas DIRECTAS suyas. */
-.vp-escena {
+.vp-plano {
+  /* En reposo plana; despega en Z al activarse la tarjeta (ver abajo). */
+  transition: transform 0.25s var(--ease-vp);
+}
+
+/* ----------------------------------------------------------------------------
+   3D SOLO EN LA TARJETA ACTIVA
+   ----------------------------------------------------------------------------
+   Con `preserve-3d` permanente, cada `.vp-plano` (6-7 por tarjeta) y la lámina
+   eran una capa de composición propia SIEMPRE: ~150 capas con 20 tarjetas,
+   aunque nadie las tocara, y en un teléfono sin cursor táctil la inclinación
+   ni siquiera puede ocurrir. Ahora la tarjeta en reposo es plana (una sola
+   superficie) y solo la activa —ratón encima, foco, cursor táctil o dedo
+   mantenido— monta el 3D y hace subir sus capas con una transición.
+
+   Mismos estados que encienden la lámina (`.vp-holo`, arriba). */
+.vp-card.vp-hot,
+.vp-card:focus-within,
+.vp-card.vp-hot .vp-escena,
+.vp-card:focus-within .vp-escena {
   transform-style: preserve-3d;
 }
 
-.vp-plano {
+.vp-card.vp-hot .vp-plano,
+.vp-card:focus-within .vp-plano {
   transform: translateZ(var(--vp-plano, 0));
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .vp-card:hover,
+  .vp-card:hover .vp-escena {
+    transform-style: preserve-3d;
+  }
+
+  .vp-card:hover .vp-plano {
+    transform: translateZ(var(--vp-plano, 0));
+  }
+}
+
+@media (hover: none) {
+  :where(html:not([data-vp-cursor="on"])) .vp-card:active,
+  :where(html:not([data-vp-cursor="on"])) .vp-card:active .vp-escena {
+    transform-style: preserve-3d;
+  }
+
+  :where(html:not([data-vp-cursor="on"])) .vp-card:active .vp-plano {
+    transform: translateZ(var(--vp-plano, 0));
+  }
 }
 
 /* ----------------------------------------------------------------------------
