@@ -413,21 +413,176 @@ Se probó bajar la huella a 0,5 y atenuar la separación de canales al 85% —co
 el original debajo del filtro con `feMerge`— y se descartó: se revirtió a los valores
 de arriba. Queda anotado para no reintentarlo sin un motivo nuevo.
 
-### Siguiente: la nube de puntos
+### La nube de puntos: probado y revertido, SIN conclusión firme (2026-11-05)
 
-Pendiente, y es la mitad grande. El desgarro del shader ya trabaja en espacio de
-vista (bandas sobre `viewPosition.y`, desplazamiento en `viewPosition.x`), o sea que
-se están pagando 56 400 vértices con mezcla aditiva para producir algo que es, en
-esencia, una imagen plana cortada en franjas.
+Se implementó la misma huella para la nube de puntos, se midió, pareció una
+regresión y se revirtió. **La medición que motivó el revert no era válida**, y
+conviene que quede claro por qué antes de que alguien repita el experimento.
 
-Plan: al arrancar la ráfaga, dibujar la nube una vez en una textura; durante los
-420 ms, dibujar **un solo rectángulo** con esa textura y hacer el desgarro en el
-fragment shader. Se eliminan el relleno aditivo y las dos pasadas GPGPU. Riesgos a
-vigilar: memoria del render target (~10 MB al tope actual; probar a media
-resolución), fidelidad de la composición aditiva sobre fondo transparente, y que
-420 ms congelados no resulten largos (parametrizar para congelar solo el pico).
+| Escenario | Huella en la nube | Tras revertir | Referencia de la sesión anterior |
+|---|---|---|---|
+| Scroll · FPS | 53,5 | 53,5 | 55,0 |
+| Scroll · p95 | 23,3 ms | 33,2 ms | 16,8 ms |
+| Scroll · peor fotograma | 313 ms | 227 ms | 211 ms |
+| Hero quieto · FPS | 57,9 | 58,2 | 57,3 |
+
+**El error de método.** La huella se comparó contra el 55,0 fps medido en una
+sesión anterior, y de ahí salió un diagnóstico de regresión. Al revertir y medir
+otra vez el mismo día, el código SIN huella da también 53,5 fps: el teléfono ha
+derivado (temperatura, batería, lo que tuviera de fondo), y la referencia de
+55,0 no era comparable. Entre las dos versiones medidas hoy no hay diferencia de
+FPS; el p95 sale mejor con huella y el peor fotograma, peor.
+
+**Regla para las próximas medidas: solo valen los A/B de la misma sesión**, con
+las dos variantes medidas seguidas y alternadas. Las cifras de días distintos
+sirven para ver tendencias, no para decidir si un cambio concreto entra o sale.
+
+**Lo que sí sigue en pie,** y es anterior a todo esto: el ahorro del prisma vino
+de **sacar su lienzo del `filter` CSS**, no de quitar el desgarro de la
+geometría. En la nube de puntos ese filtro ya se había quitado en la fase 1
+(`app/page.tsx`), así que allí la huella no libera ningún coste de composición;
+solo cambia unas cuentas por vértice por un rectángulo a pantalla completa con
+mezcla aditiva. Es un razonamiento de coste, no una medición: predice que el
+cambio es más o menos neutro, que es justo lo que se ve hoy.
+
+**Estado actual:** la nube conserva su desgarro por vértice
+(`point-material.ts`). Si se quiere recuperar la huella —por coherencia visual
+con el prisma, que es el motivo por el que se intentó— hace falta un A/B de la
+misma sesión, y merece la pena probar a la vez la variante que dibuja la huella
+solo en el pico de la ráfaga en lugar de durante los ~420 ms.
+
+### Fase 3 bis — cursor táctil (2026-11-05)
+
+Era el único escenario por debajo de su línea base. Dos cambios, los dos
+medidos en la misma sesión.
+
+| | Línea base de hoy | Tras los dos cambios |
+|---|---|---|
+| FPS | 43,2 | **44,5** |
+| p95 | 50,0 ms | 49,9 ms |
+| Fotogramas >33 ms | 60 | 58 |
+| Recálculo de estilo (`UpdateLayoutTree`) | 1 569 ms / x1005 | 1 470 ms / x929 |
+| Recálculos forzados | 1 721 ms / **x4245** | 1 634 ms / x3952 |
+
+**1. `.vp-hot` solo donde puede pintar algo.** La marca se ponía en la cadena
+entera bajo la punta, hasta `<html>`. Como `vp-hot` aparece en una regla de
+descendiente (`.vp-card.vp-hot .vp-holo`) y dentro de un `:has()`, marcar un
+contenedor de página programaba una invalidación que recorría medio documento
+sin que hubiera nada que cambiar. Ahora se marcan solo `.vp-card` y los
+elementos que llevan alguna utilidad `hover:*`, lo cual se detecta sin consultar
+el CSS porque Tailwind v4 escribe el nombre de la utilidad en el atributo
+`class`: añadir un `hover:` nuevo en cualquier componente sigue funcionando sin
+tocar nada. Los eventos de frontera se siguen emitiendo en la cadena completa.
+
+**Por sí solo no sirvió de casi nada** (1 569 → 1 498 ms, 43,2 → 43,1 fps): el
+número de recálculos lo manda cuántas veces cambia el elemento bajo la punta,
+no cuántos elementos se marcan. Se conserva porque es correcto y barato, no
+porque rindiera.
+
+**2. `pointermove` solo si la punta se movió.** Se emitían `pointermove` y
+`mousemove` en cada fotograma mientras la página se desplazaba, aunque el dedo
+estuviera clavado en el borde —que es lo que pasa en un recorrido largo—. De
+esos eventos cuelgan el brillo y la inclinación de las tarjetas, el empuje de la
+nube y el cabeceo del prisma, y cada uno vuelve a medir su elemento. Un ratón de
+verdad no emite `mousemove` si no lo mueves, por mucho que la página se desplace
+bajo él, así que esto además se parece más a un puntero real.
+
+**Aviso sobre la medición:** el guion de `cursor.mjs` mueve el dedo en zigzag
+continuo, así que la punta se desplaza casi en cada fotograma y el ahorro apenas
+se activa. Con un dedo quieto en la zona de desplazamiento —el uso real— el
+ahorro es bastante mayor de lo que marca la tabla.
+
+**Dónde está el resto, y qué NO se ha demostrado.** El escenario sigue por
+debajo del scroll normal porque con el cursor encendido pasa todo a la vez: las
+dos escenas WebGL animando, la página desplazándose cada fotograma y las
+tarjetas inclinándose. Se intentó aislar la parte de las tarjetas con las
+variantes `no-card-fx` y `no-svg-filter` y **el resultado salió incoherente**
+(26,3 fps con p95 de 33,4 ms, mejor que la línea base en percentiles y peor en
+media), así que no se concluye nada de ahí. Hace falta una ablación mejor
+construida antes de decidir la siguiente pieza.
+
+**Sospecha abierta, sin medir:** `--vp-rx` / `--vp-ry` están registradas con
+`inherits: true` y se reescriben en cada tarjeta a cada fotograma, lo que
+invalida el estilo de todo su subárbol. Pasarlas a `inherits: false` es el
+elemento pendiente de la fase 3, pero NO es un cambio mecánico: hay descendientes
+que las leen (`.vp-holo`, la silueta, `.vp-plano-sombra`), así que habría que
+redeclararlas en cada lector.
 
 ---
+
+### Fase 3 — tarjetas (2026-11-05)
+
+Primero se midió, porque en esta sesión ya habían fallado dos corazonadas.
+Ablación de cinco variantes seguidas en la misma sesión, sobre el escenario del
+cursor táctil:
+
+| Variante | FPS | p95 | >33 ms |
+|---|---|---|---|
+| Línea base | 40,7 | 66,4 | 65 |
+| **Sin transición de `--vp-rx/--vp-ry`** | **47,1** | 49,9 | 48 |
+| Sin desenfoque de la lámina | 46,5 | 49,9 | 49 |
+| Sin silueta/sombra | 45,5 | 49,9 | 52 |
+| Sin inclinación 3D | 43,4 | 66,5 | 54 |
+
+**Aplicado: fuera la transición de `--vp-rx` / `--vp-ry`.** Son propiedades
+registradas con `inherits: true`. Transicionarlas obliga al navegador a
+animarlas en el hilo principal, y cada tic invalida el estilo del subárbol
+entero de la tarjeta. Como `ui/card-field.tsx` las reescribe en cada fotograma
+mientras el puntero se mueve, cada escritura dejaba detrás 180 ms de animación
+propia solapándose con la siguiente.
+
+El movimiento no se pierde: `transform` se sigue transicionando, así que la
+inclinación llega suavizada igual. Lo que desaparece es el segundo suavizado,
+redundante, sobre las variables de las que esa inclinación se calcula. Al salir
+el puntero los degradados de la lámina vuelven a su sitio de golpe, pero bajo
+una lámina que se apaga en 0,3 s.
+
+El registro `@property` **se conserva**: ya no hace falta para interpolar, pero
+sí para dar tipo numérico a las variables, que es lo que valida
+`calc(var(--vp-plano) * var(--vp-rx))` en la sombra del plano.
+
+**Comprobación tras aplicarlo:** la línea base sube a 45,6 fps y la variante que
+anulaba la transición pasa a dar 47,0 —prácticamente lo mismo—, que es
+justamente lo que debe ocurrir cuando el cambio ya está en el código.
+
+### Lo que queda de la fase 3, con su precio medido
+
+| Pendiente | Ganancia medida | Riesgo |
+|---|---|---|
+| Desenfoque de la lámina (`blur(18px)`) | ~+5,8 fps | **Contraste**: está documentado al límite de AA (~4,67:1). Hay que volver a medirlo antes de tocarlo |
+| `content-visibility: auto` | sin medir | Bajo |
+| Sustituir `:has(.vp-card:hover)` por una clase | sin medir | Bajo. No se puede aislar inyectando CSS, hay que cambiarlo para medirlo |
+
+La inclinación 3D (+2,7 fps) no se toca: es el efecto, no su implementación.
+
+### Fase 3 — silueta separada de su sombra (2026-11-05)
+
+Los cinco `drop-shadow` de la foto del producto vivían en una sola propiedad
+`filter`. Una cadena de filtros se aplica en cascada —cada uno toma como
+entrada el resultado del anterior—, y como el último depende de `--vp-rx` /
+`--vp-ry`, los cinco pases se rehacían en cada fotograma del gesto aunque los
+cuatro primeros dieran siempre exactamente el mismo resultado.
+
+**Qué se hizo.** El contorno (4 pases, estático) se queda en la imagen; la
+sombra proyectada (1 pase, dinámica) pasa a un envoltorio `absolute inset-0`
+que la rodea. Así la entrada del contorno no cambia nunca y el navegador puede
+reutilizar su resultado; solo se rehace el pase de la sombra.
+
+| | Antes | Después |
+|---|---|---|
+| FPS (escenario del cursor) | 45,6 | **47,8** |
+| Fotogramas >33 ms | 45 | **38** |
+| Margen que aún queda en la silueta | 4,8 fps | **0,7 fps** |
+
+El último número es el que lo demuestra: la variante que elimina el contorno
+por completo pasa de ganar 4,8 fps a ganar 0,7. Lo que costaba no era dibujarlo,
+era volver a dibujarlo sesenta veces por segundo sin motivo.
+
+**Comprobado en el teléfono:** la imagen conserva sus cuatro `drop-shadow` de
+contorno, el envoltorio lleva el dinámico (`0px 7px` en reposo) y la caja de la
+imagen no se mueve ni un píxel.
+
+**Acumulado del escenario del cursor en esta sesión:** 43,2 → 47,8 fps.
 
 ## 4. Orden recomendado y estimación
 

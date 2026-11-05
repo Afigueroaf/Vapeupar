@@ -132,19 +132,30 @@ export function ProductCard({ product, eagerImage = false }: ProductCardProps) {
           página entera, así que el hueco se dibuja a mano.
         */}
           {product.imageUrl ? (
-            <Image
-              src={product.imageUrl}
-              alt={`${product.name} - ${product.brand} (${product.specs.flavorProfile || product.category})`}
-              fill
-              // Debe seguir a las columnas del grid (2 / 3 / 4), o el navegador
-              // descarga una imagen del doble de lo necesario en móvil.
-              sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 25vw"
-              /* `object-contain`, no `object-cover`: un recorte comería los
-               bordes del producto y el contorno quedaría truncado contra el
-               canto del hueco en vez de cerrar la silueta. */
-              className="vp-silhouette object-contain object-center"
-              loading={eagerImage ? "eager" : "lazy"}
-            />
+            /* Envoltorio que solo existe para llevar la sombra proyectada. El
+               contorno de silueta va en la imagen y la sombra aquí: separados,
+               el contorno —que no depende del puntero— deja de recalcularse en
+               cada fotograma del gesto. Ver `.vp-silhouette` en `globals.css`.
+
+               `absolute inset-0` y no un envoltorio en flujo: la imagen usa
+               `fill`, que se posiciona contra el ancestro posicionado más
+               cercano, y este envoltorio pasa a serlo sin cambiar la caja. */
+            <div className="vp-silhouette-sombra absolute inset-0">
+              <Image
+                src={product.imageUrl}
+                alt={`${product.name} - ${product.brand} (${product.specs.flavorProfile || product.category})`}
+                fill
+                // Debe seguir a las columnas del grid (2 / 3 / 4), o el
+                // navegador descarga una imagen del doble de lo necesario en
+                // móvil.
+                sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 25vw"
+                /* `object-contain`, no `object-cover`: un recorte comería los
+                 bordes del producto y el contorno quedaría truncado contra el
+                 canto del hueco en vez de cerrar la silueta. */
+                className="vp-silhouette object-contain object-center"
+                loading={eagerImage ? "eager" : "lazy"}
+              />
+            </div>
           ) : (
             <div
               className="flex h-full w-full items-center justify-center border-2 border-muted bg-background rounded-vp"

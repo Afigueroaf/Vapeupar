@@ -113,12 +113,16 @@
    de la tarjeta (0,0 = centro). Las escribe `<CardField />` en el mismo
    `requestAnimationFrame` que ya calcula el brillo.
 
-   SE REGISTRAN CON `@property` POR UN MOTIVO CONCRETO: una variable CSS normal
-   no interpola. Metida dentro de un degradado, al cambiar de valor saltaría de
-   una posición a otra en lugar de desplazarse, y la lámina del holograma se
-   vería a tirones. Declarando `syntax: "<number>"` el navegador sabe que es un
-   número y puede transicionarla.
-   ========================================================================== */
+   SE REGISTRAN CON `@property` PARA DARLES TIPO: declarando
+   `syntax: "<number>"` el navegador sabe que son números, y eso es lo que
+   valida multiplicaciones como `calc(var(--vp-plano) * var(--vp-rx))` en la
+   sombra del plano. Con una variable sin registrar, esa `calc` no resolvería.
+
+   NO SE TRANSICIONAN. El registro también las haría interpolables, y durante
+   un tiempo `.vp-card` las transicionaba para suavizar la inclinación. Salía
+   carísimo —son heredables, así que cada tic de la animación invalidaba el
+   subárbol entero de la tarjeta— y era redundante con la transición de
+   `transform`. Ver el bloque `transition` de `.vp-card`. */
 @property --vp-rx {
   syntax: "<number>";
   inherits: true;
@@ -437,14 +441,32 @@ html.glitch-active .vp-glitch-scanlines {
   transform-style: preserve-3d;
   transform: rotateX(calc(var(--vp-ry) * -11deg))
     rotateY(calc(var(--vp-rx) * 11deg));
+  /* NO SE TRANSICIONAN `--vp-rx` NI `--vp-ry`, Y ES LA OPTIMIZACIÓN MÁS
+     RENTABLE DE TODA LA TARJETA.
+
+     Están registradas con `@property` y con `inherits: true`. Transicionarlas
+     obliga al navegador a animarlas en el hilo principal, y cada tic de esa
+     animación invalida el estilo de TODO el subárbol de la tarjeta —imagen,
+     lámina, silueta, textos—. Como `ui/card-field.tsx` las reescribe en cada
+     fotograma mientras el puntero se mueve, cada escritura dejaba detrás 180 ms
+     de animación propia, solapándose con la siguiente.
+
+     Medido en un Moto G15 durante un recorrido con el cursor táctil, quitarlas
+     pasó de 40,7 a 47,1 fps: más que cualquier otro efecto de la tarjeta
+     (la lámina daba 46,5 y la silueta 45,5).
+
+     EL MOVIMIENTO NO SE PIERDE. `transform` se sigue transicionando aquí
+     abajo, así que la inclinación llega suavizada igual; lo que desaparece es
+     el segundo suavizado, redundante, sobre las variables de las que esa
+     inclinación se calcula. Al salir el puntero, los degradados de la lámina
+     vuelven a su sitio de golpe en vez de deslizarse, pero eso ocurre bajo una
+     lámina que a la vez se está apagando en 0,3 s, así que no se ve. */
   transition:
     background-color 0.25s var(--ease-vp),
     border-color 0.25s var(--ease-vp),
     box-shadow 0.25s var(--ease-vp),
     translate 0.25s var(--ease-vp),
-    transform 0.2s linear,
-    --vp-rx 0.18s linear,
-    --vp-ry 0.18s linear;
+    transform 0.2s linear;
 }
 
 .vp-card::before,
@@ -835,22 +857,40 @@ html.glitch-active .vp-glitch-scanlines {
    su alfa es un rectángulo y el contorno se lee como un filo de 1px en el
    canto. No se rompe; solo deja de ser silueta.
    ========================================================================== */
+/* EL CONTORNO Y LA SOMBRA VAN EN ELEMENTOS DISTINTOS A PROPÓSITO.
+
+   Los cinco `drop-shadow` estaban en una sola propiedad `filter`, y una cadena
+   de filtros se aplica en cascada: cada uno toma como entrada el resultado del
+   anterior. Como el último depende de `--vp-rx` / `--vp-ry`, que cambian en
+   cada fotograma mientras el puntero se mueve, los cinco pases se rehacían
+   sesenta veces por segundo sobre la foto del producto —aunque los cuatro
+   primeros dieran exactamente el mismo resultado siempre—.
+
+   Separándolos, la entrada del contorno deja de cambiar nunca y el navegador
+   puede reutilizar su resultado; solo se rehace el pase de la sombra. Medido en
+   un Moto G15: la variante sin ninguna de las dos cosas daba +4,8 fps sobre la
+   línea base, que es el techo de lo que se puede recuperar aquí sin renunciar
+   al efecto. */
 .vp-silhouette {
   --vp-silhouette-color: var(--color-line);
   filter:
     drop-shadow(1px 0 0 var(--vp-silhouette-color))
     drop-shadow(-1px 0 0 var(--vp-silhouette-color))
     drop-shadow(0 1px 0 var(--vp-silhouette-color))
-    drop-shadow(0 -1px 0 var(--vp-silhouette-color))
-    /* La sombra del producto, con la forma del producto: `drop-shadow` lee el
-       canal alfa, así que sigue su silueta en vez de dibujar un rectángulo.
-       Sin desenfoque (§3.3). En reposo cae 7px hacia abajo —de ahí el volumen
-       cuando nadie toca nada— y al mover el puntero se va al lado contrario
-       del gesto. */
-    drop-shadow(
-      calc(var(--vp-rx) * -16px) calc(var(--vp-ry) * -16px + 7px) 0
-        rgb(0 0 0 / 0.6)
-    );
+    drop-shadow(0 -1px 0 var(--vp-silhouette-color));
+}
+
+/* La sombra del producto, con la forma del producto: `drop-shadow` lee el
+   canal alfa, así que sigue su silueta en vez de dibujar un rectángulo. Sin
+   desenfoque (§3.3). En reposo cae 7px hacia abajo —de ahí el volumen cuando
+   nadie toca nada— y al mover el puntero se va al lado contrario del gesto.
+
+   Va en el envoltorio de la imagen, no en la imagen: así toma como entrada la
+   silueta ya contorneada y el contorno no se recalcula con ella. */
+.vp-silhouette-sombra {
+  filter: drop-shadow(
+    calc(var(--vp-rx) * -16px) calc(var(--vp-ry) * -16px + 7px) 0 rgb(0 0 0 / 0.6)
+  );
 }
 
 /* ============================================================================
