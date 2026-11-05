@@ -14,6 +14,7 @@ function toRow(row: VariantRow): StockRow {
     variantId: row.id,
     variantName: row.name,
     variantSlug: row.slug,
+    variantImageKey: row.imageKey,
     kind: row.kind,
     active: row.active,
     stock: row.stockCache,
@@ -56,5 +57,18 @@ export class PrismaStockViewRepository implements StockViewRepository {
     ]);
 
     return { rows: rows.map(toRow), total };
+  }
+
+  public async listMissingVariantImages(): Promise<StockRow[]> {
+    const rows = await getPrisma().variant.findMany({
+      where: {
+        stockCache: { gt: 0 },
+        OR: [{ imageKey: null }, { imageKey: '' }],
+        product: { status: 'published' }
+      },
+      include: VARIANT_INCLUDE,
+      orderBy: [{ product: { name: 'asc' } }, { name: 'asc' }]
+    });
+    return rows.map(toRow);
   }
 }

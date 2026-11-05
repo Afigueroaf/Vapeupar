@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response, Router } from 'express';
-import { requireRole } from '../../middleware/require-role.js';
+import { requireOwnerOrFields, requireRole } from '../../middleware/require-role.js';
 import { CatalogRepository } from '../../repositories/catalog.repository.js';
 import { BrandPatchSchema, BrandBodySchema, BrandQuerySchema, IdParamSchema } from '../../schemas/admin/catalog.schema.js';
 import { CatalogService } from '../../services/catalog.service.js';
@@ -7,8 +7,9 @@ import { parseOrFail, sendDomainError, sendPage } from './http.js';
 
 /**
  * Marcas (plan A4.2, pantalla A5.2). Leer es para cualquier sesión; escribir,
- * solo para `owner`: mientras la decisión #6 siga abierta, el `operator` se
- * limita a lo que A4 ya le dio, que es el inventario diario.
+ * solo para `owner`, con una excepción: el `operator` puede cambiar `logoKey`
+ * y nada más, porque las imágenes las gestiona quien está en el inventario
+ * diario (§4.5 del traspaso de imágenes 2026-10-27).
  *
  * **No hay DELETE**: `Product.brandId` referencia la marca con
  * `onDelete: Restrict`, así que retirar una marca es `active: false`.
@@ -69,7 +70,7 @@ export function createBrandsRouter(deps: BrandRoutesDeps): Router {
   });
 
   // PATCH /api/admin/brands/:id
-  router.patch('/:id', requireRole('owner'), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  router.patch('/:id', requireOwnerOrFields('logoKey'), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const params = parseOrFail(IdParamSchema, req.params, res, 'Identificador de marca inválido');
     if (!params) return;
     const patch = parseOrFail(BrandPatchSchema, req.body, res, 'Cambios inválidos');

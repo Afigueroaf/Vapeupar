@@ -46,6 +46,16 @@ export function createStockRouter(deps: StockRoutesDeps): Router {
     }
   });
 
+  // GET /api/admin/stock/image-alerts
+  router.get('/image-alerts', async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const variants = await deps.stockView.listMissingVariantImages();
+      res.json({ success: true, data: variants, meta: { count: variants.length } });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // POST /api/admin/stock/movements
   router.post('/movements', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const parsed = MovementBodySchema.safeParse(req.body);

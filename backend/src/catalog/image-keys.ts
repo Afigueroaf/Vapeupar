@@ -6,6 +6,7 @@
  */
 export const imageKeys = {
   brandLogo: (brandSlug: string, extension: string) => `marcas/${brandSlug}/logo${extension}`,
+  supplier: (supplierId: string, extension: string) => `proveedores/${supplierId}/logo${extension}`,
   productLine: (productSlug: string, extension: string) => `productos/${productSlug}/linea${extension}`,
   variant: (productSlug: string, variantSlug: string, extension: string) =>
     `productos/${productSlug}/${variantSlug}${extension}`,

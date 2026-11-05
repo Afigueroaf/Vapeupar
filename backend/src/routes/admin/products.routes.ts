@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response, Router } from 'express';
-import { requireRole } from '../../middleware/require-role.js';
+import { requireOwnerOrFields, requireRole } from '../../middleware/require-role.js';
 import { CatalogRepository } from '../../repositories/catalog.repository.js';
 import {
   IdParamSchema, ProductBodySchema, ProductPatchSchema, ProductQuerySchema, VariantBodySchema,
@@ -18,6 +18,10 @@ import { parseOrFail, sendDomainError, sendPage } from './http.js';
  *
  * El **precio** solo se escribe por aquí, y cada cambio de precio o de estado
  * de publicación queda auditado con autor (A3.2).
+ *
+ * Escribir es de `owner`, salvo `imageKey` de la línea y de la variante, que
+ * también puede cambiar el `operator` (§4.5 del traspaso de imágenes
+ * 2026-10-27): es quien registra el ingreso y adjunta la foto.
  *
  * **No hay DELETE**: las variantes están referenciadas por el libro de
  * inventario con `onDelete: Restrict`. Retirar una variante es `active: false`
@@ -76,7 +80,7 @@ export function createProductsRouter(deps: ProductRoutesDeps): Router {
   });
 
   // PATCH /api/admin/products/:id
-  router.patch('/:id', requireRole('owner'), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  router.patch('/:id', requireOwnerOrFields('imageKey'), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const params = parseOrFail(IdParamSchema, req.params, res, 'Identificador de línea inválido');
     if (!params) return;
     const patch = parseOrFail(ProductPatchSchema, req.body, res, 'Cambios inválidos');
@@ -126,7 +130,7 @@ export function createProductsRouter(deps: ProductRoutesDeps): Router {
   });
 
   // PATCH /api/admin/products/:id/variants/:variantId
-  router.patch('/:id/variants/:variantId', requireRole('owner'), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  router.patch('/:id/variants/:variantId', requireOwnerOrFields('imageKey'), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const params = parseOrFail(VariantParamsSchema, req.params, res, 'Identificadores inválidos');
     if (!params) return;
     const patch = parseOrFail(VariantPatchSchema, req.body, res, 'Cambios inválidos');

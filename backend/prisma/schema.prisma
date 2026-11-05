@@ -68,6 +68,7 @@ model Supplier {
   whatsapp     String?
   paymentTerms String?  @map("payment_terms")
   notes        String?
+  imageKey     String?  @map("image_key")
   active       Boolean  @default(true)
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -162,9 +163,29 @@ model Variant {
 
   product   Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
   movements StockMovement[]
+  inventoryNotes InventoryNote[]
 
   @@unique([productId, slug])
   @@map("variants")
+}
+
+/// Notas operativas generales o vinculadas a una variante de inventario.
+model InventoryNote {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  variantId  String?   @map("variant_id") @db.Uuid
+  text       String
+  resolved   Boolean   @default(false)
+  authorId   String    @map("author_id") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  resolvedAt DateTime? @map("resolved_at") @db.Timestamptz(3)
+
+  variant Variant? @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  author  User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([variantId, resolved, createdAt])
+  @@index([resolved, createdAt])
+  @@map("inventory_notes")
 }
 
 /// Libro de inventario, solo inserción: el rol de la aplicación no puede
@@ -240,6 +261,7 @@ model User {
   movements StockMovement[]
   contents  SiteContent[]
   audits    AuditLog[]
+  inventoryNotes InventoryNote[]
 
   @@map("users")
 }

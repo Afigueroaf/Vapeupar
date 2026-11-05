@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response, Router } from 'express';
-import { requireRole } from '../../middleware/require-role.js';
+import { requireOwnerOrFields, requireRole } from '../../middleware/require-role.js';
 import { CatalogRepository } from '../../repositories/catalog.repository.js';
 import {
   IdParamSchema, SupplierBodySchema, SupplierPatchSchema, SupplierQuerySchema
@@ -15,6 +15,9 @@ import { parseOrFail, sendDomainError, sendPage } from './http.js';
  * La ficha incluye el último ingreso que firmó, que es lo que A5.2 quiere ver
  * por proveedor. «Variantes abastecidas» queda para esa fase, que es la que
  * define cómo se presenta.
+ *
+ * Escribir es de `owner`, salvo `imageKey`, que también puede cambiar el
+ * `operator` (§4.5 del traspaso de imágenes 2026-10-27).
  *
  * **No hay DELETE**: el libro de inventario referencia al proveedor con
  * `onDelete: Restrict`, así que retirarlo es `active: false`.
@@ -72,7 +75,7 @@ export function createSuppliersRouter(deps: SupplierRoutesDeps): Router {
   });
 
   // PATCH /api/admin/suppliers/:id
-  router.patch('/:id', requireRole('owner'), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  router.patch('/:id', requireOwnerOrFields('imageKey'), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const params = parseOrFail(IdParamSchema, req.params, res, 'Identificador de proveedor inválido');
     if (!params) return;
     const patch = parseOrFail(SupplierPatchSchema, req.body, res, 'Cambios inválidos');

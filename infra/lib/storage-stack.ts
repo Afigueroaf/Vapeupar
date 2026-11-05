@@ -16,6 +16,10 @@ interface StorageStackProps extends StackProps {
  * El bucket no es público: solo CloudFront lo lee. La escritura entra
  * únicamente con URL prefirmada que emite el backend (ADR-002 §8), por eso la
  * única regla CORS es PUT desde la consola.
+ *
+ * El id de la distribución se publica en SSM porque el backend lo necesita:
+ * la clave de un objeto se deriva de su entidad, así que reemplazar una imagen
+ * no cambia la URL y hay que invalidar la caché para que se vea la nueva.
  */
 export class StorageStack extends Stack {
   constructor(scope: Construct, id: string, props: StorageStackProps) {
@@ -62,6 +66,10 @@ export class StorageStack extends Stack {
     new ssm.StringParameter(this, 'ParamCdnDomain', {
       parameterName: paramName(config, 'CDN_DOMAIN'),
       stringValue: distribution.distributionDomainName,
+    });
+    new ssm.StringParameter(this, 'ParamCdnDistributionId', {
+      parameterName: paramName(config, 'CDN_DISTRIBUTION_ID'),
+      stringValue: distribution.distributionId,
     });
   }
 }

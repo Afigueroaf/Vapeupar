@@ -51,6 +51,7 @@ function toSupplier(row: SupplierPayload): SupplierRow {
     whatsapp: row.whatsapp,
     paymentTerms: row.paymentTerms,
     notes: row.notes,
+    imageKey: row.imageKey,
     active: row.active
   };
 }
@@ -383,5 +384,11 @@ export class PrismaCatalogRepository implements CatalogRepository {
     if (!isUuid(id)) return undefined;
     const row = await this.db.client().product.findUnique({ where: { id }, include: PRODUCT_INCLUDE });
     return row ? toProduct(row) : undefined;
+  }
+
+  public async findVariant(id: string): Promise<AdminVariantRow | undefined> {
+    if (!isUuid(id)) return undefined;
+    const row = await this.db.client().variant.findUnique({ where: { id } });
+    return row ? toVariant(row) : undefined;
   }
 }

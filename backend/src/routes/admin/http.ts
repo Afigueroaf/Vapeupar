@@ -4,6 +4,8 @@ import { AuthError, AuthErrorCode } from '../../services/auth.service.js';
 import { CatalogError, CatalogErrorCode } from '../../services/catalog.service.js';
 import { ContentError, ContentErrorCode } from '../../services/content.service.js';
 import { StockError, StockErrorCode } from '../../services/stock.service.js';
+import { InventoryNoteError } from '../../services/inventory-note.service.js';
+import { ImageUploadError } from '../../services/image-upload.service.js';
 
 /**
  * Traducción de errores de dominio a HTTP, en un solo sitio: los servicios
@@ -81,6 +83,15 @@ export function sendDomainError(res: Response, error: unknown): boolean {
   }
   if (error instanceof ContentError) {
     res.status(CONTENT_STATUS[error.code]).json({ success: false, message: error.message, code: error.code });
+    return true;
+  }
+  if (error instanceof InventoryNoteError) {
+    res.status(404).json({ success: false, message: error.message, code: error.code });
+    return true;
+  }
+  if (error instanceof ImageUploadError) {
+    const status = error.code === 'NOT_FOUND' ? 404 : error.code === 'INVALID_UPLOAD' ? 400 : 503;
+    res.status(status).json({ success: false, message: error.message, code: error.code });
     return true;
   }
   return false;

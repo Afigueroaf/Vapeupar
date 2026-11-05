@@ -81,6 +81,7 @@ export class InMemoryCatalogRepository implements CatalogRepository {
       whatsapp: supplier.whatsapp ?? null,
       paymentTerms: supplier.paymentTerms ?? null,
       notes: supplier.notes ?? null,
+      imageKey: supplier.imageKey ?? null,
       active: supplier.active ?? true
     };
     this.state.suppliers.set(row.id, row);
@@ -211,6 +212,11 @@ export class InMemoryCatalogRepository implements CatalogRepository {
     return row ? this.detail(this.state, row) : undefined;
   }
 
+  public async findVariant(id: string): Promise<AdminVariantRow | undefined> {
+    const row = this.state.variants.get(id);
+    return row ? { ...row } : undefined;
+  }
+
   // --- Interno ---
 
   private variantsOf(state: State, productId: string): AdminVariantRow[] {
@@ -298,6 +304,7 @@ export class InMemoryCatalogRepository implements CatalogRepository {
           whatsapp: data.whatsapp ?? null,
           paymentTerms: data.paymentTerms ?? null,
           notes: data.notes ?? null,
+          imageKey: data.imageKey ?? null,
           active: data.active ?? true
         };
         if (data.brandIds) setLinks(row.id, data.brandIds);

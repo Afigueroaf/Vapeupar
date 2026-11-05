@@ -44,11 +44,13 @@ const verify = async (token: string): Promise<AccessTokenClaims> => {
 const STOCK_ROWS: StockRow[] = [
   {
     variantId: VARIANT, variantName: 'Mango Ice', variantSlug: 'mango-ice', kind: 'flavor',
+    variantImageKey: null,
     active: true, stock: 2, productId: 'p1', productName: 'LifePod ECO 3', productSlug: 'lifepod-eco-3',
     category: 'disposables', status: 'published', price: 45000, brandId: 'b1', brandName: 'LifePod'
   },
   {
     variantId: 'v2', variantName: 'Space Gray', variantSlug: 'space-gray', kind: 'color',
+    variantImageKey: 'products/lifepod-one/space-gray.webp',
     active: true, stock: 40, productId: 'p2', productName: 'LifePod ONE', productSlug: 'lifepod-one',
     category: 'pod-systems', status: 'published', price: 120000, brandId: 'b1', brandName: 'LifePod'
   }
@@ -302,6 +304,14 @@ describe('superficie /api/admin', () => {
 
       const bajo = await call(url, '/api/admin/stock?lowStock=true&threshold=5', { cookies: asOperator });
       expect((bajo.body?.data as StockRow[]).map(r => r.variantName)).toEqual(['Mango Ice']);
+    });
+
+    it('avisa sin bloquear sobre variantes publicadas con stock y sin imagen', async () => {
+      const { url } = await start();
+      const response = await call(url, '/api/admin/stock/image-alerts', { cookies: asOperator });
+      expect(response.status).toBe(200);
+      expect(response.body?.meta).toEqual({ count: 1 });
+      expect((response.body?.data as StockRow[]).map(row => row.variantId)).toEqual([VARIANT]);
     });
   });
 

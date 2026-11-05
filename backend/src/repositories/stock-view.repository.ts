@@ -10,6 +10,7 @@ export interface StockRow {
   variantId: string;
   variantName: string;
   variantSlug: string;
+  variantImageKey?: string | null;
   kind: 'flavor' | 'color';
   /** `false` retira la variante del sitio; agotada no es lo mismo que inactiva. */
   active: boolean;
@@ -46,4 +47,6 @@ export interface StockPage {
 export interface StockViewRepository {
   /** Ordenado por disponible ascendente: lo más urgente, primero. */
   list(filter: StockFilter): Promise<StockPage>;
+  /** Publicadas, con stock positivo y sin imagen propia de variante. */
+  listMissingVariantImages(): Promise<StockRow[]>;
 }

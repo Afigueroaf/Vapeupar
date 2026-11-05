@@ -23,4 +23,10 @@ export class InMemoryStockViewRepository implements StockViewRepository {
       total: ordered.length
     };
   }
+
+  public async listMissingVariantImages(): Promise<StockRow[]> {
+    return this.rows
+      .filter(row => row.stock > 0 && row.status === 'published' && !row.variantImageKey)
+      .map(row => ({ ...row }));
+  }
 }

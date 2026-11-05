@@ -50,6 +50,7 @@ export interface SupplierRow {
   whatsapp: string | null;
   paymentTerms: string | null;
   notes: string | null;
+  imageKey: string | null;
   active: boolean;
 }
 
@@ -121,6 +122,7 @@ export interface NewSupplier {
   whatsapp?: string | null;
   paymentTerms?: string | null;
   notes?: string | null;
+  imageKey?: string | null;
   active?: boolean;
   /** Vínculo N↔N con marcas (A5.2). Si viene, reemplaza la lista completa. */
   brandIds?: string[];
@@ -245,4 +247,6 @@ export interface CatalogRepository {
   listProducts(filter: ProductFilter): Promise<Page<AdminProductRow>>;
   /** Con sus variantes: es la ficha completa de A5.3. */
   findProduct(id: string): Promise<AdminProductDetail | undefined>;
+  /** Variante administrativa, para operaciones que necesitan derivar su línea. */
+  findVariant(id: string): Promise<AdminVariantRow | undefined>;
 }

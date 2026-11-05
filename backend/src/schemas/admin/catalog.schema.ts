@@ -96,6 +96,7 @@ const SupplierCore = z.object({
   whatsapp: optionalText(30),
   paymentTerms: optionalText(120),
   notes: optionalText(2000),
+  imageKey: imageKey.optional(),
   active: z.boolean(),
   /** Vínculo N↔N con marcas: la lista llega completa y reemplaza la anterior. */
   brandIds: z.array(z.uuid()).max(50).optional()

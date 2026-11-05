@@ -10,6 +10,9 @@ import { InMemorySiteContentRepository } from '../../repositories/in-memory-site
 import { InMemoryAuditViewRepository } from '../../repositories/in-memory-audit-view.repository.js';
 import { CatalogService } from '../../services/catalog.service.js';
 import { ContentService } from '../../services/content.service.js';
+import { InMemoryInventoryNoteRepository } from '../../repositories/in-memory-inventory-note.repository.js';
+import { InventoryNoteService } from '../../services/inventory-note.service.js';
+import { ImageUploadService } from '../../services/image-upload.service.js';
 import { AdminUser } from '../../repositories/user.repository.js';
 
 /**
@@ -56,6 +59,7 @@ async function start(): Promise<Harness> {
   const catalog = new InMemoryCatalogRepository();
   const content = new InMemorySiteContentRepository();
   const audit = new InMemoryAuditViewRepository();
+  const inventoryNotes = new InMemoryInventoryNoteRepository(SEED, catalog);
 
   const app = createApp({
     adminRouter: createAdminRouter({
@@ -64,6 +68,12 @@ async function start(): Promise<Harness> {
       catalog,
       catalogService: new CatalogService(catalog),
       contentService: new ContentService(content),
+      inventoryNotes: new InventoryNoteService(inventoryNotes),
+      // Firma de mentira: aquí se verifica el permiso y la clave, no AWS.
+      imageUploads: new ImageUploadService({
+        catalog, bucket: 'catalog', sign: async () => 'https://upload.example/signed',
+        distributionId: 'E123', invalidate: async () => 'I123'
+      }),
       auditView: audit
     })
   });
@@ -381,5 +391,160 @@ describe('CRUD de /api/admin', () => {
       expect(respuesta.status).toBe(404);
       expect(respuesta.body?.code).toBe('NOT_FOUND');
     });
+  });
+
+  describe('notas de inventario', () => {
+    it('las lee cualquier sesión, pero solo owner puede crear y resolver', async () => {
+      const { url } = await start();
+      const denied = await call(url, '/api/admin/inventory-notes', {
+        method: 'POST', as: OPERATOR, body: { text: 'Revisar lote' }
+      });
+      expect(denied.status).toBe(403);
+
+      const created = await call(url, '/api/admin/inventory-notes', {
+        method: 'POST', as: OWNER, body: { text: 'Revisar lote' }
+      });
+      expect(created.status).toBe(201);
+      const note = data(created);
+      expect((await call(url, '/api/admin/inventory-notes', { as: OPERATOR })).status).toBe(200);
+      expect((await call(url, `/api/admin/inventory-notes/${note.id}/resolve`, { method: 'PATCH', as: OPERATOR })).status).toBe(403);
+      expect((await call(url, `/api/admin/inventory-notes/${note.id}/resolve`, { method: 'PATCH', as: OWNER })).body?.data)
+        .toMatchObject({ resolved: true, authorId: OWNER, authorEmail: 'owner@vapeupar.com' });
+    });
+
+    it('la nota dice a qué variante apunta, aunque no esté en la página', async () => {
+      const { url, catalog } = await start();
+      const brand = catalog.seedBrand();
+      const product = catalog.seedProduct({ brandId: brand.id, slug: 'eco-pro', name: 'ECO PRO' });
+      const variant = catalog.seedVariant({ productId: product.id, slug: 'mango-ice', name: 'Mango Ice' });
+
+      const created = await call(url, '/api/admin/inventory-notes', {
+        method: 'POST', as: OWNER, body: { variantId: variant.id, text: 'Lote con la foto pendiente' }
+      });
+      expect(data(created)).toMatchObject({ variantName: 'Mango Ice', productName: 'ECO PRO' });
+
+      // La consola no tiene por qué tener esa fila cargada: el nombre viaja.
+      const listadas = await call(url, '/api/admin/inventory-notes', { as: OPERATOR });
+      expect((listadas.body?.data as { variantName: string }[])[0].variantName).toBe('Mango Ice');
+    });
+  });
+});
+
+/**
+ * Permiso de imágenes (§4.5 del traspaso 2026-10-27): el `operator` firma
+ * subidas y guarda la clave, pero cualquier otro campo en el mismo PATCH lo
+ * deja fuera. Lo que se comprueba aquí es la frontera, no la subida a S3.
+ */
+describe('imágenes del catálogo', () => {
+  it('el operator firma la subida de cualquier imagen', async () => {
+    const { url, catalog } = await start();
+    const brand = catalog.seedBrand({ slug: 'lifepod' });
+    const product = catalog.seedProduct({ brandId: brand.id, slug: 'eco-pro' });
+    const variant = catalog.seedVariant({ productId: product.id, slug: 'mango-ice' });
+
+    const firmada = await call(url, '/api/admin/uploads/presign', {
+      method: 'POST', as: OPERATOR,
+      body: { target: 'variant-image', entityId: variant.id, contentType: 'image/webp', size: 2048 }
+    });
+    expect(firmada.status).toBe(200);
+    expect(data(firmada)).toMatchObject({ key: 'productos/eco-pro/mango-ice.webp', expiresIn: 300 });
+
+    const logo = await call(url, '/api/admin/uploads/presign', {
+      method: 'POST', as: OPERATOR,
+      body: { target: 'brand-logo', entityId: brand.id, contentType: 'image/webp', size: 2048 }
+    });
+    expect(data(logo).key).toBe('marcas/lifepod/logo.webp');
+  });
+
+  it('el operator guarda la imagen de la variante, pero nada más', async () => {
+    const { url, catalog } = await start();
+    const brand = catalog.seedBrand();
+    const product = catalog.seedProduct({ brandId: brand.id, slug: 'eco-pro' });
+    const variant = catalog.seedVariant({ productId: product.id, slug: 'mango-ice' });
+    const ruta = `/api/admin/products/${product.id}/variants/${variant.id}`;
+
+    const soloImagen = await call(url, ruta, {
+      method: 'PATCH', as: OPERATOR, body: { imageKey: 'productos/eco-pro/mango-ice.webp' }
+    });
+    expect(soloImagen.status).toBe(200);
+    expect(data(soloImagen).imageKey).toBe('productos/eco-pro/mango-ice.webp');
+
+    // Un campo de más y se rechaza entero: ni la imagen se guarda.
+    const conExtra = await call(url, ruta, {
+      method: 'PATCH', as: OPERATOR, body: { imageKey: 'productos/eco-pro/otra.webp', active: false }
+    });
+    expect(conExtra.status).toBe(403);
+
+    const otroCampo = await call(url, ruta, { method: 'PATCH', as: OPERATOR, body: { active: false } });
+    expect(otroCampo.status).toBe(403);
+
+    const actual = await call(url, `/api/admin/products/${product.id}/variants`, { as: OPERATOR });
+    expect((actual.body?.data as { imageKey: string | null; active: boolean }[])[0])
+      .toMatchObject({ imageKey: 'productos/eco-pro/mango-ice.webp', active: true });
+  });
+
+  it('el operator puede invalidar la caché de una clave del catálogo', async () => {
+    const { url } = await start();
+
+    const ok = await call(url, '/api/admin/uploads/invalidate', {
+      method: 'POST', as: OPERATOR, body: { key: 'productos/eco-pro/mango-ice.webp' }
+    });
+    expect(ok.status).toBe(200);
+    expect(data(ok)).toEqual({ invalidationId: 'I123', path: '/productos/eco-pro/mango-ice.webp' });
+
+    const comodin = await call(url, '/api/admin/uploads/invalidate', {
+      method: 'POST', as: OWNER, body: { key: 'productos/*' }
+    });
+    expect(comodin.status).toBe(400);
+  });
+
+  it('reemplazar la imagen manda la misma clave y se acepta', async () => {
+    // La clave la deriva el backend de la entidad, así que cambiar la foto de
+    // una variante que ya tenía una **no** cambia la clave. La consola manda el
+    // PATCH igual, para dejar constancia del cambio, y no puede recibir un 400.
+    const { url, catalog } = await start();
+    const brand = catalog.seedBrand();
+    const product = catalog.seedProduct({ brandId: brand.id, slug: 'eco-pro' });
+    const variant = catalog.seedVariant({
+      productId: product.id, slug: 'mango-ice', imageKey: 'productos/eco-pro/mango-ice.webp'
+    });
+
+    const repetida = await call(url, `/api/admin/products/${product.id}/variants/${variant.id}`, {
+      method: 'PATCH', as: OPERATOR, body: { imageKey: 'productos/eco-pro/mango-ice.webp' }
+    });
+    expect(repetida.status).toBe(200);
+    expect(data(repetida).imageKey).toBe('productos/eco-pro/mango-ice.webp');
+
+    const marca = await call(url, `/api/admin/brands/${brand.id}`, {
+      method: 'PATCH', as: OWNER, body: { logoKey: brand.logoKey }
+    });
+    expect(marca.status).toBe(200);
+  });
+
+  it('la misma regla en marca, línea y proveedor', async () => {
+    const { url, catalog } = await start();
+    const brand = catalog.seedBrand({ slug: 'lifepod' });
+    const product = catalog.seedProduct({ brandId: brand.id, slug: 'eco-pro' });
+    const supplier = catalog.seedSupplier();
+
+    expect((await call(url, `/api/admin/brands/${brand.id}`, {
+      method: 'PATCH', as: OPERATOR, body: { logoKey: 'marcas/lifepod/logo.webp' }
+    })).status).toBe(200);
+    expect((await call(url, `/api/admin/brands/${brand.id}`, {
+      method: 'PATCH', as: OPERATOR, body: { name: 'Otra' }
+    })).status).toBe(403);
+
+    expect((await call(url, `/api/admin/products/${product.id}`, {
+      method: 'PATCH', as: OPERATOR, body: { imageKey: 'productos/eco-pro/linea.webp' }
+    })).status).toBe(200);
+    expect((await call(url, `/api/admin/products/${product.id}`, {
+      method: 'PATCH', as: OPERATOR, body: { status: 'published' }
+    })).status).toBe(403);
+
+    expect((await call(url, `/api/admin/suppliers/${supplier.id}`, {
+      method: 'PATCH', as: OPERATOR, body: { imageKey: `proveedores/${supplier.id}/logo.webp` }
+    })).status).toBe(200);
+    expect((await call(url, `/api/admin/suppliers/${supplier.id}`, {
+      method: 'PATCH', as: OPERATOR, body: { active: false } })).status).toBe(403);
   });
 });
