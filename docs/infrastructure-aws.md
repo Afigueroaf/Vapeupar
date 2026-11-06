@@ -32,17 +32,23 @@ Decisión de origen: [ADR-002](decisions/002-consola-de-administracion-y-persist
 
 ## 2. Arquitectura del entorno dev
 
+> **`dev` es el entorno de producción desde el 2026-11-06** (decisión D1 de
+> [`aws-full-deployment-plan.md`](aws-full-deployment-plan.md)): se conservó el
+> nombre porque renombrarlo reemplazaría todos los recursos. Ese mismo día se
+> añadió la EC2 de la aplicación y **se retiró el bastión**: el túnel desde el
+> portátil pasa ahora por la instancia de la aplicación.
+
 ```
-                Internet
+                Internet  (80/443)
                    |
    +---------------+-----------------------------------------------+
    |  VPC vapeupar-dev-vpc  10.50.0.0/16  (2 AZ, sin NAT Gateway)  |
    |                                                               |
    |  Subred pública                 Subred aislada (sin internet) |
    |  +-----------------------+      +--------------------------+  |
-   |  | vapeupar-dev-bastion  | ---> | vapeupar-dev-db          |  |
-   |  | t4g.micro, sin puertos|5432  | RDS PostgreSQL 18.6      |  |
-   |  | de entrada (solo SSM) |      | db.t4g.micro, cifrada    |  |
+   |  | vapeupar-dev-app      | ---> | vapeupar-dev-db          |  |
+   |  | t4g.micro, IP elástica|5432  | RDS PostgreSQL 18.6      |  |
+   |  | solo 80/443, sin SSH  |      | db.t4g.micro, cifrada    |  |
    |  +-----------^-----------+      +--------------------------+  |
    |              |                  Endpoint de gateway S3 (gratis)|
    +--------------|------------------------------------------------+
@@ -57,10 +63,11 @@ Decisión de origen: [ADR-002](decisions/002-consola-de-administracion-y-persist
 |---|---|
 | `CDKToolkit-Vapeupar` | Toolkit de CDK propio (qualifier `vapeupar`): bucket de assets y roles `cdk-vapeupar-*` |
 | `Vapeupar-dev-Network` | VPC, 2 subredes públicas + 2 aisladas, Internet Gateway, endpoint S3, grupo de seguridad por defecto cerrado |
-| `Vapeupar-dev-Data` | RDS `vapeupar-dev-db`, bastión `vapeupar-dev-bastion`, grupo de seguridad `vapeupar-dev-rds`, secretos `vapeupar/dev/rds-master` (maestro) y `vapeupar/dev/rds-app` (rol `vapeupar_app`) |
+| `Vapeupar-dev-Data` | RDS `vapeupar-dev-db` (protección de borrado, `RETAIN`), grupo de seguridad `vapeupar-dev-rds`, secretos `vapeupar/dev/rds-master` (maestro) y `vapeupar/dev/rds-app` (rol `vapeupar_app`) |
 | `Vapeupar-dev-Storage` | Bucket `vapeupar-dev-catalog-342284838697`, distribución CloudFront con OAC |
 | `Vapeupar-dev-Auth` | User Pool `vapeupar-dev-admins`, cliente `vapeupar-dev-backend`, secreto `vapeupar/dev/cognito-backend-client` |
 | `Vapeupar-dev-Ops` | Presupuesto `vapeupar-dev-monthly` (30 USD), grupo de recursos `vapeupar-dev-resources` |
+| `Vapeupar-dev-App` | EC2 `vapeupar-dev-app` (`t4g.micro`, Node 22, nginx, IP elástica), grupo `vapeupar-dev-app` (solo 80/443), rol `vapeupar-dev-app` con permisos mínimos, regla 5432 en el grupo de RDS, bucket `vapeupar-dev-artifacts-342284838697`. Detalle en [`aws-full-deployment-plan.md`](aws-full-deployment-plan.md) F1 |
 
 ### Parámetros publicados en SSM (`/vapeupar/dev/*`)
 
@@ -73,7 +80,9 @@ se actualiza solo.
 | `DB_HOST`, `DB_PORT`, `DB_NAME` | Endpoint de RDS |
 | `DB_SECRET_ARN` | ARN del secreto con usuario y contraseña maestros (solo migraciones) |
 | `DB_APP_SECRET_ARN` | ARN del secreto del rol `vapeupar_app` (runtime del backend) |
-| `BASTION_INSTANCE_ID` | Instancia destino del túnel |
+| `TUNNEL_INSTANCE_ID` | Instancia destino del túnel (hoy, la de la aplicación). Sustituye a `BASTION_INSTANCE_ID`, retirado el 2026-11-06 |
+| `APP_INSTANCE_ID`, `APP_PUBLIC_IP` | EC2 de la aplicación y su IP elástica |
+| `ARTIFACTS_BUCKET` | Bucket de releases (F3 del plan de despliegue) |
 | `S3_CATALOG_BUCKET`, `CDN_DOMAIN` | Bucket de imágenes y dominio de CloudFront |
 | `CDN_DISTRIBUTION_ID` | Distribución a invalidar cuando se reemplaza una imagen |
 | `COGNITO_USER_POOL_ID`, `COGNITO_CLIENT_ID` | Pool y cliente del backend |
@@ -245,8 +254,8 @@ lado de DeliPan, su responsable debería considerar:
 | Decisión | Motivo |
 |---|---|
 | **Sin NAT Gateway** | Cuesta ~32 USD/mes aunque no se use. La base no necesita salida a internet; el bastión está en subred pública; S3 se alcanza por endpoint de gateway gratuito |
-| **Bastión SSM en lugar de RDS pública** | La base queda privada igual que en prod, sin SSH ni listas de IPs. Cuesta ~10 USD/mes y puede detenerse |
-| **Bastión `t4g.micro`, no `t4g.nano`** | El plan gratuito de AWS solo admite tipos elegibles (`t3/t4g.micro`, `t3/t4g.small`, `t8i.micro/small`, `c7i-flex.large`, `m7i-flex.large`). `t4g.nano` falló al desplegar por eso. Al pasar a plan de pago se puede volver a `nano` |
+| ~~**Bastión SSM en lugar de RDS pública**~~ (retirado el 2026-11-06: la EC2 de la aplicación hace de destino del túnel) | La base queda privada igual que en prod, sin SSH ni listas de IPs. Cuesta ~10 USD/mes y puede detenerse |
+| ~~**Bastión `t4g.micro`, no `t4g.nano`**~~ (la restricción vale igual para la EC2 de la aplicación) | El plan gratuito de AWS solo admite tipos elegibles (`t3/t4g.micro`, `t3/t4g.small`, `t8i.micro/small`, `c7i-flex.large`, `m7i-flex.large`). `t4g.nano` falló al desplegar por eso. Al pasar a plan de pago se puede volver a `nano` |
 | **VPC `10.50.0.0/16` (dev) / `10.51.0.0/16` (prod)** | No solapa con DeliPan (`10.42`) ni con la VPC por defecto (`172.31`); permite peering sin renumerar |
 | **Toolkit de CDK con qualifier propio** | DeliPan no usa CDK, pero si algún día lo usa, su bootstrap no puede pisar el de Vapeupar ni al revés |
 | **PostgreSQL 18.6 fijado explícitamente** | El enum de `aws-cdk-lib` 2.275 llega a 18.3. Las versiones menores se actualizan solas (`autoMinorVersionUpgrade`) |
@@ -278,7 +287,7 @@ lado de DeliPan, su responsable debería considerar:
 |---|---|
 | `npm run infra:diff` | Muestra qué cambiaría en AWS respecto al código. Ejecutar **siempre** antes de desplegar |
 | `npm run infra:deploy` | Despliega todos los stacks del entorno dev |
-| `npm run infra:db-tunnel` | Abre `localhost:15432` → RDS dev. Comprueba que el puerto esté libre y arranca el bastión si está detenido. Ctrl+C cierra |
+| `npm run infra:db-tunnel` | Abre `localhost:15432` → RDS dev a través de `TUNNEL_INSTANCE_ID` (la EC2 de la aplicación). Comprueba que el puerto esté libre y arranca la instancia si está detenida. Ctrl+C cierra |
 | `npm run infra:env-backend` | Escribe en `backend/.env` las variables de AWS (§5.3). No imprime valores |
 
 Para otro entorno: `npm run diff --workspace=infra -- -c env=prod` (solo cuando
@@ -303,17 +312,22 @@ ver `docs/backend.md` § Base de Datos.
 
 ### 5.4 Ahorrar cuando no se usa
 
+> **Desde el 2026-11-06 hay algo público que depende de la base y de la
+> instancia**: detenerlas deja la tienda fuera de línea. Solo tiene sentido
+> en periodos sin visitas.
+
 ```bash
 # En Git Bash, anteponer MSYS_NO_PATHCONV=1: si no, convierte /vapeupar/... en una ruta de Windows.
-# Bastión (ahorra ~10 USD/mes; el túnel lo vuelve a arrancar solo)
-aws ec2 stop-instances --instance-ids $(aws ssm get-parameter --name /vapeupar/dev/BASTION_INSTANCE_ID --query Parameter.Value --output text)
+# Aplicación (ahorra ~6 USD/mes de cómputo; el túnel la vuelve a arrancar sola).
+# La IP elástica se SIGUE PAGANDO (~3,7 USD/mes) con la instancia detenida.
+aws ec2 stop-instances --instance-ids $(aws ssm get-parameter --name /vapeupar/dev/APP_INSTANCE_ID --query Parameter.Value --output text)
 
 # Base de datos (ahorra ~12 USD/mes; AWS la vuelve a arrancar sola a los 7 días)
 aws rds stop-db-instance --db-instance-identifier vapeupar-dev-db
 aws rds start-db-instance --db-instance-identifier vapeupar-dev-db
 ```
 
-Detenidos, se sigue pagando el almacenamiento (unos 3 USD/mes).
+Detenidos, se sigue pagando el almacenamiento (unos 3 USD/mes) y la IPv4.
 
 ### 5.5 Destruir el entorno dev
 
@@ -337,12 +351,13 @@ Precios de lista aproximados en `us-east-1`; confirmar en la
 |---|---|
 | RDS `db.t4g.micro` Single-AZ | ~11.7 |
 | RDS 20 GB gp3 (los backups hasta ese tamaño no se cobran) | ~2.3 |
-| Bastión `t4g.micro` + disco 8 GB | ~6.8 |
-| IPv4 pública del bastión | ~3.7 |
+| EC2 de la aplicación `t4g.micro` + disco 20 GB | ~7.7 |
+| IP elástica de la aplicación | ~3.7 |
+| ~~Bastión + su IPv4~~ (retirado el 2026-11-06) | ~~10.5~~ |
 | Secrets Manager (2 secretos) | ~0.8 |
 | CloudWatch Logs (logs de PostgreSQL, 1 semana) | <1 |
 | S3, CloudFront, Cognito Lite, SSM, Lambdas de CDK | ~0 a este volumen |
-| **Total** | **~26** |
+| **Total** | **~27.5** (antes ~26, con bastión y sin aplicación) |
 
 Alertas: `vapeupar-dev-monthly` avisa al 80 % del gasto real y al 100 % del
 previsto sobre 30 USD, contando solo recursos con `Project=Vapeupar` y
@@ -402,18 +417,41 @@ relevante:
 | Sin drift entre código y AWS | `npm run infra:diff` | ✅ 0 stacks con diferencias |
 | DeliPan intacto | Estado de su EC2 y su RDS | ✅ `running` / `available`, sin cambios |
 
+### 7.0 Verificación de F1: aplicación y retirada del bastión (2026-11-06)
+
+| Comprobación | Cómo | Resultado |
+|---|---|---|
+| Sin drift tras F1 | `npx cdk diff --all` | ✅ 0 stacks con diferencias (6 stacks) |
+| La instancia arranca y se prepara | `/var/log/vapeupar-bootstrap.log` por SSM | ✅ En ~3,5 min: Node v22.23.4 (suma `OK`), nginx activo, 2 GB de swap, usuario `vapeupar` |
+| Puerto 80 desde internet | `curl http://3.228.133.187/` | ✅ 200, página provisional |
+| Sin SSH | Conexión al 22 | ✅ Cerrado; acceso solo por SSM |
+| La instancia alcanza RDS | TCP 5432 desde la instancia | ✅ Alcanzable sin túnel |
+| El rol está acotado | `secretsmanager:ListSecrets` desde la instancia | ✅ `AccessDenied` (prueba negativa a propósito); sí lee su secreto y su parámetro |
+| Túnel por la aplicación | `infra:db-tunnel` + consulta con el rol `vapeupar_app` | ✅ PostgreSQL 18.6, 10 tablas, sesión con destino `i-088565796e4d9f101` |
+| La base solo acepta a la aplicación | Reglas del grupo de RDS tras retirar el bastión | ✅ Única regla: 5432 desde `vapeupar-dev-app` |
+| Base intacta | Endpoint y fecha de creación | ✅ Mismo endpoint, creada el 2026-10-27, protección de borrado activa |
+| Endurecimiento D1 | CloudFront y Cognito | ✅ `PriceClass_All`; protección de borrado del pool `ACTIVE` |
+
 ### 7.1 Incidencias del primer despliegue
 
 | Incidencia | Causa | Resolución |
 |---|---|---|
 | `Vapeupar-dev-Data` falló y su rollback también (`ROLLBACK_FAILED`) | El bastión `t4g.nano` no es elegible en el plan gratuito; al cancelar, CloudFormation intentó el snapshot final de RDS mientras la instancia aún se creaba | Bastión a `t4g.micro`; borrado del stack fallido, del snapshot final de la base vacía, y redespliegue |
 | El túnel no conectaba con RDS | Un PostgreSQL local de Windows ya escuchaba en 5433: el túnel no pudo abrir el puerto y el cliente habló con la base local | Puerto por defecto 15432 y comprobación de puerto libre en `db-tunnel.mjs` antes de abrir la sesión |
+| Subir la retención de backups de RDS de 1 a 7 días falló (2026-11-06) | El plan gratuito de AWS no admite más de la retención actual: «exceeds the maximum available to free tier customers». CloudFormation deshizo el cambio sin tocar la base | Se queda en 1 día; la red de seguridad son snapshots manuales antes de cada cambio con riesgo. Subirla va con el paso a plan de pago |
+| `aws ssm get-command-invocation` revienta al imprimir en la consola de Windows (`'charmap' codec can't encode`) | La consola no está en UTF-8 y la salida remota trae caracteres como `→` | `export PYTHONIOENCODING=utf-8` antes del comando. El comando remoto sí se ejecuta; solo falla la impresión |
 | Comandos `aws ssm ... /vapeupar/...` fallan en Git Bash | Git Bash convierte las rutas que empiezan por `/` en rutas de Windows | `MSYS_NO_PATHCONV=1` en Git Bash; los scripts de `infra/` no se ven afectados porque no pasan por shell |
 
 ## 8. Transición a producción
 
 `infra/lib/config.ts` ya define `prod` con las diferencias de la tabla 8.2. Lo
 que falta no es código de infraestructura nuevo, sino estas decisiones y tareas.
+
+> **Plan de ejecución de las piezas que faltan (§8.3):**
+> [`aws-full-deployment-plan.md`](aws-full-deployment-plan.md) — todo el sistema
+> sobre EC2 + S3 + RDS, reutilizando la base, el bucket y Cognito de este
+> entorno. Incluye las tres decisiones previas (entorno vivo, dominio, identidad
+> de despliegue) y el coste incremental.
 
 ### 8.1 Antes de desplegar nada en prod
 

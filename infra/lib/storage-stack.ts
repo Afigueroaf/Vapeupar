@@ -22,12 +22,17 @@ interface StorageStackProps extends StackProps {
  * no cambia la URL y hay que invalidar la caché para que se vea la nueva.
  */
 export class StorageStack extends Stack {
+  /** El backend firma `PutObject` sobre este bucket, limitado a los prefijos del catálogo. */
+  readonly catalogBucket: s3.Bucket;
+  /** El backend invalida rutas concretas de esta distribución al reemplazar una imagen. */
+  readonly catalogCdn: cloudfront.Distribution;
+
   constructor(scope: Construct, id: string, props: StorageStackProps) {
     super(scope, id, props);
     const { config } = props;
     const isDisposable = config.storage.removalPolicy === RemovalPolicy.DESTROY;
 
-    const bucket = new s3.Bucket(this, 'CatalogBucket', {
+    const bucket = (this.catalogBucket = new s3.Bucket(this, 'CatalogBucket', {
       bucketName: resourceName(config, `catalog-${this.account}`),
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       objectOwnership: s3.ObjectOwnership.BUCKET_OWNER_ENFORCED,
@@ -44,9 +49,9 @@ export class StorageStack extends Stack {
         : undefined,
       removalPolicy: config.storage.removalPolicy,
       autoDeleteObjects: isDisposable,
-    });
+    }));
 
-    const distribution = new cloudfront.Distribution(this, 'CatalogCdn', {
+    const distribution = (this.catalogCdn = new cloudfront.Distribution(this, 'CatalogCdn', {
       comment: `${resourceName(config, 'catalog')} imagenes de catalogo`,
       defaultBehavior: {
         origin: origins.S3BucketOrigin.withOriginAccessControl(bucket),
@@ -57,7 +62,7 @@ export class StorageStack extends Stack {
       priceClass: config.storage.cdnPriceClassAll
         ? cloudfront.PriceClass.PRICE_CLASS_ALL
         : cloudfront.PriceClass.PRICE_CLASS_100,
-    });
+    }));
 
     new ssm.StringParameter(this, 'ParamBucket', {
       parameterName: paramName(config, 'S3_CATALOG_BUCKET'),
