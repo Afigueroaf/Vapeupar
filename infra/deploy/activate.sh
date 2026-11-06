@@ -1,0 +1,122 @@
+#!/bin/bash
+# Activa una release de Vapeupar EN LA INSTANCIA. Lo lanza
+# `infra/scripts/deploy-app.mjs` por SSM (Run Command), como root.
+# docs/aws-full-deployment-plan.md F3.
+#
+#   activate.sh <bucket> <clave> <versionId> <releaseId> <entorno> <región>
+#
+# Pasos: descargar la versión EXACTA del objeto (no "la última": si alguien
+# sube otra mientras tanto, se activa la que se pidió), desempaquetar en una
+# carpeta nueva, instalar unidades y nginx, mover `current`, reiniciar y
+# VERIFICAR. Si la verificación falla, vuelve a la release anterior.
+set -euo pipefail
+
+BUCKET="$1"; KEY="$2"; VERSION="$3"; RELEASE="$4"; ENV_NAME="$5"; REGION="$6"
+
+BASE=/opt/vapeupar
+DEST="$BASE/releases/$RELEASE"
+CUR="$BASE/current"
+KEEP=3   # releases que se conservan para volver atrás a mano
+
+log() { echo "[activate $(date +%T)] $*"; }
+
+[[ "$RELEASE" =~ ^[A-Za-z0-9._-]+$ ]] || { log "id de release inválido"; exit 2; }
+
+PREV=""
+[ -L "$CUR" ] && PREV="$(readlink -f "$CUR")"
+
+# --- 1. Descargar y desempaquetar -------------------------------------------
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+log "descargando s3://$BUCKET/$KEY ($VERSION)"
+aws s3api get-object --region "$REGION" --bucket "$BUCKET" --key "$KEY" \
+  --version-id "$VERSION" "$TMP/app.tar.gz" >/dev/null
+
+rm -rf "$DEST.partial"
+mkdir -p "$DEST.partial"
+tar -xzf "$TMP/app.tar.gz" -C "$DEST.partial" --no-same-owner
+# Todo de root y de solo lectura para el servicio, SALVO `.next` del
+# frontend: ahí Next guarda las páginas regeneradas (ISR) y las imágenes
+# optimizadas. Es lo único que el usuario `vapeupar` puede escribir.
+chown -R root:root "$DEST.partial"
+chmod -R go-w "$DEST.partial"
+chown -R vapeupar:vapeupar "$DEST.partial/web/frontend/.next"
+rm -rf "$DEST"
+mv "$DEST.partial" "$DEST"
+log "release en $DEST ($(du -sh "$DEST" | cut -f1))"
+
+# --- 2. Entorno de la instancia ----------------------------------------------
+install -d -m 700 /etc/vapeupar
+printf 'VAPEUPAR_ENV=%s\nAWS_REGION=%s\n' "$ENV_NAME" "$REGION" > /etc/vapeupar/instance.env
+chmod 600 /etc/vapeupar/instance.env
+
+# --- 3. systemd y nginx (con copia para volver atrás) ------------------------
+BAK="$TMP/bak"; mkdir -p "$BAK"
+cp -a /etc/nginx/nginx.conf "$BAK/" 2>/dev/null || true
+cp -a /etc/nginx/conf.d/vapeupar.conf "$BAK/" 2>/dev/null || true
+
+install -m 644 "$DEST"/deploy/systemd/*.service /etc/systemd/system/
+install -m 644 "$DEST/deploy/nginx/nginx.conf" /etc/nginx/nginx.conf
+# Cuando certbot (F4) haya añadido el TLS a este archivo, NO se pisa: se
+# perdería el `listen 443`. A partir de ahí los cambios del sitio se hacen a
+# mano o se rediseña este paso (anotado en F4).
+if grep -q 'managed by Certbot' /etc/nginx/conf.d/vapeupar.conf 2>/dev/null; then
+  log "AVISO: vapeupar.conf lleva TLS de certbot; no se reemplaza"
+else
+  install -m 644 "$DEST/deploy/nginx/vapeupar.conf" /etc/nginx/conf.d/vapeupar.conf
+fi
+nginx -t
+
+# --- 4. Cambiar `current` (atómico) y reiniciar ------------------------------
+switch_to() {
+  ln -sfn "$1" "$CUR.new"
+  mv -T "$CUR.new" "$CUR"
+  systemctl daemon-reload
+  systemctl enable --quiet vapeupar-env vapeupar-backend vapeupar-frontend
+  systemctl restart vapeupar-env
+  systemctl restart vapeupar-backend
+  systemctl restart vapeupar-frontend
+  systemctl reload nginx
+}
+
+# --- 5. Verificación ---------------------------------------------------------
+# Backend directo por loopback y la portada A TRAVÉS de nginx (que es lo que
+# ve el público): si nginx no reparte bien, el despliegue no está bien.
+verify() {
+  local i
+  for i in $(seq 1 45); do
+    if curl -fsS -o /dev/null --max-time 5 http://127.0.0.1:4000/health \
+       && curl -fsS -o /dev/null --max-time 15 http://127.0.0.1/ \
+       && curl -fsS -o /dev/null --max-time 5 "http://127.0.0.1/api/products?limit=1"; then
+      return 0
+    fi
+    sleep 2
+  done
+  return 1
+}
+
+log "activando $RELEASE (anterior: ${PREV:-ninguna})"
+switch_to "$DEST"
+
+if verify; then
+  log "OK: backend /health, portada y /api/products responden"
+else
+  log "FALLO de verificación. Últimas líneas de los servicios:"
+  journalctl -u vapeupar-env -u vapeupar-backend -u vapeupar-frontend -n 40 --no-pager || true
+  if [ -n "$PREV" ] && [ -d "$PREV" ]; then
+    log "volviendo a $PREV"
+    cp -a "$BAK/nginx.conf" /etc/nginx/nginx.conf 2>/dev/null || true
+    cp -a "$BAK/vapeupar.conf" /etc/nginx/conf.d/vapeupar.conf 2>/dev/null || true
+    install -m 644 "$PREV"/deploy/systemd/*.service /etc/systemd/system/
+    switch_to "$PREV"
+    verify && log "release anterior restaurada y respondiendo" || log "la anterior TAMPOCO responde"
+  fi
+  exit 1
+fi
+
+# --- 6. Limpieza: conservar las $KEEP releases más recientes -----------------
+ACTIVE="$(readlink -f "$CUR")"
+ls -1dt "$BASE"/releases/*/ 2>/dev/null | sed 's#/$##' | tail -n +$((KEEP + 1)) | while read -r d; do
+  [ "$d" = "$ACTIVE" ] || { rm -rf "$d"; log "borrada release antigua $(basename "$d")"; }
+done
+log "listo"

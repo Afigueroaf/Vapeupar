@@ -3,7 +3,9 @@
 // no añadir el SDK como dependencia solo por dos scripts.
 import { execFileSync } from 'node:child_process';
 
-export const envName = process.argv[2] ?? 'dev';
+// Primer argumento que no sea una opción (`--algo`): así `script --flag` no
+// toma la opción por nombre de entorno.
+export const envName = process.argv.slice(2).find((a) => !a.startsWith('--')) ?? 'dev';
 
 /** Puerto local del túnel a RDS; lo comparten db-tunnel y write-backend-env. */
 export const localDbPort = process.env.VAPEUPAR_DB_LOCAL_PORT ?? '15432';
