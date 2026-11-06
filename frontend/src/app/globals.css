@@ -154,6 +154,52 @@ button {
 }
 
 /* ============================================================================
+   BARRA DE DESLIZAMIENTO: OCULTA
+   ----------------------------------------------------------------------------
+   La página no enseña barra de desplazamiento. SE OCULTA, NO SE DESACTIVA:
+   el documento sigue desplazándose igual con la rueda, el teclado (flechas,
+   av/re página, inicio/fin), el dedo y el cursor táctil. Lo único que
+   desaparece es el carril pintado.
+
+   Dos sintaxis, porque ningún navegador entiende las dos: `scrollbar-width:
+   none` es el estándar (Firefox) y `::-webkit-scrollbar { display: none }` es
+   lo único que obedecen Chrome y Safari.
+
+   SIN `scrollbar-gutter`, QUE ES LO QUE HABÍA. Reservaba el carril de 10px
+   para que el contenido no saltara al bloquear el scroll con la puerta +18;
+   sin barra que reservar, el salto no existe y el carril solo restaría 10px de
+   ancho a cada sección.
+
+   EL COSTE, DICHO CLARO: la barra es también el indicador de cuánto documento
+   queda por debajo, y este mide ~7000px. Quién use ratón pierde esa referencia
+   y la posibilidad de arrastrar el pulgar para saltar lejos. Es una decisión de
+   diseño pedida a propósito, no un descuido; si algún día hace falta devolver
+   la referencia sin devolver el carril del sistema, el sitio es un indicador
+   propio de progreso, no reactivar esto.
+
+   Se aplica a TODO contenedor con desbordamiento, no solo al documento: el
+   selector `-webkit-` no lleva sujeto a propósito, para que un panel con
+   scroll interno tampoco saque una barra gris del sistema en medio del
+   sistema VP.
+   ========================================================================== */
+html {
+  scrollbar-width: none;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* NO SE IMPORTA `lenis/dist/lenis.css`, y es deliberado. El desplazamiento
+   suavizado (`components/smooth-scroll.tsx`) funciona sin su hoja: lo único
+   que esa hoja hace que importe aquí es `html.lenis, html.lenis body {
+   height: auto }`, y eso pisaría el `h-full` del `<html>` y el `min-h-full`
+   del `<body>` que sostienen el pie pegado al fondo en páginas cortas. Lenis
+   no necesita esa regla porque no envuelve ni transforma nada: pide el
+   desplazamiento NATIVO fotograma a fotograma. Las demás reglas de la hoja
+   cuelgan de `[data-lenis-prevent]` y de `iframe`, y aquí no hay ni uno. */
+
+/* ============================================================================
    ETIQUETA PIXEL
    ----------------------------------------------------------------------------
    Único uso autorizado de Press Start 2P. Máximo ~16 caracteres.
@@ -293,17 +339,29 @@ html.glitch-armed .vp-glitch-on {
   will-change: filter;
 }
 
+/* EL VELO NO LLEGA NUNCA AL 100%. La opacidad colgaba directamente de
+   `--glitch-shift / 14`, así que en la entrada —donde la intensidad vale 1 y el
+   desplazamiento 14— el velo se pintaba al tope sobre TODO el viewport: navbar,
+   lienzo 3D y catálogo quedaban detrás de una rejilla maciza.
+
+   `--vp-scanline-veil` es el techo (0.4): el velo acompaña la ráfaga pero deja
+   ver lo que hay debajo, que es su trabajo. Las líneas también bajan del 8% al
+   6% de negro, porque a 1 de cada 4 píxeles el 8% ya se leía como un gris
+   plano encima del contenido. Si se sube el techo, hay que volver a medir el
+   contraste del texto sobre franja filtrada. */
 .vp-glitch-scanlines {
+  --vp-scanline-veil: 0.4;
+
   position: fixed;
   inset: 0;
   z-index: 45; /* sobre el navbar (40), bajo el modal +18 (50) */
   pointer-events: none;
-  opacity: calc(var(--glitch-shift, 0) / 14);
+  opacity: calc(var(--glitch-shift, 0) / 14 * var(--vp-scanline-veil));
   background: repeating-linear-gradient(
     to bottom,
     transparent 0px,
     transparent 3px,
-    color-mix(in srgb, var(--color-vp-black) 8%, transparent) 4px
+    color-mix(in srgb, var(--color-vp-black) 6%, transparent) 4px
   );
 }
 
@@ -314,10 +372,10 @@ html.glitch-active .vp-glitch-scanlines {
 @keyframes vp-glitch-scan {
   0%,
   100% {
-    opacity: calc(var(--glitch-shift, 0) / 14);
+    opacity: calc(var(--glitch-shift, 0) / 14 * var(--vp-scanline-veil));
   }
   50% {
-    opacity: calc(var(--glitch-shift, 0) / 14 * 0.6);
+    opacity: calc(var(--glitch-shift, 0) / 14 * var(--vp-scanline-veil) * 0.6);
   }
 }
 
@@ -578,6 +636,16 @@ html.glitch-active .vp-glitch-scanlines {
      una superficie desenfocada por tarjeta aunque ninguna estuviera activa.
      Solo se enciende en la activa (reglas de abajo). El `visibility` se
      retrasa al apagar para que el fundido de salida se vea entero. */
+  /* FUERZA DE LA LÁMINA ENCENDIDA, en un solo sitio. Las tres reglas que la
+     encienden (puntero, foco y cursor táctil) leen esta variable, así que se
+     ajusta aquí y no en tres. Bajó de 0.92 a 0.55 porque al 92% el velo
+     holográfico tapaba el contenido de la tarjeta en vez de acompañarlo.
+
+     Bajarla solo puede MEJORAR el contraste: la mezcla es `screen`, que aclara
+     el fondo bajo un texto claro. Las medidas de más abajo (el precio gris a
+     ~5:1 con la lámina encendida) siguen siendo el peor caso, no el actual. */
+  --vp-holo-on: 0.55;
+
   opacity: 0;
   visibility: hidden;
   mix-blend-mode: screen;
@@ -685,7 +753,7 @@ html.glitch-active .vp-glitch-scanlines {
    limitaba a puntero fino más abajo. */
 @media (hover: hover) and (pointer: fine) {
   .vp-card:hover .vp-holo {
-    opacity: 0.92;
+    opacity: var(--vp-holo-on);
     visibility: visible;
     transition: opacity 0.35s var(--ease-vp), visibility 0s;
   }
@@ -694,7 +762,7 @@ html.glitch-active .vp-glitch-scanlines {
 /* El foco sí vale a cualquier ancho: llega por teclado, y ahí encender la
    lámina señala qué tarjeta está activa sin depender del puntero. */
 .vp-card:focus-within .vp-holo {
-  opacity: 0.92;
+  opacity: var(--vp-holo-on);
   visibility: visible;
   transition: opacity 0.35s var(--ease-vp), visibility 0s;
 }
@@ -704,7 +772,7 @@ html.glitch-active .vp-glitch-scanlines {
    conocido y que se apaga al salir, en vez de por un `:hover` que se queda
    clavado donde se tocó por última vez. */
 .vp-card.vp-hot .vp-holo {
-  opacity: 0.92;
+  opacity: var(--vp-holo-on);
   visibility: visible;
   transition: opacity 0.35s var(--ease-vp), visibility 0s;
 }
@@ -717,7 +785,7 @@ html.glitch-active .vp-glitch-scanlines {
    apagada como en reposo, que es un estado correcto y no un fallo visible. */
 @media (hover: none) {
   :where(html:not([data-vp-cursor="on"])) .vp-card:active .vp-holo {
-    opacity: 0.9;
+    opacity: var(--vp-holo-on);
     visibility: visible;
     transition: opacity 0.35s var(--ease-vp), visibility 0s;
   }
