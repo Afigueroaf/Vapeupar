@@ -1,0 +1,23 @@
+# Genera /etc/vapeupar/backend.env desde SSM y Secrets Manager.
+# docs/aws-full-deployment-plan.md F2.
+#
+# UNA UNIDAD APARTE, Y NO UN ExecStartPre DEL BACKEND, a propósito: así el
+# orden "primero el archivo, después el proceso que lo lee" lo garantiza
+# `After=` entre unidades, y no depende de en qué momento exacto relee systemd
+# el EnvironmentFile dentro de una misma unidad.
+#
+# Sin RemainAfterExit: queda inactiva al terminar, de modo que cada arranque
+# del backend la vuelve a ejecutar y recoge los secretos y parámetros actuales
+# (una contraseña rotada, un origen nuevo en F4).
+[Unit]
+Description=Vapeupar: entorno del backend desde SSM y Secrets Manager
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# VAPEUPAR_ENV y AWS_REGION. Lo escribe el despliegue (F3).
+EnvironmentFile=/etc/vapeupar/instance.env
+ExecStart=/usr/local/bin/node /opt/vapeupar/current/deploy/write-env.mjs
+# Llama a SSM y Secrets Manager: si AWS tarda, mejor esperar que fallar.
+TimeoutStartSec=60

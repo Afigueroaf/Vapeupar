@@ -1,0 +1,53 @@
+# API de Vapeupar (Express) en 127.0.0.1:4000, detrás de nginx.
+# docs/aws-full-deployment-plan.md F2.
+[Unit]
+Description=Vapeupar backend (Express, 127.0.0.1:4000)
+# `Wants` y no `Requires`: si regenerar el entorno falla por un problema
+# transitorio de AWS, el backend arranca igual con el archivo de la vez
+# anterior en lugar de dejar la tienda sin API. En el primer arranque no hay
+# archivo anterior y el backend falla con un error claro, que es lo correcto.
+Wants=vapeupar-env.service network-online.target
+After=vapeupar-env.service network-online.target
+
+[Service]
+Type=simple
+User=vapeupar
+Group=vapeupar
+WorkingDirectory=/opt/vapeupar/current/backend
+
+# Lo que no es secreto ni cambia entre arranques va aquí, a la vista.
+#  HOST=127.0.0.1   solo loopback: a la API se llega por nginx o no se llega.
+#  TRUST_PROXY=1    un salto de proxy (nginx). Sin esto, express-rate-limit
+#                   cuenta a todos los visitantes como una sola IP. Si algún
+#                   día se pone CloudFront delante, pasa a 2.
+#  --max-old-space-size  techo del heap para que un proceso no deje sin
+#                   memoria al otro en una instancia de 1 GB.
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=4000
+Environment=TRUST_PROXY=1
+Environment=NODE_OPTIONS=--max-old-space-size=256
+EnvironmentFile=/etc/vapeupar/backend.env
+
+ExecStart=/usr/local/bin/node dist/index.js
+Restart=always
+RestartSec=3
+# El backend cierra con elegancia al recibir SIGTERM (`src/index.ts`); si en 15 s
+# no lo ha hecho, se le mata. Sin esto, systemd espera 90 s en cada despliegue.
+TimeoutStopSec=15
+
+# Endurecimiento. La API no escribe nada en disco: todo lo que guarda va a RDS
+# o a S3, y los registros salen por stdout al journal.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

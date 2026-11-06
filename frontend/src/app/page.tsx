@@ -26,6 +26,12 @@ const PRISM_SIDES = 6;
 async function fetchProducts(query: string): Promise<Product[] | null> {
   try {
     const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
+    // En el servidor solo vale una URL absoluta. Al compilar para producción
+    // `NEXT_PUBLIC_API_URL` es `/api` (relativa, para el navegador) y no hay
+    // `API_URL`: un fetch relativo ahí no falla, se queda colgado hasta que
+    // Next aborta el build a los 60 s. Sin URL absoluta, respaldo directo; en
+    // la instancia `API_URL` apunta al backend por loopback.
+    if (!/^https?:\/\//.test(apiUrl)) return null;
     const res = await fetch(`${apiUrl}/products${query}`, {
       next: { revalidate: 60 },
       headers: { "Accept": "application/json" }
