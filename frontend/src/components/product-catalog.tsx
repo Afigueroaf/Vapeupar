@@ -60,6 +60,36 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
     return () => window.removeEventListener("hashchange", handleHash);
   }, []);
 
+  /**
+   * Categorías que se ofrecen como filtro: solo las que tienen algún producto.
+   *
+   * La lista de `CATEGORIES` es el catálogo de categorías posibles, no el de
+   * las que hay hoy en la tienda, y un filtro que siempre devuelve «0
+   * resultados» es un callejón sin salida. Se cuenta sobre los mismos
+   * productos que pinta la rejilla, de modo que cada chip visible lleva al
+   * menos a una tarjeta. «Todos» va siempre.
+   *
+   * Se conserva el orden de `CATEGORIES`, que es el del recorrido de compra
+   * (desechables primero, accesorios al final), y no el de llegada de la API.
+   */
+  const categories = useMemo(() => {
+    const present = new Set(initialProducts.map((p) => p.category));
+    return CATEGORIES.filter((cat) => cat.id === "all" || present.has(cat.id));
+  }, [initialProducts]);
+
+  /**
+   * Categoría que filtra de verdad.
+   *
+   * Si la elegida no está entre las visibles, se cae a «Todos». Pasa cuando se
+   * llega desde un enlace de la barra (`#pods`, `#liquidos`) a una categoría
+   * que ahora mismo está vacía: sin esto la rejilla saldría vacía y sin ningún
+   * chip encendido que explicara por qué. Se deriva en el render en lugar de
+   * corregir el estado con un efecto, que pintaría primero el vacío.
+   */
+  const activeCategory = categories.some((cat) => cat.id === selectedCategory)
+    ? selectedCategory
+    : "all";
+
   const brands = useMemo(() => {
     const list = Array.from(new Set(initialProducts.map(p => p.brand)));
     return ["all", ...list];
@@ -68,7 +98,7 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
   const filteredProducts = useMemo(() => {
     const result = initialProducts.filter(product => {
       // Category match
-      if (selectedCategory !== "all" && product.category !== selectedCategory) {
+      if (activeCategory !== "all" && product.category !== activeCategory) {
         return false;
       }
       // Brand match
@@ -99,7 +129,7 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
     }
 
     return result;
-  }, [initialProducts, selectedCategory, selectedBrand, searchQuery, sortBy]);
+  }, [initialProducts, activeCategory, selectedBrand, searchQuery, sortBy]);
 
   return (
     <section
@@ -150,13 +180,13 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
         aria-label="Filtro de categorías"
         className="vp-glitch mt-10 flex flex-wrap gap-3 scroll-mt-24"
       >
-        {CATEGORIES.map((cat) => (
+        {categories.map((cat) => (
           <button
             key={cat.id}
             type="button"
-            aria-pressed={selectedCategory === cat.id}
+            aria-pressed={activeCategory === cat.id}
             onClick={() => setSelectedCategory(cat.id)}
-            className={cn(CHIP_BASE, selectedCategory === cat.id ? CHIP_ACTIVE : CHIP_IDLE)}
+            className={cn(CHIP_BASE, activeCategory === cat.id ? CHIP_ACTIVE : CHIP_IDLE)}
           >
             {cat.label}
           </button>

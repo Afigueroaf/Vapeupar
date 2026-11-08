@@ -84,6 +84,28 @@
 
   /* --- Movimiento --- */
   --ease-vp: cubic-bezier(0.2, 0, 0, 1);
+  /* Deslizamiento largo de paneles (vitrina ⇄ información). Sinusoidal y
+     simétrica: arranca y se posa igual de suave, porque la misma curva sirve
+     para entrar y para salir y las dos tienen que leerse como un solo gesto.
+     Más plana que una cúbica, así que el panel no acelera de golpe a mitad
+     de recorrido. `--ease-vp` frena en seco, que en un recorrido largo se
+     nota como un golpe al final. */
+  --ease-vp-slide: cubic-bezier(0.37, 0, 0.63, 1);
+
+  /* Parpadeo arcade de la flecha de los tiradores: a saltos, como un
+     «PRESS START», nunca un fundido. */
+  --animate-vp-blink: vp-blink 1.2s steps(1, end) infinite;
+
+  @keyframes vp-blink {
+    0%,
+    60% {
+      opacity: 1;
+    }
+    60.01%,
+    100% {
+      opacity: 0.2;
+    }
+  }
 }
 
 /* ============================================================================
@@ -104,6 +126,24 @@
    ========================================================================== */
 :root {
   --vp-lead: 48.125rem;
+
+  /* Alto de la barra de navegación (`navbar.tsx`), que es pegajosa: fila de
+     44px (los botones de 44 mandan sobre el logotipo de 40) + `py-4` + 2px de
+     borde = 78px; desde `sm` el logotipo pasa a 48px y manda él: 82px. Si
+     cambia la barra, cambia aquí. */
+  --vp-nav-h: 4.875rem;
+
+  /* Lo que queda de pantalla debajo de la barra. `svh` y no `vh`: en un
+     teléfono es el alto con las barras del navegador A LA VISTA, que es el
+     espacio que de verdad se ve al llegar; con `vh` la sección se metería por
+     debajo de la barra inferior de Safari o Chrome. */
+  --vp-screen: calc(100svh - var(--vp-nav-h));
+}
+
+@media (min-width: 40rem) {
+  :root {
+    --vp-nav-h: 5.125rem;
+  }
 }
 
 /* ============================================================================
