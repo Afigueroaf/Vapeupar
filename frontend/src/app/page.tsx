@@ -10,46 +10,10 @@ import { TouchCursor } from "@/components/touch-cursor";
 import { VaporizerPointCloud } from "@/components/vaporizer-point-cloud";
 import { VAPORIZER_ANCHOR_SELECTOR } from "@/components/vaporizer/anchor";
 import { FALLBACK_PRODUCTS } from "@/data/fallback-products";
-import { Product } from "@/types/product";
+import { fetchProducts } from "@/lib/api";
 
 /** Caras del prisma de la portada. Tiene que cuadrar con `ProductPrism`. */
 const PRISM_SIDES = 6;
-
-/**
- * Pide productos a la API.
- *
- * Devuelve `null` cuando la petición falla y `[]` cuando la API responde bien
- * pero no hay nada que servir. La diferencia importa: «la vitrina está vacía
- * porque nadie ha elegido» no es lo mismo que «el backend no contesta», y solo
- * el segundo caso justifica tirar de los productos de respaldo.
- */
-async function fetchProducts(query: string): Promise<Product[] | null> {
-  try {
-    const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
-    // En el servidor solo vale una URL absoluta. Al compilar para producción
-    // `NEXT_PUBLIC_API_URL` es `/api` (relativa, para el navegador) y no hay
-    // `API_URL`: un fetch relativo ahí no falla, se queda colgado hasta que
-    // Next aborta el build a los 60 s. Sin URL absoluta, respaldo directo; en
-    // la instancia `API_URL` apunta al backend por loopback.
-    if (!/^https?:\/\//.test(apiUrl)) return null;
-    const res = await fetch(`${apiUrl}/products${query}`, {
-      next: { revalidate: 60 },
-      headers: { "Accept": "application/json" }
-    });
-
-    if (!res.ok) return null;
-
-    const json = await res.json();
-    if (json && json.success && Array.isArray(json.data)) {
-      return json.data;
-    }
-
-    return null;
-  } catch {
-    // La API del backend está apagada.
-    return null;
-  }
-}
 
 export default async function HomePage() {
   // Dos peticiones, no una.
@@ -166,8 +130,24 @@ export default async function HomePage() {
               él. El coste es scroll —en una pantalla de 390px la banda pasa de
               ~452px a igualar los ~706px del hero— y se acepta a cambio de que
               la vitrina se vea entera.
+
+              DESDE `lg` LAS FILAS VUELVEN A SER INDEPENDIENTES
+              (`lg:grid-rows-none`, filas implícitas de alto automático). En
+              escritorio el prisma ya no comparte la banda con las tarjetas
+              —van en el panel de información de `TrustStage`— y su tamaño lo
+              manda el alto del hueco, así que la banda pide una pantalla menos
+              la barra (`trust-band.tsx`), igual que la intro (`hero.tsx`).
+              Cada una lo pide por su cuenta y salen iguales sin que la rejilla
+              las ate; atarlas solo serviría para que la que tuviera más
+              contenido estirase a la otra.
+
+              EN VERTICAL, LO MISMO A CUALQUIER ANCHO (`portrait:grid-rows-none`).
+              Ahí cada sección mide por su cuenta una pantalla menos la barra
+              de navegación (`--vp-screen`), así que las dos ya salen iguales
+              sin que la rejilla las ate. En horizontal por debajo de `lg` —un
+              teléfono girado— sigue mandando la igualación.
             */}
-            <div className="relative grid grid-rows-[1fr_1fr]">
+            <div className="relative grid grid-rows-[1fr_1fr] portrait:grid-rows-none lg:grid-rows-none">
               <Hero />
               <TrustBand showcase={showcase} />
             </div>

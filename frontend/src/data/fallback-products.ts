@@ -34,6 +34,7 @@ export const FALLBACK_PRODUCTS: Product[] = [
     isBestSeller: false,
     specs: { puffCount: 10000, nicotineStrength: "" },
     tags: [],
+    variants: [],
   },
   {
     id: "01a17b11-e0e7-758b-9a28-63cfa72898b0",
@@ -54,6 +55,7 @@ export const FALLBACK_PRODUCTS: Product[] = [
     isBestSeller: true,
     specs: { puffCount: 15000, nicotineStrength: "" },
     tags: [],
+    variants: [],
   },
   {
     id: "01a17b12-10e2-74c8-9aac-a45f7120fe7a",
@@ -74,6 +76,7 @@ export const FALLBACK_PRODUCTS: Product[] = [
     isBestSeller: false,
     specs: { nicotineStrength: "" },
     tags: [],
+    variants: [],
   },
   {
     id: "01a17b12-1885-735c-96d0-78d42af0dfd5",
@@ -93,5 +96,6 @@ export const FALLBACK_PRODUCTS: Product[] = [
     isBestSeller: false,
     specs: { nicotineStrength: "" },
     tags: [],
+    variants: [],
   },
 ];

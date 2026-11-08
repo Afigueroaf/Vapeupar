@@ -4,34 +4,37 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Menu, ShoppingBag, X } from "lucide-react";
+import { CartDrawer } from "@/components/cart/cart-drawer";
 import { PixelLabel } from "@/components/ui/pixel-label";
-
-interface NavbarProps {
-  cartCount?: number;
-}
+import { setCartOpen, useCart, useCartOpen } from "@/lib/cart";
 
 /**
  * Navegación principal VP.
  *
- * Los destinos apuntan a secciones de la página única actual. Se convierten
- * en rutas reales (`/tienda`, `/coleccion/[categoria]`, `/nosotros`) en una
+ * Los destinos apuntan a secciones de la portada, escritos como `/#seccion`
+ * y no `#seccion` para que también lleven allí desde la ficha de producto:
+ * en la portada misma, el navegador lo trata como un cambio de ancla y no
+ * recarga nada. Se convierten en rutas reales (`/tienda`, `/coleccion/[categoria]`, `/nosotros`) en una
  * fase posterior (`docs/design-reset-inventory.md` §5.6).
  */
 const NAV_LINKS = [
-  { href: "#catalogo", label: "Tienda" },
-  { href: "#colecciones", label: "Colecciones" },
-  { href: "#nosotros", label: "Nosotros" },
+  { href: "/#catalogo", label: "Tienda" },
+  { href: "/#colecciones", label: "Colecciones" },
+  { href: "/#nosotros", label: "Nosotros" },
 ];
 
 const MOBILE_COLLECTIONS = [
-  { href: "#desechables", label: "Desechables" },
-  { href: "#pods", label: "Pods recargables" },
-  { href: "#liquidos", label: "Sales de nicotina" },
-  { href: "#faq", label: "Preguntas frecuentes" },
+  { href: "/#desechables", label: "Desechables" },
+  { href: "/#pods", label: "Pods recargables" },
+  { href: "/#liquidos", label: "Sales de nicotina" },
+  { href: "/#faq", label: "Preguntas frecuentes" },
 ];
 
-export function Navbar({ cartCount = 0 }: NavbarProps) {
+export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // El contador sale del carrito local (`lib/cart.ts`): unidades, no líneas.
+  const { count: cartCount } = useCart();
+  const cartOpen = useCartOpen();
 
   const closeMenu = () => setMobileMenuOpen(false);
 
@@ -75,13 +78,24 @@ export function Navbar({ cartCount = 0 }: NavbarProps) {
         <div className="flex items-center gap-3">
           <button
             type="button"
+            onClick={() => {
+              setMobileMenuOpen(false);
+              setCartOpen(true);
+            }}
+            aria-haspopup="dialog"
+            aria-expanded={cartOpen}
             className="relative flex size-11 items-center justify-center rounded-vp border-2 border-muted transition-colors hover:border-line"
-            aria-label="Carrito de compras"
+            aria-label={
+              cartCount === 0
+                ? "Carrito de compras, vacío"
+                : `Carrito de compras, ${cartCount} ${cartCount === 1 ? "unidad" : "unidades"}`
+            }
           >
             <ShoppingBag className="size-5" aria-hidden="true" />
             {cartCount > 0 && (
               <span className="vp-label absolute -right-2 -top-2 flex size-5 items-center justify-center rounded-vp bg-action text-action-ink">
-                {cartCount}
+                {/* Dos cifras no caben en la chapa de 20px en Press Start 2P. */}
+                {cartCount > 9 ? "9+" : cartCount}
               </span>
             )}
           </button>
@@ -139,6 +153,11 @@ export function Navbar({ cartCount = 0 }: NavbarProps) {
           </div>
         </div>
       )}
+      {/* El cajón se monta aquí porque aquí está su botón, pero se pinta en
+          un portal al `body`: esta cabecera lleva `vp-glitch`, y un `filter`
+          en un ancestro anclaría el panel fijo a la barra en vez de a la
+          pantalla (ver `cart/cart-drawer.tsx`). */}
+      <CartDrawer />
     </header>
   );
 }

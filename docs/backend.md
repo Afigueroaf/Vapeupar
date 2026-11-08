@@ -283,3 +283,37 @@ Obtiene un producto por su identificador único interno (UUID). Un id con otro f
 
 ### 5. `GET /api/products/:slug`
 Obtiene los detalles completos de un producto por su slug alfanumérico amigable (ej. `lifepod-eco-pro`).
+
+### Variantes en el producto público
+
+Todas las respuestas de producto (`/api/products`, `/id/:id` y `/:slug`) traen
+`variants`: los sabores o colores **activos** de la línea, en el orden de la
+consola (`sortOrder` y luego nombre). Una variante inactiva no aparece; una
+agotada sí, con `inStock: false`, para que la ficha pueda enseñarla y ofrecer
+la consulta por WhatsApp.
+
+```json
+"variants": [
+  {
+    "id": "01a1…",
+    "kind": "flavor",
+    "name": "Mango Ice",
+    "slug": "mango-ice",
+    "imageUrl": "",
+    "inStock": true,
+    "stock": 7
+  }
+]
+```
+
+- `kind`: `flavor` | `color`.
+- `slug` es único dentro de su línea, no en el catálogo; la ficha lo usa en `?sabor=`.
+- `imageUrl` vacía = sin foto propia, se usa la de la línea.
+- `stock` sale de la caché del libro de inventario y nunca es negativo. El
+  `stock` de la línea es la suma de sus variantes.
+- `search` también busca en el nombre de las variantes: `?search=mango` encuentra
+  la línea que tiene ese sabor.
+
+El precio es de la línea, no de la variante (ADR-002 §3). No hay endpoint de
+pedidos: el carrito vive en el navegador y el pedido se envía por WhatsApp
+(ADR-001 §3, `frontend/src/lib/cart.ts`).
