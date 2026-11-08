@@ -24,6 +24,19 @@ export function getParam(key) {
   }
 }
 
+/**
+ * Todos los parámetros bajo `/vapeupar/<env>/<path>/`, como `{ NOMBRE: valor }`.
+ * El CLI pagina solo.
+ */
+export function getParamsByPath(subpath) {
+  const out = execFileSync(
+    'aws',
+    ['ssm', 'get-parameters-by-path', '--path', `/vapeupar/${envName}/${subpath}`, '--output', 'json'],
+    { encoding: 'utf8' },
+  );
+  return Object.fromEntries(JSON.parse(out).Parameters.map((p) => [p.Name.split('/').pop(), p.Value]));
+}
+
 export function getSecretJson(arn) {
   return JSON.parse(aws(['secretsmanager', 'get-secret-value', '--secret-id', arn, '--query', 'SecretString']));
 }

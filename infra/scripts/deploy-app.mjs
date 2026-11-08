@@ -4,6 +4,9 @@
 //   npm run app:deploy              -> entorno dev (hoy, producción)
 //   npm run app:deploy -- dev --skip-build   reutiliza los builds que ya hay
 //
+// Lo lanza también GitHub Actions en cada push a la rama `produccion`
+// (`.github/workflows/deploy-produccion.yml`), con el rol de `config.ci`.
+//
 // Flujo:
 //   1. Build del backend (tsc) y del frontend (`standalone`, API relativa).
 //   2. Release en una carpeta temporal:
@@ -23,7 +26,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { envName, getParam } from './aws.mjs';
+import { envName, getParam, getParamsByPath } from './aws.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const skipBuild = process.argv.includes('--skip-build');
@@ -58,6 +61,22 @@ const instanceId = getParam('APP_INSTANCE_ID');
 const publicIp = getParam('APP_PUBLIC_IP');
 const cdnDomain = getParam('CDN_DOMAIN');
 
+// Variables públicas del frontend: WhatsApp, teléfono, nombre y ciudad de la
+// tienda. Acaban dentro del JavaScript que descarga el visitante, así que no
+// son secretas, pero son datos de contacto y no van en el repositorio. Viven
+// en SSM (`/vapeupar/<env>/web/NEXT_PUBLIC_*`) para que el build de GitHub
+// Actions y el de un portátil salgan IGUALES: antes salían del
+// `frontend/.env.local` de quien desplegaba. Sin WhatsApp el carrito no puede
+// enviar pedidos, así que en CI su ausencia es un error.
+const webEnv = Object.fromEntries(
+  Object.entries(getParamsByPath('web')).filter(([k]) => k.startsWith('NEXT_PUBLIC_')),
+);
+if (!webEnv.NEXT_PUBLIC_WHATSAPP_NUMBER) {
+  const msg = `falta /vapeupar/${envName}/web/NEXT_PUBLIC_WHATSAPP_NUMBER en SSM`;
+  if (process.env.CI) throw new Error(msg);
+  console.warn(`[deploy] AVISO: ${msg}; se usará el de frontend/.env.local si lo hay`);
+}
+
 const sha = git(['rev-parse', '--short=12', 'HEAD']);
 const dirty = git(['status', '--porcelain']).length > 0;
 const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-');
@@ -74,7 +93,7 @@ if (!skipBuild) {
   // Las variables del proceso ganan a las de `frontend/.env.local` (teléfono,
   // WhatsApp...), que se siguen leyendo para lo demás.
   run(NPM, ['run', 'build', '--workspace=frontend'], {
-    env: { ...process.env, NEXT_PUBLIC_API_URL: '/api', NEXT_PUBLIC_CDN_DOMAIN: cdnDomain, NEXT_TELEMETRY_DISABLED: '1' },
+    env: { ...process.env, ...webEnv, NEXT_PUBLIC_API_URL: '/api', NEXT_PUBLIC_CDN_DOMAIN: cdnDomain, NEXT_TELEMETRY_DISABLED: '1' },
   });
 }
 

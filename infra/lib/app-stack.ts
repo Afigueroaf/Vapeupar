@@ -273,6 +273,80 @@ export class AppStack extends Stack {
       instanceId: instance.instanceId,
     });
 
+    /* --- Despliegue continuo desde GitHub Actions ------------------------ */
+
+    // Lo que necesita `infra/scripts/deploy-app.mjs` y nada más: leer sus
+    // parámetros de SSM, subir `releases/app.tar.gz` y lanzar `activate.sh`
+    // en ESTA instancia con AWS-RunShellScript. No puede tocar CDK, la base ni
+    // los secretos: la aplicación los lee en la instancia, no en el build.
+    //
+    // Sin claves de acceso guardadas en GitHub: el job pide un token OIDC y
+    // lo cambia por credenciales de 1 hora. La confianza se limita al push a
+    // la rama de `config.ci` de ese repositorio (`sub` exacto, sin comodines):
+    // un PR, otra rama o un fork no pueden asumir el rol.
+    //
+    // El proveedor OIDC de GitHub es UNO POR CUENTA y ya existe (lo creó
+    // DeliPan, cuenta compartida): se importa, no se crea. Crear otro falla, y
+    // borrarlo con este stack dejaría a DeliPan sin despliegues.
+    if (config.ci) {
+      const github = iam.OpenIdConnectProvider.fromOpenIdConnectProviderArn(
+        this,
+        'GithubOidc',
+        `arn:aws:iam::${this.account}:oidc-provider/token.actions.githubusercontent.com`,
+      );
+      const deployRole = new iam.Role(this, 'GithubDeployRole', {
+        roleName: resourceName(config, 'github-deploy'),
+        description: `Despliegue de la aplicacion desde ${config.ci.repository}@${config.ci.branch}`,
+        maxSessionDuration: Duration.hours(1),
+        assumedBy: new iam.WebIdentityPrincipal(github.openIdConnectProviderArn, {
+          StringEquals: {
+            'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
+            'token.actions.githubusercontent.com:sub': `repo:${config.ci.repository}:ref:refs/heads/${config.ci.branch}`,
+          },
+        }),
+      });
+      const paramArn = (key: string) =>
+        this.formatArn({ service: 'ssm', resource: 'parameter', resourceName: paramName(config, key).slice(1) });
+      deployRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: ['ssm:GetParameter'],
+          resources: ['ARTIFACTS_BUCKET', 'APP_INSTANCE_ID', 'APP_PUBLIC_IP', 'CDN_DOMAIN'].map(paramArn),
+        }),
+      );
+      // Variables públicas del frontend (`/vapeupar/<env>/web/NEXT_PUBLIC_*`):
+      // se crean a mano, fuera del repositorio. Ver docs/infrastructure-aws.md.
+      deployRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: ['ssm:GetParametersByPath'],
+          // El recurso que evalúa IAM es la ruta pedida; con «/*» cubre también
+          // los parámetros, por si se pide con barra final.
+          resources: [paramArn('web'), paramArn('web/*')],
+        }),
+      );
+      deployRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: ['s3:PutObject'],
+          resources: [artifactsBucket.arnForObjects('releases/app.tar.gz')],
+        }),
+      );
+      deployRole.addToPolicy(
+        new iam.PolicyStatement({
+          actions: ['ssm:SendCommand'],
+          resources: [
+            this.formatArn({ service: 'ec2', resource: 'instance', resourceName: instance.instanceId }),
+            this.formatArn({ service: 'ssm', account: '', resource: 'document', resourceName: 'AWS-RunShellScript' }),
+          ],
+        }),
+      );
+      // GetCommandInvocation no admite permisos por recurso.
+      deployRole.addToPolicy(new iam.PolicyStatement({ actions: ['ssm:GetCommandInvocation'], resources: ['*'] }));
+
+      new CfnOutput(this, 'GithubDeployRoleArn', {
+        value: deployRole.roleArn,
+        description: 'Rol que asume .github/workflows/deploy-produccion.yml',
+      });
+    }
+
     /* --- Parámetros y salidas ------------------------------------------- */
 
     const params: Record<string, string> = {

@@ -1,0 +1,66 @@
+# Despliegue continuo: cada push a `produccion` compila y publica la
+# aplicación (tienda + consola + API) en la EC2 del entorno `dev`, que ES el
+# de producción (infra/lib/config.ts). Hace lo mismo que `npm run app:deploy`
+# desde un portátil: infra/scripts/deploy-app.mjs.
+#
+# Sin claves de AWS en GitHub: el job cambia su token OIDC por el rol
+# `vapeupar-dev-github-deploy` (infra/lib/app-stack.ts), que solo confía en
+# los push a esta rama y solo puede subir la release y activarla por SSM.
+#
+# NO aplica migraciones de base de datos ni cambios de CDK: siguen siendo a
+# mano (`npm run db:migrate`, `npm run infra:deploy`) y ANTES del push.
+# docs/infrastructure-aws.md, «Despliegue continuo».
+name: Despliegue a producción
+
+on:
+  push:
+    branches: [produccion]
+  # Volver a desplegar la rama sin un commit nuevo (Actions > Run workflow).
+  workflow_dispatch:
+
+# Un despliegue a la vez y en orden: el siguiente espera, no cancela al que
+# está a medias (activate.sh cambia `current` y reinicia servicios).
+concurrency:
+  group: deploy-produccion
+  cancel-in-progress: false
+
+permissions:
+  id-token: write # token OIDC para asumir el rol de AWS
+  contents: read
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/produccion'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      AWS_REGION: us-east-1
+      CI: 'true'
+      # `prisma generate` carga prisma.config.ts, que exige la variable aunque
+      # no se conecte a nada. Valor ficticio: el build no toca la base.
+      MIGRATE_DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22' # la instancia corre Node 22 (NODE_VERSION en app-stack.ts)
+          cache: npm
+
+      - name: Dependencias
+        run: npm ci --no-audit --no-fund
+
+      - name: Tests del backend
+        run: |
+          npm run db:generate --workspace=backend
+          npm run test --workspace=backend
+
+      - name: Credenciales de AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::342284838697:role/vapeupar-dev-github-deploy
+          aws-region: us-east-1
+          role-session-name: vapeupar-deploy-${{ github.run_id }}
+
+      - name: Build y despliegue
+        run: npm run app:deploy

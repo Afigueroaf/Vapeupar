@@ -53,6 +53,17 @@ export interface EnvConfig {
     publicOrigin?: string;
   };
   monthlyBudgetUsd: number;
+  /**
+   * Despliegue continuo desde GitHub Actions (app-stack.ts, rol
+   * `vapeupar-<env>-github-deploy`). Un push a `branch` de `repository`
+   * compila y despliega la aplicación con `npm run app:deploy`. Sin valor, el
+   * entorno solo se despliega a mano.
+   */
+  ci?: {
+    /** `propietario/repositorio` en GitHub. */
+    repository: string;
+    branch: string;
+  };
 }
 
 const ACCOUNT = '342284838697';
@@ -119,6 +130,8 @@ const CONFIGS: Record<EnvName, EnvConfig> = {
       rootVolumeGb: 20,
     },
     monthlyBudgetUsd: 30,
+    // `.github/workflows/deploy-produccion.yml`. Recuerda: dev ES producción.
+    ci: { repository: 'Afigueroaf/Vapeupar', branch: 'produccion' },
   },
   // Definido para que la transición sea revisar diferencias, no escribir desde
   // cero. NO desplegado: antes hay que cerrar la lista de docs/infrastructure-aws.md §8.

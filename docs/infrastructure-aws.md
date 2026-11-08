@@ -304,6 +304,55 @@ lado de DeliPan, su responsable debería considerar:
 Para otro entorno: `npm run diff --workspace=infra -- -c env=prod` (solo cuando
 prod esté habilitado, §8).
 
+### 5.2.1 Despliegue continuo: rama `produccion`
+
+Cada `git push` a la rama **`produccion`** despliega la aplicación (tienda,
+consola y API) en la EC2 de `dev`, que es el entorno de producción.
+Workflow: `.github/workflows/deploy-produccion.yml`. Hace lo mismo que
+`npm run app:deploy` desde un portátil: tests del backend, build, subida de la
+release y `activate.sh` por SSM. Si la verificación de la instancia falla,
+`activate.sh` vuelve solo a la release anterior y el job queda en rojo.
+
+```bash
+git switch produccion
+git merge --ff-only <rama-con-los-cambios>
+git push origin produccion        # despliega; se sigue en GitHub > Actions
+```
+
+También se puede relanzar sin commit nuevo: Actions > «Despliegue a
+producción» > *Run workflow*.
+
+**Credenciales.** No hay claves de AWS en GitHub. El job asume por OIDC el rol
+`vapeupar-dev-github-deploy` (`infra/lib/app-stack.ts`, `config.ci`), que:
+
+- solo confía en `repo:Afigueroaf/Vapeupar:ref:refs/heads/produccion` (ni PRs,
+  ni otras ramas, ni forks);
+- solo puede leer los parámetros que usa el despliegue, subir
+  `releases/app.tar.gz` al bucket de artefactos y lanzar
+  `AWS-RunShellScript` en la instancia de la aplicación.
+
+El proveedor OIDC de GitHub es uno por cuenta y **ya existía (DeliPan)**: el
+stack lo importa, no lo crea ni lo borra.
+
+**Variables públicas del frontend** (WhatsApp, teléfono, nombre y ciudad de la
+tienda). Viven en SSM, en `/vapeupar/dev/web/NEXT_PUBLIC_*`, fuera del
+repositorio porque son datos de contacto. `deploy-app.mjs` las lee en todos los
+builds, el de GitHub y el local, y ganan a `frontend/.env.local`. Sin
+`NEXT_PUBLIC_WHATSAPP_NUMBER` el despliegue en CI falla, porque el carrito no
+podría enviar pedidos. Para cambiar una (en Git Bash, con `MSYS_NO_PATHCONV=1`):
+
+```bash
+aws ssm put-parameter --overwrite --type String \
+  --name /vapeupar/dev/web/NEXT_PUBLIC_WHATSAPP_NUMBER --value 57XXXXXXXXXX
+```
+
+Se aplica en el siguiente despliegue.
+
+**Lo que NO hace el workflow**, y por tanto va a mano y **antes** del push:
+
+- migraciones de base de datos (`npm run db:migrate` con el túnel abierto);
+- cambios de infraestructura (`npm run infra:diff` + `npm run infra:deploy`).
+
 ### 5.3 Conectar el backend local a la base de dev
 
 ```bash
