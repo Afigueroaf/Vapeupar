@@ -165,9 +165,15 @@ export class AppStack extends Stack {
     // presign puede escribir hasta donde llegue este permiso, así que llega
     // exactamente hasta ahí. No se usa `bucket.grantPut()` porque añade
     // etiquetado, retención legal y otros permisos que el backend no usa.
+    //
+    // `DeleteObject` va con él y con los mismos prefijos: cada subida es una
+    // clave versionada, y al guardar la fila el backend borra la imagen que
+    // deja de usar (`CatalogService.releaseImage`). Sin él el borrado falla en
+    // silencio —está pensado para no tumbar el guardado— y el bucket acumula
+    // huérfanas.
     role.addToPolicy(
       new iam.PolicyStatement({
-        actions: ['s3:PutObject'],
+        actions: ['s3:PutObject', 's3:DeleteObject'],
         resources: ['marcas', 'proveedores', 'productos'].map((prefix) =>
           props.catalogBucket.arnForObjects(`${prefix}/*`),
         ),

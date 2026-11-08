@@ -153,21 +153,37 @@ ficha del proveedor con el mismo flujo de subida.
 las subidas desde la consola (`catalog/image-keys.ts`):
 
 ```txt
-marcas/<marca-slug>/logo.<ext>
-proveedores/<proveedor-id>/logo.<ext>
-productos/<linea-slug>/linea.<ext>
-productos/<linea-slug>/<variante-slug>.<ext>
+marcas/<marca-slug>/logo[-<versión>].<ext>
+proveedores/<proveedor-id>/logo[-<versión>].<ext>
+productos/<linea-slug>/linea[-<versión>].<ext>
+productos/<linea-slug>/<variante-slug>[-<versión>].<ext>
 ```
+
+La semilla escribe las claves sin versión; **cada subida desde la consola lleva
+una** (milisegundos en base 36, p. ej. `mango-ice-m3k9x2ab.webp`), así que
+reemplazar una imagen produce una URL nueva.
 
 La base guarda la clave, nunca la URL: la pública se compone con `CDN_DOMAIN`.
 El proveedor va por `id` y no por slug porque no tiene uno.
 
-**Reemplazar una imagen.** La clave sale de la entidad, así que cambiar la foto
-de algo que ya tenía una **no cambia la clave**. Dos consecuencias, las dos
-resueltas: la consola manda igualmente el PATCH con la misma clave —es el
-único sitio donde queda rastro del cambio, y la ruta lo acepta—, y pide
-`POST /uploads/invalidate` tras el `PUT`, porque si no CloudFront seguiría
-sirviendo la imagen anterior hasta un día. Ver `docs/infrastructure-aws.md` §2.
+**Reemplazar una imagen.** Cada subida genera una clave nueva, y la imagen
+cambia en el sitio al guardar el formulario, que es lo que apunta la fila a esa
+clave. Antes la clave era fija y el objeto se sobrescribía en la misma URL:
+CloudFront se invalidaba, pero el optimizador de imágenes de Next guarda cada
+URL 4 horas (`minimumCacheTTL`) y le indica al navegador lo mismo, de modo que
+la foto nueva tardaba hasta 4 horas en verse. Con una URL por versión ninguna
+caché tiene nada viejo que servir y la consola ya no invalida.
+`POST /uploads/invalidate` se conserva para las claves sin versión de la
+semilla.
+
+**La imagen anterior se borra al guardar.** Cuando un `PATCH` de marca,
+proveedor, línea o variante cambia (o quita) la clave de imagen,
+`CatalogService` borra del bucket el objeto anterior: después de confirmar la
+transacción, solo si ninguna otra fila de las cuatro tablas lo sigue usando, y
+sin que un fallo de S3 deshaga el guardado (queda un `console.warn`). Necesita
+`s3:DeleteObject` sobre los prefijos del catálogo (`infra/lib/app-stack.ts`).
+Una imagen subida y no guardada no la referencia ninguna fila y se queda en el
+bucket. Ver `docs/infrastructure-aws.md` §2.
 
 **Sesión.** Los tokens de Cognito viven en cookies `httpOnly` + `SameSite=Strict`
 limitadas a `/api/admin` (y `Secure` en producción). El JavaScript de la consola

@@ -481,13 +481,13 @@ describe('imágenes del catálogo', () => {
       body: { target: 'variant-image', entityId: variant.id, contentType: 'image/webp', size: 2048 }
     });
     expect(firmada.status).toBe(200);
-    expect(data(firmada)).toMatchObject({ key: 'productos/eco-pro/mango-ice.webp', expiresIn: 300 });
+    expect(data(firmada)).toMatchObject({ key: expect.stringMatching(/^productos\/eco-pro\/mango-ice-[0-9a-z]+\.webp$/), expiresIn: 300 });
 
     const logo = await call(url, '/api/admin/uploads/presign', {
       method: 'POST', as: OPERATOR,
       body: { target: 'brand-logo', entityId: brand.id, contentType: 'image/webp', size: 2048 }
     });
-    expect(data(logo).key).toBe('marcas/lifepod/logo.webp');
+    expect(data(logo).key).toMatch(/^marcas\/lifepod\/logo-[0-9a-z]+\.webp$/);
   });
 
   it('el operator guarda la imagen de la variante, pero nada más', async () => {

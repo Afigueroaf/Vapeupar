@@ -393,4 +393,17 @@ export class PrismaCatalogRepository implements CatalogRepository {
     const row = await this.db.client().variant.findUnique({ where: { id } });
     return row ? toVariant(row) : undefined;
   }
+
+  public async isImageKeyInUse(key: string): Promise<boolean> {
+    // Las cuatro columnas que guardan claves del bucket. Basta con una fila en
+    // cualquiera: `findFirst` con `select: { id }` corta en la primera.
+    const db = this.db.client();
+    const hits = await Promise.all([
+      db.brand.findFirst({ where: { logoKey: key }, select: { id: true } }),
+      db.supplier.findFirst({ where: { imageKey: key }, select: { id: true } }),
+      db.product.findFirst({ where: { imageKey: key }, select: { id: true } }),
+      db.variant.findFirst({ where: { imageKey: key }, select: { id: true } })
+    ]);
+    return hits.some(Boolean);
+  }
 }

@@ -254,4 +254,9 @@ export interface CatalogRepository {
   findProduct(id: string): Promise<AdminProductDetail | undefined>;
   /** Variante administrativa, para operaciones que necesitan derivar su línea. */
   findVariant(id: string): Promise<AdminVariantRow | undefined>;
+  /**
+   * Si alguna fila —marca, proveedor, línea o variante— apunta todavía a esta
+   * clave de imagen. Es lo que decide si un objeto del bucket se puede borrar.
+   */
+  isImageKeyInUse(key: string): Promise<boolean>;
 }

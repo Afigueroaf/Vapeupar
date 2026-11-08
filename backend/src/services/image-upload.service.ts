@@ -1,5 +1,5 @@
 import { CloudFrontClient, CreateInvalidationCommand } from '@aws-sdk/client-cloudfront';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { imageKeys } from '../catalog/image-keys.js';
 import { PrismaCatalogRepository } from '../repositories/prisma-catalog.repository.js';
@@ -26,6 +26,9 @@ export interface ImageUploadDeps {
   bucket?: string;
   distributionId?: string;
   invalidate?: (command: CreateInvalidationCommand) => Promise<string | undefined>;
+  /** Reloj de la versión de la clave; inyectable para los tests. */
+  now?: () => number;
+  remove?: (command: DeleteObjectCommand) => Promise<void>;
 }
 
 /** Prefijos válidos del catálogo; nada fuera de aquí se puede invalidar. */
@@ -38,6 +41,8 @@ export class ImageUploadService {
   private readonly sign: (command: PutObjectCommand) => Promise<string>;
   private readonly distributionId: string;
   private readonly invalidateCommand: (command: CreateInvalidationCommand) => Promise<string | undefined>;
+  private readonly now: () => number;
+  private readonly removeCommand: (command: DeleteObjectCommand) => Promise<void>;
 
   constructor(deps: ImageUploadDeps = {}) {
     this.catalog = deps.catalog ?? new PrismaCatalogRepository();
@@ -49,15 +54,35 @@ export class ImageUploadService {
     const cdn = new CloudFrontClient({ region: process.env.AWS_REGION });
     this.invalidateCommand = deps.invalidate
       ?? (async command => (await cdn.send(command)).Invalidation?.Id);
+    this.now = deps.now ?? Date.now;
+    this.removeCommand = deps.remove ?? (async command => { await client.send(command); });
+  }
+
+  /**
+   * Borra un objeto del catálogo.
+   *
+   * Lo llama `CatalogService` al guardar una fila cuya imagen cambió, y solo
+   * cuando ya ninguna otra fila apunta a la clave anterior: es el otro lado de
+   * las claves versionadas, que dejaban la imagen reemplazada huérfana en el
+   * bucket. La misma guarda que `invalidate`: nada fuera de los prefijos del
+   * catálogo, ni comodines ni rutas relativas, por mucho que la clave venga de
+   * la base de datos.
+   */
+  public async remove(key: string): Promise<void> {
+    if (!KEY_PREFIXES.some(prefix => key.startsWith(prefix)) || key.includes('*') || key.includes('..')) {
+      throw new ImageUploadError('INVALID_UPLOAD', 'La clave no pertenece al catálogo');
+    }
+    if (!this.bucket) throw new ImageUploadError('UNAVAILABLE', 'El bucket del catálogo no está configurado');
+    await this.removeCommand(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
   }
 
   /**
    * Invalida una clave en CloudFront.
    *
-   * Hace falta porque la clave se deriva de la entidad: reemplazar una imagen
-   * no cambia la URL, y la distribución (`CachingOptimized`, TTL de un día)
-   * seguiría sirviendo la anterior. También limpia el `403` que quedó cacheado
-   * de cuando el objeto no existía.
+   * Desde que cada carga genera una clave versionada (`catalog/image-keys.ts`)
+   * la consola ya no lo necesita: una URL nueva no está en ninguna caché. Se
+   * conserva para las claves sin versión que dejó la semilla, por si alguna
+   * vez hubiera que reemplazar uno de esos objetos en su sitio.
    *
    * Se invalida **una ruta concreta**, nunca un comodín: `/*` vaciaría la caché
    * del catálogo entero y toda la carga volvería al origen.
@@ -90,31 +115,33 @@ export class ImageUploadService {
     }
     if (!this.bucket) throw new ImageUploadError('UNAVAILABLE', 'La subida de imágenes no está configurada');
 
-    const key = await this.keyFor(input.target, input.entityId, extension);
+    // Milisegundos en base 36: ocho caracteres, crecientes en el tiempo, de
+    // modo que en el bucket las versiones de una imagen salen ordenadas.
+    const key = await this.keyFor(input.target, input.entityId, extension, this.now().toString(36));
     const command = new PutObjectCommand({ Bucket: this.bucket, Key: key, ContentType: input.contentType, ContentLength: input.size });
     return { key, uploadUrl: await this.sign(command), expiresIn: 300 };
   }
 
-  private async keyFor(target: ImageUploadTarget, entityId: string, extension: string): Promise<string> {
+  private async keyFor(target: ImageUploadTarget, entityId: string, extension: string, version: string): Promise<string> {
     if (target === 'brand-logo') {
       const brand = await this.catalog.findBrand(entityId);
       if (!brand) throw new ImageUploadError('NOT_FOUND', 'Marca no encontrada');
-      return imageKeys.brandLogo(brand.slug, extension);
+      return imageKeys.brandLogo(brand.slug, extension, version);
     }
     if (target === 'supplier-image') {
       const supplier = await this.catalog.findSupplier(entityId);
       if (!supplier) throw new ImageUploadError('NOT_FOUND', 'Proveedor no encontrado');
-      return imageKeys.supplier(supplier.id, extension);
+      return imageKeys.supplier(supplier.id, extension, version);
     }
     if (target === 'product-line-image') {
       const product = await this.catalog.findProduct(entityId);
       if (!product) throw new ImageUploadError('NOT_FOUND', 'Línea no encontrada');
-      return imageKeys.productLine(product.slug, extension);
+      return imageKeys.productLine(product.slug, extension, version);
     }
     const variant = await this.catalog.findVariant(entityId);
     if (!variant) throw new ImageUploadError('NOT_FOUND', 'Variante no encontrada');
     const product = await this.catalog.findProduct(variant.productId);
     if (!product) throw new ImageUploadError('NOT_FOUND', 'Línea no encontrada');
-    return imageKeys.variant(product.slug, variant.slug, extension);
+    return imageKeys.variant(product.slug, variant.slug, extension, version);
   }
 }

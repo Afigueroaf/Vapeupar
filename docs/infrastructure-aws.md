@@ -107,11 +107,15 @@ Claves que genera el backend (`backend/src/catalog/image-keys.ts`), las mismas
 que usa la semilla:
 
 ```txt
-marcas/<marca-slug>/logo.<ext>
-proveedores/<proveedor-id>/logo.<ext>
-productos/<linea-slug>/linea.<ext>
-productos/<linea-slug>/<variante-slug>.<ext>
+marcas/<marca-slug>/logo[-<versión>].<ext>
+proveedores/<proveedor-id>/logo[-<versión>].<ext>
+productos/<linea-slug>/linea[-<versión>].<ext>
+productos/<linea-slug>/<variante-slug>[-<versión>].<ext>
 ```
+
+La semilla escribe las claves sin versión; **cada subida desde la consola lleva
+una** (milisegundos en base 36, p. ej. `mango-ice-m3k9x2ab.webp`), así que
+reemplazar una imagen produce una URL nueva.
 
 **CORS.** El `PUT` lo hace el navegador, así que el bucket lleva una regla CORS
 con `allowedMethods: [PUT]` y `allowedOrigins: config.storage.uploadOrigins`
@@ -145,8 +149,15 @@ curl -I https://<CDN_DOMAIN>/productos/<linea>/<variante>.webp   # 200
 
 #### Reemplazar una imagen: invalidación del CDN
 
-La clave se deriva de la entidad, así que **cambiar la foto de algo que ya
-tenía una no cambia la clave**, y la distribución usa la política gestionada
+> **Histórico desde el 2026-11-07.** Las subidas de la consola generan ahora una
+> clave versionada por carga (ver arriba), así que reemplazar una imagen es una
+> URL nueva y la consola ya no invalida. La invalidación tampoco bastaba: el
+> optimizador de imágenes de Next, entre CloudFront y el visitante, guarda cada
+> URL 4 horas. Lo que sigue explica el comportamiento de la distribución, que no
+> ha cambiado, y sigue valiendo para las claves sin versión de la semilla.
+
+La clave se derivaba de la entidad, así que **cambiar la foto de algo que ya
+tenía una no cambiaba la clave**, y la distribución usa la política gestionada
 `Managed-CachingOptimized`: `DefaultTTL` de 86 400 s, con las cadenas de
 consulta **fuera** de la clave de caché (un `?v=` no sirve de nada). Sin hacer
 nada, reemplazar una imagen se veía hasta 24 h después:
