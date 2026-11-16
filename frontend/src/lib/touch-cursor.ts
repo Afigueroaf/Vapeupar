@@ -116,6 +116,39 @@ export const CURSOR_MODE_ATTR = "data-vp-cursor";
 export const HOT_CLASS = "vp-hot";
 
 /**
+ * ¿Merece la pena marcar este elemento con `.vp-hot`?
+ *
+ * POR QUÉ EXISTE ESTE FILTRO. La cadena bajo la punta llega hasta `<html>`, y
+ * marcar la cadena entera costaba carísimo: `vp-hot` aparece en reglas de
+ * descendiente (`.vp-card.vp-hot .vp-holo`) y dentro de un `:has()`, así que
+ * cada vez que la clase entra o sale de un contenedor de página el navegador
+ * programa una invalidación que recorre medio documento. Medido en un Moto G15
+ * durante un recorrido con el cursor: 1 569 ms de recálculo de estilo y 4 245
+ * recálculos forzados en 14 segundos de gesto.
+ *
+ * Y no compraba nada. Un contenedor de página no tiene ninguna regla que
+ * responda a `.vp-hot`: las que existen son `.vp-card` y las utilidades
+ * `hover:*` de Tailwind, que en este proyecto viven todas en elementos
+ * interactivos —enlaces, botones, campos—.
+ *
+ * CÓMO SE MANTIENE SOLO. La segunda condición mira si el elemento lleva alguna
+ * utilidad `hover:*`, y eso se puede comprobar sin consultar el CSS porque
+ * Tailwind v4 pone el nombre de la utilidad tal cual en el atributo `class`:
+ * un elemento con `hover:text-action` lleva literalmente ese texto. O sea que
+ * añadir un `hover:` nuevo en cualquier componente funciona con el cursor sin
+ * tocar este archivo.
+ *
+ * LOS EVENTOS NO SE FILTRAN, SOLO LA CLASE. `pointerenter` / `pointerleave` y
+ * compañía se siguen emitiendo en la cadena completa, porque de ellos viven la
+ * nube, el prisma y el brillo de las tarjetas.
+ */
+export function marksHot(el: Element): boolean {
+  if (el.classList.contains("vp-card")) return true;
+  const className = el.getAttribute("class");
+  return className !== null && className.includes("hover:");
+}
+
+/**
  * Identificador de los eventos de puntero sintéticos.
  *
  * No puede coincidir con el del dedo real: hay código —el prisma— que llama a

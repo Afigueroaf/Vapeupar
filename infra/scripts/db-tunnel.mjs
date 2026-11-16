@@ -1,6 +1,8 @@
 // Abre un túnel de Session Manager desde localhost hasta el PostgreSQL de RDS,
-// a través del bastión. La base no tiene acceso público; este es el único
-// camino desde el portátil.
+// a través de la instancia que publica `TUNNEL_INSTANCE_ID`: la EC2 de la
+// aplicación (antes, un bastión dedicado; ver docs/aws-full-deployment-plan.md
+// F1.7). La base no tiene acceso público; este es el único camino desde el
+// portátil.
 //
 //   npm run infra:db-tunnel            -> localhost:15432 -> RDS dev
 //   VAPEUPAR_DB_LOCAL_PORT=16432 npm run infra:db-tunnel
@@ -27,18 +29,18 @@ await new Promise((resolve) => {
     .once('listening', () => probe.close(resolve))
     .listen(Number(localPort), '127.0.0.1');
 });
-const instanceId = getParam('BASTION_INSTANCE_ID');
+const instanceId = getParam('TUNNEL_INSTANCE_ID');
 const dbHost = getParam('DB_HOST');
 const dbPort = getParam('DB_PORT');
 
-// El bastión puede estar detenido para ahorrar; se arranca bajo demanda.
+// La instancia puede estar detenida para ahorrar; se arranca bajo demanda.
 const state = aws(['ec2', 'describe-instances', '--instance-ids', instanceId,
   '--query', 'Reservations[0].Instances[0].State.Name']);
 if (state !== 'running') {
-  console.log(`Bastión ${instanceId} en estado "${state}", arrancando...`);
+  console.log(`Instancia ${instanceId} en estado "${state}", arrancando...`);
   aws(['ec2', 'start-instances', '--instance-ids', instanceId]);
   aws(['ec2', 'wait', 'instance-running', '--instance-ids', instanceId]);
-  console.log('Bastión en marcha. El agente SSM puede tardar ~1 min en registrarse.');
+  console.log('Instancia en marcha. El agente SSM puede tardar ~1 min en registrarse.');
 }
 
 console.log(`Túnel ${envName}: localhost:${localPort} -> ${dbHost}:${dbPort}. Ctrl+C para cerrar.`);

@@ -1,4 +1,5 @@
 import { App, Tags } from 'aws-cdk-lib';
+import { AppStack } from '../lib/app-stack.js';
 import { AuthStack } from '../lib/auth-stack.js';
 import { getConfig } from '../lib/config.js';
 import { DataStack } from '../lib/data-stack.js';
@@ -27,7 +28,20 @@ Tags.of(app).add('Repository', 'vapeupar/infra');
 const prefix = `Vapeupar-${config.envName}`;
 
 const network = new NetworkStack(app, `${prefix}-Network`, { env, config });
-new DataStack(app, `${prefix}-Data`, { env, config, vpc: network.vpc });
-new StorageStack(app, `${prefix}-Storage`, { env, config });
-new AuthStack(app, `${prefix}-Auth`, { env, config });
+const data = new DataStack(app, `${prefix}-Data`, { env, config, vpc: network.vpc });
+const storage = new StorageStack(app, `${prefix}-Storage`, { env, config });
+const auth = new AuthStack(app, `${prefix}-Auth`, { env, config });
 new OpsStack(app, `${prefix}-Ops`, { env, config, alertEmail });
+
+// Frontend + backend en EC2 (docs/aws-full-deployment-plan.md, F1). Depende de
+// los cuatro anteriores y ninguno depende de él: se puede destruir sin tocar
+// la base, las imágenes ni los usuarios.
+new AppStack(app, `${prefix}-App`, {
+  env,
+  config,
+  vpc: network.vpc,
+  dbSecurityGroup: data.dbSecurityGroup,
+  catalogBucket: storage.catalogBucket,
+  catalogCdn: storage.catalogCdn,
+  userPool: auth.userPool,
+});

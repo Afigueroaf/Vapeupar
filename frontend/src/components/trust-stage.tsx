@@ -1,23 +1,33 @@
 "use client";
 
-import { ChevronLeft } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { ProductPrism } from "@/components/product-prism";
+import { PixelLabel } from "@/components/ui/pixel-label";
 import { CardField } from "@/components/ui/card-field";
 import { cn } from "@/lib/utils";
 import type { Product } from "@/types/product";
 
 /**
- * Lo que tarda el cajón en entrar o salir.
+ * Lo que tarda el panel de información en entrar o salir.
  *
+ * Largo a propósito: es un cambio de escena, no un desplegable. Con 1,4 s y la
+ * curva sinusoidal de `--ease-vp-slide` el panel arranca y se posa despacio,
+ * y casi todo el recorrido se ve en movimiento en vez de en los extremos.
  * Vive en JS y no en una clase `duration-*` porque el mismo número decide
- * cuánto tiempo hay que volver a medir el campo de las tarjetas: con dos
- * fuentes, una se queda corta y el campo se congela a mitad del recorrido.
+ * cuándo se puede parar el prisma: si se parase antes de quedar tapado del
+ * todo, se vería congelarse mientras el panel todavía lo está cubriendo.
  */
-const SLIDE_MS = 320;
+const SLIDE_MS = 1400;
 
-/** Destino de `aria-controls` del tirador. */
-const PANEL_ID = "vp-garantias";
+/** Destino de `aria-controls` del tirador INFO. */
+const PANEL_ID = "vp-informacion";
+
+/** Nombres de las dos escenas, para `aria-labelledby`. */
+export const SHOWCASE_TITLE_ID = "vp-destacados-titulo";
+const INFO_TITLE_ID = "vp-informacion-titulo";
+
+/** Marca de los tiradores, para encontrar el visible al mover el foco. */
+const TAB_ATTRIBUTE = "data-stage-tab";
 
 interface TrustStageProps {
   /**
@@ -30,237 +40,373 @@ interface TrustStageProps {
 }
 
 /**
- * Hueco de la banda de confianza: el prisma y las tres tarjetas.
+ * Escenario dual de la portada: vitrina 3D e información de compra.
  *
- * DOS COLOCACIONES, UN SOLO ÁRBOL. De `lg` para arriba es lo de siempre: dos
- * celdas de la rejilla, el prisma a la izquierda y las tarjetas a la derecha.
- * Por debajo las dos cosas se superponen —el prisma ocupa el hueco que antes
- * era de las tarjetas, y las tarjetas pasan a un cajón que entra desde el
- * borde derecho— porque en un teléfono no hay ancho que repartir y apilarlas
- * costaba unos 580px de scroll antes de llegar al catálogo.
+ * DOS ESCENAS EN LA MISMA CELDA. La de partida es la vitrina —título
+ * «Productos destacados» y el prisma—; la otra, «Información», trae las tres
+ * tarjetas de garantía y entra deslizándose desde el borde derecho POR ENCIMA
+ * del prisma. Antes las tarjetas compartían la banda con el prisma, al lado en
+ * escritorio y en un cajón en móvil, y la sección no tenía un único tema que
+ * poner en el título.
  *
- * El cambio de colocación lo hace `lg:contents` en el escenario: con
- * `display: contents` el envoltorio no genera caja, así que su altura fija, su
- * recorte y su posicionamiento desaparecen y sus dos hijos pasan a ser celdas
- * de la rejilla de arriba. Es lo que permite que el mismo marcado sirva para
- * las dos, sin preguntar el ancho a JS: preguntarlo obligaría a elegir una
- * colocación en el servidor y a corregirla después de hidratar, con el salto
- * visible que eso trae.
+ * Las dos escenas se apilan en la misma celda de una rejilla (`col-start-1
+ * row-start-1`) y no con `absolute`: así el escenario mide lo que mida la más
+ * alta. En un teléfono en vertical las tres tarjetas apiladas pueden pedir más
+ * alto que la vitrina, y con el panel en posición absoluta se habrían
+ * recortado.
  *
- * ESTO ES UN COMPONENTE DE CLIENTE, y lo es por tres cosas que necesitan
- * estado: la posición del cajón, parar el prisma cuando queda tapado y volver
- * a medir el campo de las tarjetas mientras se desliza.
+ * LOS TIRADORES. `INFO ▶` en el borde derecho de la vitrina, `◀ VOLVER` en el
+ * izquierdo de la información; texto en vertical, a ras del borde de la
+ * pantalla. Cada uno viaja con su escena, de modo que el panel que entra trae
+ * su tirador y tapa el otro: es el mismo gesto en los dos sentidos.
  *
- * SIN JS EL CAJÓN NO ABRE. Las tarjetas están en el HTML —los rastreadores las
- * ven— pero quedan en `visibility: hidden`, que es lo que las saca del árbol de
- * accesibilidad y del tabulador cuando están fuera de pantalla. Se acepta
- * porque es el mismo trato que ya tienen el catálogo, el prisma y el modal +18.
+ * Su altura cambia con la orientación, no con el ancho:
+ *
+ * - en vertical, a la altura del título de la escena (en la cabecera);
+ * - en horizontal, a media altura del área del prisma (en el cuerpo).
+ *
+ * Son dos posiciones que no se resuelven moviendo un solo nodo con CSS, así
+ * que cada escena pinta su tirador dos veces y oculta uno con `portrait:hidden`
+ * o `landscape:hidden`. `display: none` lo saca también del tabulador y del
+ * árbol de accesibilidad, de modo que nunca hay dos a la vez. Las cabeceras de
+ * las dos escenas tienen el mismo alto fijo (`min-h-28`, el del tirador), y es
+ * lo que garantiza que INFO y VOLVER caigan exactamente a la misma altura
+ * aunque un título ocupe dos líneas y el otro una.
+ *
+ * SIN JS NO HAY INFORMACIÓN. Las tarjetas están en el HTML —los rastreadores
+ * las ven— pero el panel queda en `visibility: hidden`. Es el mismo trato que
+ * ya tienen el catálogo, el prisma y el modal +18.
  */
 export function TrustStage({ showcase, children }: TrustStageProps) {
   const [open, setOpen] = useState(false);
 
   /**
-   * Contador que fuerza una nueva medición del campo de tarjetas.
+   * Si el panel ya cubre el prisma del todo.
    *
-   * POR QUÉ HACE FALTA. El campo es una sola imagen anclada al contenedor, y
-   * cada tarjeta pinta la porción que le toca a partir de su posición medida
-   * con `getBoundingClientRect`. Esa medida incluye la transformación, así que
-   * un cajón desplazado con `translate` deja a sus tarjetas creyendo que están
-   * fuera del campo: con `background-repeat: no-repeat`, lo que pintan es nada,
-   * y las tarjetas entrarían planas, sin las rayas ni el lavado violeta.
-   *
-   * Midiendo en cada fotograma del recorrido, en cambio, sale el efecto que el
-   * campo busca: la superficie se queda quieta y las tarjetas la recorren como
-   * ventanas. Son tres rectángulos y seis variables por fotograma durante
-   * 320ms, y solo cuando alguien toca el tirador.
+   * No es lo mismo que `open`: al abrir, el prisma sigue a la vista durante
+   * todo el deslizamiento y tiene que seguir girando; solo se para cuando el
+   * panel termina de taparlo. Al cerrar se reanuda en el acto, antes de que se
+   * le vea asomar.
    */
-  const [slideTick, setSlideTick] = useState(0);
-  const frame = useRef(0);
-  const handle = useRef<HTMLButtonElement>(null);
+  const [covered, setCovered] = useState(false);
 
-  const trackSlide = useCallback(() => {
-    // Dos fotogramas de propina: el último los recoge ya en reposo.
-    const until = performance.now() + SLIDE_MS + 32;
-    const step = () => {
-      setSlideTick((tick) => tick + 1);
-      frame.current = performance.now() < until ? requestAnimationFrame(step) : 0;
-    };
+  const showcaseRef = useRef<HTMLDivElement>(null);
+  const infoRef = useRef<HTMLDivElement>(null);
 
-    cancelAnimationFrame(frame.current);
-    frame.current = requestAnimationFrame(step);
-  }, []);
+  /** Si ya hubo un cambio de escena. En el montaje el foco no se toca. */
+  const switched = useRef(false);
 
-  useEffect(() => () => cancelAnimationFrame(frame.current), []);
+  useEffect(() => {
+    if (!open) return;
+    const timer = window.setTimeout(() => setCovered(true), SLIDE_MS);
+    return () => window.clearTimeout(timer);
+  }, [open]);
 
-  const toggle = () => {
-    setOpen((value) => !value);
-    trackSlide();
+  /*
+    EL FOCO PASA AL TIRADOR DE LA ESCENA NUEVA. El que se acaba de pulsar queda
+    en una escena `inert`, y un foco dentro de un subárbol inerte se pierde al
+    `body`: quien navega con teclado tendría que volver a recorrer la página
+    entera para encontrar VOLVER.
+
+    `preventScroll` es obligatorio: el panel está a medio camino, dentro de un
+    contenedor recortado, y sin él el navegador intentaría desplazar la página
+    para enseñar un botón que de todos modos ya está llegando.
+  */
+  useEffect(() => {
+    if (!switched.current) return;
+    const scene = open ? infoRef.current : showcaseRef.current;
+    const tab = Array.from(
+      scene?.querySelectorAll<HTMLButtonElement>(`[${TAB_ATTRIBUTE}]`) ?? [],
+    ).find((node) => node.getClientRects().length > 0);
+    tab?.focus({ preventScroll: true });
+  }, [open]);
+
+  const show = (next: boolean) => {
+    switched.current = true;
+    setOpen(next);
+    if (!next) setCovered(false);
   };
 
-  const close = (event: KeyboardEvent<HTMLDivElement>) => {
-    // Escape no es obligatorio en un desplegable —no es un modal—, pero el
-    // cajón tapa la pieza de detrás y devolver el foco al tirador cuesta esto.
-    if (event.key !== "Escape" || !open) return;
-    setOpen(false);
-    trackSlide();
-    handle.current?.focus();
+  const onInfoKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "Escape" && open) show(false);
   };
 
   return (
     /*
-      `h-full` y la fila `1fr`: la sección recibe su alto de la rejilla de
-      `app/page.tsx`, que la iguala con la intro. Sin las dos, ese alto se
-      quedaría en la sección y el contenido seguiría midiendo lo suyo, con el
-      sobrante como hueco al pie. Con `h-full` la rejilla interior ocupa la
-      sección entera, y con una fila `1fr` —alto ya definido, así que la
-      fracción resuelve— esa altura llega a las dos celdas.
+      `h-full`: la sección recibe su alto de la rejilla de `app/page.tsx`, que
+      la iguala con la intro, y sin él ese alto se quedaría en la sección. La
+      fila implícita de la rejilla se estira hasta él, y las dos escenas con
+      ella.
 
-      LAS DOS SIN PREFIJO, y antes eran `lg:`. Ahora la rejilla de `page.tsx`
-      iguala las dos bandas a todos los anchos, así que por debajo de `lg` hay
-      un sobrante que repartir que antes no existía; sin `h-full` aquí, ese
-      sobrante se quedaría como franja negra al pie de la banda en vez de
-      llegar al escenario.
-
-      `py-8` por debajo de `lg` en vez de los 40px de antes: en un teléfono
-      cada píxel de esta banda es scroll hasta el catálogo.
+      `overflow-clip` y no `overflow-hidden`: el panel fuera de pantalla está
+      desplazado con `translate`, y eso cuenta como desbordamiento
+      desplazable. Con `hidden` el contenedor no muestra barra pero sí se
+      puede desplazar por programa —lo hace el navegador al enfocar algo de
+      dentro—, y con `clip` no.
     */
-    <CardField
-      watch={slideTick}
-      className="mx-auto grid h-full max-w-vp grid-rows-[minmax(0,1fr)] gap-6 px-4 py-8 sm:px-6 lg:grid-cols-[1.1fr_0.9fr] lg:gap-x-16 lg:py-10 xl:px-10"
-    >
-      {/*
-        EL ESCENARIO. Solo existe por debajo de `lg` (ver `lg:contents` arriba).
+    <div className="relative grid h-full overflow-clip">
+      {/* ESCENA 1 — VITRINA */}
+      <div
+        ref={showcaseRef}
+        inert={open}
+        // `isolate`: los tiradores llevan `z-20` para quedar sobre el lienzo,
+        // y sin contexto de apilamiento propio ese número competía con el
+        // `z-10` del panel de información y el tirador INFO se quedaba
+        // flotando encima de la escena que debería taparlo.
+        className="isolate col-start-1 row-start-1 flex flex-col"
+      >
+        <StageHeader
+          id={SHOWCASE_TITLE_ID}
+          tag="[ VITRINA ]"
+          title="Productos destacados"
+          side="right"
+          tab={
+            <StageTab
+              side="right"
+              label="Info"
+              onClick={() => show(true)}
+              aria-expanded={open}
+              aria-controls={PANEL_ID}
+              placement="header"
+            />
+          }
+        />
 
-        A sangre (`-mx-4`) por dos razones: una pieza 3D de borde a borde se lee
-        como escenario y no como ilustración metida en una columna, y el tirador
-        del cajón puede quedar pegado al borde de la pantalla, que es donde el
-        pulgar lo alcanza sin estirarse. El `overflow-hidden` es lo que recorta
-        el cajón cuando está fuera: sin él habría barra horizontal.
+        <div className="relative min-h-[18rem] flex-1">
+          {/*
+            El prisma, dentro de la columna de la página en escritorio y a
+            sangre en móvil (`max-w-vp` solo actúa cuando hay ancho de sobra).
+            Va en posición absoluta porque el motor mide su caja con un
+            `ResizeObserver` y necesita un alto definido, que una caja en el
+            flujo de una columna flexible no tiene.
 
-        SIN ALTO PROPIO, y el de dónde le viene cambió. Antes se lo daba el
-        cajón, que va en el flujo: el escenario medía lo que midieran las tres
-        tarjetas, unos 386px en un teléfono. Ahora lo recibe de la fila `1fr`
-        de arriba, que a su vez lo recibe de la rejilla de `page.tsx`, así que
-        mide lo mismo que la intro —unos 674px útiles en una pantalla de
-        390px— y el prisma, en posición absoluta, se lo queda entero.
+            Es un lienzo WebGL propio, aparte del de la portada: aquel cubre esta
+            banda entera y dibuja el vaporizador anclado a la columna del hero,
+            con los eventos de puntero desactivados. Los dos se superponen con
+            fondo transparente y se ven a la vez.
+          */}
+          <div className="absolute inset-x-0 top-0 bottom-10 mx-auto max-w-vp sm:bottom-16">
+            <ProductPrism
+              products={showcase}
+              label="Vitrina 3D de productos destacados"
+              className="absolute inset-0"
+              // Tapado por el panel no se ve, pero seguiría girando: el
+              // observador de la pieza mide si está en pantalla, no si algo
+              // opaco se le ha puesto encima.
+              paused={covered}
+            />
+          </div>
 
-        Lo que NO cambia es que no hay ningún número escrito a mano: el suelo
-        lo sigue poniendo el contenido, porque la fila es `minmax(auto, 1fr)`
-        y su mínimo son las tarjetas. Si algún día la intro adelgazara por
-        debajo de ellas, la banda dejaría de encogerse ahí en vez de
-        recortarlas.
-      */}
-      <div className="relative -mx-4 overflow-hidden sm:-mx-6 lg:contents">
-        {/*
-          Celda del prisma.
-
-          Es un lienzo WebGL propio, aparte del de la portada: aquel cubre esta
-          banda entera y dibuja el vaporizador anclado a la columna del hero,
-          con los eventos de puntero desactivados. El prisma, en cambio, sí se
-          arrastra y se pulsa, y vive dentro de esta celda, que es lo que
-          delimita su área sensible. Los dos se superponen con fondo
-          transparente y se ven a la vez.
-
-          `xl:min-w-[var(--vp-lead)]` es lo que alinea las tarjetas con el
-          vaporizador, y conviene saber por qué hace falta. Las dos bandas
-          comparten `grid-cols-[1.1fr_0.9fr]`, pero eso NO basta para que
-          resuelvan igual: en el hero la columna izquierda la estira el
-          logotipo hasta 770px —más que su fracción— y la pista se congela ahí;
-          la derecha queda como única flexible con factor 0.9, y por
-          especificación un factor menor que 1 reparte solo esa proporción del
-          espacio libre (0.9 x 622 = 559.8), dejando 62px sin usar antes del
-          margen. La banda, cuyo prisma no tiene ancho propio, repartiría
-          765.6 / 626.4 y empezaría la columna derecha 5px antes. Dándole a esta
-          celda el mismo ancho mínimo que al texto del hero (`--vp-lead`), las
-          dos rejillas pasan por el mismo camino y las columnas derechas salen
-          idénticas: 1059 -> 1618 a 1920px.
-
-          El `lg:min-h` queda como suelo para el caso de que la fila salga
-          corta —por ejemplo si algún día la intro adelgaza—, porque una
-          rendija es peor que una pieza pequeña. Hoy no actúa.
-        */}
-        <div className="absolute inset-0 lg:relative lg:inset-auto lg:min-h-[24rem] xl:min-w-[var(--vp-lead)]">
-          <ProductPrism
-            products={showcase}
-            label="Vitrina 3D de productos destacados"
-            className="absolute inset-0"
-            // Tapado por el cajón no se ve, pero seguiría girando: el
-            // observador de la pieza mide si está en pantalla, no si algo
-            // opaco se le ha puesto encima.
-            paused={open}
+          <StageTab
+            side="right"
+            label="Info"
+            onClick={() => show(true)}
+            aria-expanded={open}
+            aria-controls={PANEL_ID}
+            placement="body"
           />
         </div>
+      </div>
 
-        {/*
-          EL CAJÓN.
+      {/*
+        ESCENA 2 — INFORMACIÓN.
 
-          `bg-background` no es decoración: es lo que cubre el prisma del todo
-          —incluidos los huecos entre tarjetas, por donde el dedo llegaría al
-          lienzo de detrás— que es lo que se pidió.
+        `bg-background` no es decoración: es lo que tapa el prisma del todo,
+        incluidos los huecos entre tarjetas, por donde el dedo llegaría al
+        lienzo de detrás.
 
-          VA EN EL FLUJO, no en posición absoluta. El desplazamiento es
-          `translate`, que no toca el flujo: el hueco se queda reservado
-          aunque el cajón esté fuera, así que la banda no cambia de alto al
-          abrirlo y cerrarlo y el prisma de debajo tampoco se redimensiona.
+        `invisible` cuando está fuera, y no solo desplazado: un bloque fuera de
+        un recorte sigue siendo tabulable y lo siguen leyendo los lectores de
+        pantalla. `visibility` se transiciona a saltos, y el salto cae al
+        principio al abrir y al final al cerrar, así que el panel se ve entrar
+        y salir entero. `inert` cubre el tramo del cierre, en el que todavía es
+        visible pero ya no es la escena activa.
+      */}
+      <div
+        ref={infoRef}
+        id={PANEL_ID}
+        role="region"
+        aria-labelledby={INFO_TITLE_ID}
+        inert={!open}
+        onKeyDown={onInfoKeyDown}
+        style={{ transitionDuration: `${SLIDE_MS}ms` }}
+        className={cn(
+          "relative z-10 col-start-1 row-start-1 flex flex-col bg-background",
+          // `translate` y no `transform`: en Tailwind v4 `translate-x-*` escribe
+          // la propiedad `translate`, y una transición de `transform` no la
+          // anima. Con `transform` el panel saltaba de golpe.
+          "transition-[translate,visibility] ease-vp-slide motion-reduce:transition-none",
+          open ? "visible translate-x-0" : "invisible translate-x-full",
+        )}
+      >
+        <StageHeader
+          id={INFO_TITLE_ID}
+          tag="[ INFO ]"
+          title="Información"
+          side="left"
+          tab={
+            <StageTab
+              side="left"
+              label="Volver"
+              onClick={() => show(false)}
+              placement="header"
+            />
+          }
+        />
 
-          `h-full` Y `justify-center` SIN PREFIJO, que antes eran el alto
-          natural de las tarjetas y `lg:justify-center`. Desde que el
-          escenario mide lo que la intro, el cajón ya no lo llena solo con
-          crecer: sin `h-full` tapaba la parte de arriba del prisma y dejaba
-          el resto del lienzo al aire por debajo —visible, y además
-          alcanzable con el dedo, que es justo lo que `bg-background` viene a
-          evitar—. Con el alto completo vuelve a cubrirlo entero, y
-          `justify-center` deja las tres tarjetas centradas en vez de
-          apelotonadas arriba.
+        <div className="relative flex flex-1 flex-col pb-10 sm:pb-16">
+          {/*
+            Las tarjetas: apiladas en vertical, en fila en horizontal.
 
-          `invisible` cuando está fuera, y no solo desplazado: un bloque
-          desplazado fuera de un `overflow-hidden` sigue siendo tabulable y lo
-          siguen leyendo los lectores de pantalla, y al enfocarlo el navegador
-          arrastra el recorte. `visibility` se transiciona a saltos y el salto
-          cae AL FINAL, así que al cerrarse el cajón se ve salir entero.
-        */}
+            El campo de fondo continuo va en este contenedor, que viaja con el
+            panel: las tarjetas no se mueven respecto a él durante el
+            deslizamiento, así que basta con la medición por cambio de tamaño
+            que el campo ya hace solo. Ver `.vp-card` en `globals.css` y
+            `ui/card-field.tsx`.
+
+            El margen interior deja sitio al tirador VOLVER: a la izquierda en
+            vertical, a los dos lados en horizontal para que la fila siga
+            centrada. Desde `xl` la columna de la página ya queda lejos del
+            borde y vuelve al margen de las demás secciones.
+          */}
+          <CardField
+            className={cn(
+              "mx-auto flex w-full max-w-vp flex-1 flex-col justify-center gap-3 px-4 sm:gap-4 sm:px-6",
+              "portrait:pl-16",
+              "landscape:grid landscape:grid-cols-3 landscape:content-center landscape:gap-6 landscape:px-16 xl:landscape:px-10",
+            )}
+          >
+            {children}
+          </CardField>
+
+          <StageTab
+            side="left"
+            label="Volver"
+            onClick={() => show(false)}
+            placement="body"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface StageHeaderProps {
+  id: string;
+  /** Etiqueta pixel sobre el título, como en el resto de secciones. */
+  tag: string;
+  title: string;
+  /** Lado del tirador, para reservarle el hueco junto al título. */
+  side: "left" | "right";
+  /** Tirador de la cabecera, el que se ve en vertical. */
+  tab: ReactNode;
+}
+
+/**
+ * Cabecera de una escena.
+ *
+ * Etiqueta pixel y título, con los mismos tamaños y separaciones que el
+ * catálogo y las preguntas frecuentes (`py-16` repartido entre la cabecera y
+ * el pie del cuerpo, `mt-4` entre etiqueta y título).
+ *
+ * El alto mínimo es el del tirador (`min-h-28`) y el bloque va centrado en él.
+ * Que las dos cabeceras midan lo mismo es lo que deja a INFO y VOLVER a la
+ * misma altura, en vertical porque los dos viven aquí y en horizontal porque
+ * los cuerpos de debajo empiezan en el mismo punto.
+ */
+function StageHeader({ id, tag, title, side, tab }: StageHeaderProps) {
+  return (
+    <div className="vp-glitch pt-10 sm:pt-16">
+      <div className="relative flex min-h-28 items-center">
         <div
-          id={PANEL_ID}
-          onKeyDown={close}
-          style={{ transitionDuration: `${SLIDE_MS}ms` }}
           className={cn(
-            "relative z-10 flex h-full flex-col justify-center gap-3 bg-background px-4 py-4 pr-14 transition-[transform,visibility] ease-vp motion-reduce:transition-none",
-            "sm:gap-4 sm:px-6 sm:pr-16",
-            "lg:z-auto lg:mx-auto lg:w-3/4 lg:visible lg:translate-x-0 lg:gap-6 lg:bg-transparent lg:p-0",
-            open ? "visible translate-x-0" : "invisible translate-x-full",
+            "mx-auto w-full max-w-vp px-4 sm:px-6 xl:px-10",
+            side === "right" ? "portrait:pr-16" : "portrait:pl-16",
           )}
         >
-          {children}
+          <PixelLabel variant="outline">{tag}</PixelLabel>
+          <h2
+            id={id}
+            className="mt-4 text-[1.75rem] font-bold uppercase leading-[0.95] tracking-[-0.01em] sm:text-[2.5rem]"
+          >
+            {title}
+          </h2>
         </div>
-
-        {/*
-          EL TIRADOR. Un riel de 44px pegado al borde derecho, que es el mínimo
-          que pide un objetivo táctil, y 96px de alto para que se vea como una
-          pestaña y no como un botón perdido.
-
-          Se queda donde está al abrirse, con la flecha girada: mover el
-          tirador al otro lado obligaría a buscarlo dos veces, y el cajón
-          reserva `pr-14` para que ninguna tarjeta quede debajo.
-
-          El nombre accesible es fijo y el estado lo da `aria-expanded`, que es
-          lo que un lector de pantalla anuncia como «contraído» o «expandido».
-          Una flecha sola no dice qué hay dentro, de ahí el nombre.
-        */}
-        <button
-          ref={handle}
-          type="button"
-          onClick={toggle}
-          aria-expanded={open}
-          aria-controls={PANEL_ID}
-          aria-label="Garantías de compra"
-          className="absolute right-0 top-1/2 z-20 flex h-24 w-11 -translate-y-1/2 items-center justify-center border-2 border-r-0 border-muted bg-surface text-action transition-colors duration-150 ease-vp hover:border-line lg:hidden"
-        >
-          <ChevronLeft
-            aria-hidden="true"
-            className={cn("size-5 transition-transform duration-200 ease-vp", open && "rotate-180")}
-          />
-        </button>
+        {tab}
       </div>
-    </CardField>
+    </div>
+  );
+}
+
+interface StageTabProps {
+  side: "left" | "right";
+  label: string;
+  onClick: () => void;
+  /**
+   * `header`: el de vertical, a la altura del título y con el alto entero de
+   * la cabecera. `body`: el de horizontal, centrado en el área del prisma.
+   */
+  placement: "header" | "body";
+  "aria-expanded"?: boolean;
+  "aria-controls"?: string;
+}
+
+/**
+ * Tirador arcade de borde de pantalla.
+ *
+ * Un riel de 44px de ancho —el mínimo de un objetivo táctil— y 112px de alto,
+ * a ras del borde y sin borde por ese lado, como una pestaña que asoma. Texto
+ * en Press Start 2P puesto en vertical, paralelo al borde, y una flecha de
+ * píxeles que parpadea a saltos.
+ *
+ * Los dos son el mismo objeto girado media vuelta: el derecho lee de arriba
+ * abajo con la flecha al pie apuntando a su borde; el izquierdo, de abajo
+ * arriba con la flecha arriba apuntando al suyo. Así cada texto mira hacia su
+ * lado de la pantalla y la pareja se lee simétrica.
+ *
+ * Cada escena lo pinta dos veces, una por `placement`, y la orientación de la
+ * pantalla oculta la que no toca.
+ */
+function StageTab({ side, label, onClick, placement, ...aria }: StageTabProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      {...{ [TAB_ATTRIBUTE]: "" }}
+      {...aria}
+      className={cn(
+        "absolute z-20 flex w-11 items-center justify-center border-2 border-line bg-surface text-action",
+        "transition-colors duration-200 ease-vp hover:bg-action hover:text-action-ink",
+        side === "right" ? "right-0 border-r-0" : "left-0 border-l-0",
+        placement === "body"
+          ? "top-1/2 h-28 -translate-y-1/2 portrait:hidden"
+          : "inset-y-0 landscape:hidden",
+      )}
+    >
+      <span
+        className={cn("flex flex-col items-center gap-2.5", side === "left" && "rotate-180")}
+      >
+        {/* `vp-label` impone la fuente pixel y las mayúsculas. */}
+        <span className="vp-label leading-none [writing-mode:vertical-rl]">{label}</span>
+        <PixelArrow />
+      </span>
+    </button>
+  );
+}
+
+/** Flecha ▶ dibujada en píxeles: cuatro columnas escalonadas. */
+function PixelArrow() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 4 7"
+      shapeRendering="crispEdges"
+      className="h-3.5 w-2 fill-current animate-vp-blink motion-reduce:animate-none"
+    >
+      <rect x="0" y="0" width="1" height="7" />
+      <rect x="1" y="1" width="1" height="5" />
+      <rect x="2" y="2" width="1" height="3" />
+      <rect x="3" y="3" width="1" height="1" />
+    </svg>
   );
 }

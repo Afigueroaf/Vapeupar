@@ -5,6 +5,7 @@ import {
   MissingReferenceError, NewProduct, ProductPatch, SupplierRow
 } from '../repositories/catalog.repository.js';
 import { PrismaCatalogRepository } from '../repositories/prisma-catalog.repository.js';
+import { ImageUploadService } from './image-upload.service.js';
 import {
   BrandBodySchema, BrandPatchSchema, ProductBodySchema, ProductPatchSchema, SupplierBodySchema,
   SupplierPatchSchema, VariantBodySchema, VariantPatchSchema
@@ -97,7 +98,43 @@ function valueAfter<T>(patched: T | null | undefined, current: T | null): T | nu
 }
 
 export class CatalogService {
-  constructor(private readonly repository: CatalogRepository) {}
+  /**
+   * @param removeImage Borra un objeto del bucket. Sin él —los tests— no se
+   *   borra nada; en la aplicación es `ImageUploadService.remove`.
+   */
+  constructor(
+    private readonly repository: CatalogRepository,
+    private readonly removeImage?: (key: string) => Promise<void>
+  ) {}
+
+  /**
+   * Borra del bucket la imagen que una fila acaba de dejar de usar.
+   *
+   * POR QUÉ: cada subida desde la consola es una clave nueva
+   * (`catalog/image-keys.ts`), así que reemplazar una imagen dejaba la
+   * anterior en el bucket sin que nada la referenciara.
+   *
+   * Tres reglas, y las tres importan:
+   *
+   * - DESPUÉS DE CONFIRMAR LA TRANSACCIÓN, nunca dentro. Si la escritura se
+   *   deshace, la fila sigue apuntando a la imagen vieja, y borrarla antes la
+   *   dejaría rota.
+   * - SOLO SI NADIE MÁS LA USA. Las claves son texto libre (`PATCH` acepta
+   *   cualquiera dentro del catálogo) y nada impide que dos filas compartan
+   *   una; se comprueba en las cuatro columnas antes de borrar.
+   * - UN FALLO NO TUMBA EL GUARDADO. El cambio ya está hecho y es lo que el
+   *   operador pidió; una imagen que no se pudo borrar es una huérfana más, no
+   *   un error que enseñarle. Se deja constancia en el log.
+   */
+  private async releaseImage(previous: string | null | undefined, current: string | null | undefined) {
+    if (!this.removeImage || !previous || previous === current) return;
+    try {
+      if (await this.repository.isImageKeyInUse(previous)) return;
+      await this.removeImage(previous);
+    } catch (error) {
+      console.warn(`[images] No se pudo borrar la imagen anterior ${previous}:`, error);
+    }
+  }
 
   // ---- Marcas ----
 
@@ -118,7 +155,8 @@ export class CatalogService {
 
   public async updateBrand(id: string, input: unknown, author: Author): Promise<BrandRow> {
     const patch = validate(BrandPatchSchema, input);
-    return this.write(async tx => {
+    let released: { previous: string | null; current: string | null } | undefined;
+    const result = await this.write(async tx => {
       const before = await tx.findBrand(id);
       if (!before) throw notFound('marca');
 
@@ -136,8 +174,11 @@ export class CatalogService {
           after: pick(after as unknown as Fields, changed)
         });
       }
+      released = { previous: before.logoKey ?? null, current: after.logoKey ?? null };
       return after;
     });
+    await this.releaseImage(released?.previous, released?.current);
+    return result;
   }
 
   // ---- Proveedores ----
@@ -159,7 +200,8 @@ export class CatalogService {
 
   public async updateSupplier(id: string, input: unknown, author: Author): Promise<SupplierRow> {
     const patch = validate(SupplierPatchSchema, input);
-    return this.write(async tx => {
+    let released: { previous: string | null; current: string | null } | undefined;
+    const result = await this.write(async tx => {
       const before = await tx.findSupplier(id);
       if (!before) throw notFound('proveedor');
 
@@ -179,8 +221,11 @@ export class CatalogService {
           after: { ...pick(after as unknown as Fields, changed), ...(brandIds && { brandIds }) }
         });
       }
+      released = { previous: before.imageKey ?? null, current: after.imageKey ?? null };
       return after;
     });
+    await this.releaseImage(released?.previous, released?.current);
+    return result;
   }
 
   // ---- Líneas de producto ----
@@ -211,7 +256,8 @@ export class CatalogService {
   public async updateProduct(id: string, input: unknown, author: Author): Promise<AdminProductDetail> {
     const patch = validate(ProductPatchSchema, input);
 
-    return this.write(async tx => {
+    let released: { previous: string | null; current: string | null } | undefined;
+    const result = await this.write(async tx => {
       const before = await tx.findProduct(id);
       if (!before) throw notFound('línea');
 
@@ -251,8 +297,11 @@ export class CatalogService {
           after: pick(after as unknown as Fields, changed)
         });
       }
+      released = { previous: before.imageKey ?? null, current: after.imageKey ?? null };
       return after;
     });
+    await this.releaseImage(released?.previous, released?.current);
+    return result;
   }
 
   // ---- Variantes ----
@@ -285,7 +334,8 @@ export class CatalogService {
   ): Promise<AdminVariantRow> {
     const patch = validate(VariantPatchSchema, input);
 
-    return this.write(async tx => {
+    let released: { previous: string | null; current: string | null } | undefined;
+    const result = await this.write(async tx => {
       const product = await tx.findProduct(productId);
       if (!product) throw notFound('línea');
 
@@ -327,8 +377,11 @@ export class CatalogService {
           after: pick(after as unknown as Fields, changed)
         });
       }
+      released = { previous: before.imageKey ?? null, current: after.imageKey ?? null };
       return after;
     });
+    await this.releaseImage(released?.previous, released?.current);
+    return result;
   }
 
   /** Traduce los errores del repositorio a errores de dominio, en un solo sitio. */
@@ -404,4 +457,11 @@ export type CatalogWriter = Pick<
   | 'createProduct' | 'updateProduct' | 'createVariant' | 'updateVariant'
 >;
 
-export const catalogService = new CatalogService(new PrismaCatalogRepository());
+// El borrado de imágenes usa el mismo bucket y las mismas guardas que la
+// subida (`image-upload.service.ts`).
+const catalogImages = new ImageUploadService();
+
+export const catalogService = new CatalogService(
+  new PrismaCatalogRepository(),
+  key => catalogImages.remove(key)
+);

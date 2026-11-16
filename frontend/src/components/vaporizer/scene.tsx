@@ -96,6 +96,12 @@ const BURST_GRAB = 14;
 const BURST_RELEASE = 3.2;
 
 /**
+ * Segundos sin cursor tras los que el campo de dispersión se da por quieto:
+ * `exp(-CURSOR_RELEASE * t)` < 0,002, o sea `ln(500) / CURSOR_RELEASE`.
+ */
+const SETTLE_SECONDS = Math.log(500) / CURSOR_RELEASE;
+
+/**
  * Cuánto se desplaza una banda desgarrada, respecto al glitch de la página.
  *
  * Cinco veces la separación de canales: el filtro RGB mueve copias de color
@@ -186,6 +192,10 @@ export function Scene({ cloud, pointer, anchor, ...config }: SceneProps) {
   const burst = useRef(0);
   /** Último clic atendido, para detectar los nuevos. */
   const lastBurst = useRef(0);
+  /** Segundos seguidos con el campo sin cursor ni explosión. */
+  const idleFor = useRef(0);
+  /** Si el campo ha llegado a tener algo que relajar. */
+  const touched = useRef(false);
   const invalidate = useThree((state) => state.invalidate);
   const gl = useThree((state) => state.gl);
   const dpr = useThree((state) => state.viewport.dpr);
@@ -464,12 +474,28 @@ export function Scene({ cloud, pointer, anchor, ...config }: SceneProps) {
       active: pointer.current.inside && config.cursorScatter > 0,
     };
 
-    modelField.update(gl, step);
-    modelMaterial.uniforms.uState.value = modelField.texture;
+    // LAS PASADAS GPGPU SE SALTAN CON EL CAMPO EN REPOSO. Sin cursor dentro y
+    // sin explosión, cada pasada solo multiplica el estado por `decay`; pasado
+    // `SETTLE_SECONDS` lo que queda es < 0,2 % de dispersión, invisible, y
+    // seguir haciéndolo son dos dibujos a textura por fotograma para nada.
+    // Al nacer el estado ya es 0, así que una visita sin tocar la nube no las
+    // ejecuta nunca. Al volver el cursor se reanudan desde ese mismo estado.
+    if (step.active || burst.current > 0) {
+      idleFor.current = 0;
+      touched.current = true;
+    } else {
+      idleFor.current += delta;
+    }
+    const settled = !touched.current || idleFor.current > SETTLE_SECONDS;
 
-    if (ambientField && ambientMaterial) {
-      ambientField.update(gl, step);
-      ambientMaterial.uniforms.uState.value = ambientField.texture;
+    if (!settled) {
+      modelField.update(gl, step);
+      modelMaterial.uniforms.uState.value = modelField.texture;
+
+      if (ambientField && ambientMaterial) {
+        ambientField.update(gl, step);
+        ambientMaterial.uniforms.uState.value = ambientField.texture;
+      }
     }
 
     // --- Glitch de la página ---

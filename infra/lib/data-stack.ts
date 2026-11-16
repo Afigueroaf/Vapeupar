@@ -13,38 +13,39 @@ interface DataStackProps extends StackProps {
 }
 
 /**
- * PostgreSQL en subredes aisladas + bastión SSM para llegar a ella.
+ * PostgreSQL en subredes aisladas.
  *
- * La base nunca es pública. Desde el portátil se accede por túnel de Session
- * Manager a través del bastión (`npm run infra:db-tunnel`): el bastión no abre
- * ningún puerto de entrada, así que no hay SSH ni IP que mantener en una lista.
- * En prod el backend vivirá en la misma VPC y el bastión queda solo para
- * mantenimiento.
+ * La base nunca es pública. Solo la alcanza la EC2 de la aplicación, cuya
+ * regla de entrada al 5432 crea `app-stack.ts`. Desde el portátil se llega por
+ * túnel de Session Manager a través de esa misma instancia
+ * (`npm run infra:db-tunnel`, parámetro `TUNNEL_INSTANCE_ID`).
+ *
+ * HASTA EL 2026-11-06 ESTE STACK TENÍA UN BASTIÓN, que existía porque no había
+ * nada más en la VPC desde donde llegar a la base. Con la aplicación dentro dejó
+ * de hacer falta y se retiró (docs/aws-full-deployment-plan.md, F1.7): eran
+ * ~10,5 USD/mes por una instancia que solo hacía de puente. Si algún día vuelve
+ * a hacer falta un acceso independiente de la aplicación, su código está en el
+ * historial de git; volver a ponerlo es un despliegue.
  */
 export class DataStack extends Stack {
   readonly db: rds.DatabaseInstance;
+  /** El stack de la aplicación añade aquí su regla de entrada al 5432. */
+  readonly dbSecurityGroup: ec2.SecurityGroup;
 
   constructor(scope: Construct, id: string, props: DataStackProps) {
     super(scope, id, props);
     const { config, vpc } = props;
 
-    const bastion = new ec2.BastionHostLinux(this, 'Bastion', {
-      vpc,
-      instanceName: resourceName(config, 'bastion'),
-      // La cuenta está en el plan gratuito de AWS, que solo admite tipos
-      // elegibles (t4g.nano no lo es). t4g.micro es el más pequeño permitido.
-      instanceType: ec2.InstanceType.of(ec2.InstanceClass.BURSTABLE4_GRAVITON, ec2.InstanceSize.MICRO),
-      machineImage: ec2.MachineImage.latestAmazonLinux2023({ cpuType: ec2.AmazonLinuxCpuType.ARM_64 }),
-      subnetSelection: { subnetType: ec2.SubnetType.PUBLIC },
-      requireImdsv2: true,
-    });
-
-    const dbSecurityGroup = new ec2.SecurityGroup(this, 'DbSecurityGroup', {
+    const dbSecurityGroup = (this.dbSecurityGroup = new ec2.SecurityGroup(this, 'DbSecurityGroup', {
       vpc,
       securityGroupName: resourceName(config, 'rds'),
+      // LA DESCRIPCIÓN YA NO ES EXACTA (el bastión se retiró) Y SE DEJA ASÍ A
+      // PROPÓSITO: en CloudFormation, cambiar `GroupDescription` REEMPLAZA el
+      // grupo de seguridad, y este es el que lleva la base. No compensa
+      // arriesgar la conectividad de RDS por una frase.
       description: 'Vapeupar PostgreSQL: solo acepta conexiones del bastion y del backend',
       allowAllOutbound: false,
-    });
+    }));
 
     this.db = new rds.DatabaseInstance(this, 'Db', {
       instanceIdentifier: resourceName(config, 'db'),
@@ -74,8 +75,6 @@ export class DataStack extends Stack {
       cloudwatchLogsRetention: logs.RetentionDays.ONE_WEEK,
     });
 
-    this.db.connections.allowDefaultPortFrom(bastion, 'Tunel SSM desde el bastion');
-
     // Credencial del rol de aplicación `vapeupar_app` (permisos mínimos, sin
     // DDL). El rol lo crea la migración inicial; la contraseña la aplica
     // `npm run db:sync-app-role` en backend/. El usuario maestro queda solo
@@ -99,7 +98,6 @@ export class DataStack extends Stack {
       DB_NAME: 'vapeupar',
       DB_SECRET_ARN: this.db.secret!.secretArn,
       DB_APP_SECRET_ARN: appSecret.secretArn,
-      BASTION_INSTANCE_ID: bastion.instanceId,
     };
     for (const [key, value] of Object.entries(params)) {
       new ssm.StringParameter(this, `Param${key}`, {

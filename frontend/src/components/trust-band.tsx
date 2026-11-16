@@ -1,15 +1,16 @@
 import { PixelLabel } from "@/components/ui/pixel-label";
 import { Surface } from "@/components/ui/surface";
-import { TrustStage } from "@/components/trust-stage";
+import { SHOWCASE_TITLE_ID, TrustStage } from "@/components/trust-stage";
 import type { Product } from "@/types/product";
 
 /**
- * Banda de señales de confianza.
+ * Banda de la vitrina: «Productos destacados», con la información de compra
+ * en un panel que se desliza por encima (`TrustStage`).
  *
- * Contenido que antes vivía dentro del hero como "value props" con iconos.
- * Se extrae a su propia banda para que el hero quede con un solo mensaje
- * (`docs/design-reset-inventory.md` §5.7). Los iconos decorativos se
- * sustituyen por etiquetas pixel (§4.6).
+ * Las tarjetas son las señales de confianza que antes vivían dentro del hero
+ * como "value props" con iconos, y que se sacaron para que el hero quedara con
+ * un solo mensaje (`docs/design-reset-inventory.md` §5.7). Los iconos
+ * decorativos se sustituyen por etiquetas pixel (§4.6).
  */
 const ITEMS = [
   {
@@ -55,21 +56,31 @@ export function TrustBand({ showcase }: TrustBandProps) {
        a las tres tarjetas, que es lo único de esta banda que lo necesitaba.
        Lo que deja de glitchear es el borde inferior de la sección: dos píxeles
        de línea sobre negro. */
-    <section aria-label="Garantías de compra" className="border-b-2 border-line">
-      {/* La colocación la decide `TrustStage`, que es de cliente porque el
-          cajón de móvil tiene estado: de `lg` para arriba, tarjetas al lado del
-          prisma; por debajo, prisma a sangre y tarjetas en un cajón que entra
-          desde el borde derecho.
+    /* Alto de una pantalla menos la barra de navegación (`--vp-screen`):
+
+       - en vertical, a cualquier ancho: cada sección de la portada ocupa
+         exactamente lo que se ve debajo de la barra;
+       - en escritorio, porque es lo que agranda el prisma: en un hueco
+         apaisado su tamaño lo manda el alto.
+
+       Es un mínimo y no un alto fijo: si algún contenido no cabe —las tres
+       tarjetas apiladas en un teléfono muy bajo—, la banda crece antes que
+       recortarlo. Ver la rejilla de `app/page.tsx`, que en los dos casos deja
+       de igualarla con la intro. */
+    <section
+      aria-labelledby={SHOWCASE_TITLE_ID}
+      className="grid border-b-2 border-line portrait:min-h-[var(--vp-screen)] lg:min-h-[var(--vp-screen)]"
+    >
+      {/* Las dos escenas —vitrina e información— y los tiradores que las
+          cambian los lleva `TrustStage`, que es de cliente porque el cambio
+          tiene estado.
 
           Las tres tarjetas comparten un campo de fondo continuo y reaccionan al
-          puntero. Ver `.vp-card` en `globals.css` y `ui/card-field.tsx`. El
-          campo mide sus tarjetas con un `querySelectorAll` recursivo, así que
-          anidarlas en una columna —o en el cajón— no rompe la continuidad. */}
+          puntero. Ver `.vp-card` en `globals.css` y `ui/card-field.tsx`. */}
       <TrustStage showcase={showcase}>
         {ITEMS.map((item) => (
-          /* Más apretadas por debajo de `lg` de lo que estaban: ahora las tres
-             tienen que caber en el alto del escenario en vez de repartirse la
-             banda entera. El escalón de `lg` deja intacto lo de escritorio. */
+          /* Más apretadas por debajo de `lg`: apiladas en un teléfono en
+             vertical, las tres tienen que caber en el alto del escenario. */
           /* `vp-glitch-card`: antes estas tarjetas no lo llevaban porque iban
              dentro de una franja filtrada, y anidar un filtro dentro de otro
              separaría los canales dos veces. Al quitarle el filtro a la

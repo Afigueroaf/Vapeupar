@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { getPrisma } from '../db/prisma.js';
 import { isUuid } from '../db/uuid.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { Product, ProductCategory } from '../types/product.types.js';
+import { Product, ProductCategory, ProductVariant } from '../types/product.types.js';
 import { ProductRepository } from './product.repository.js';
 
 // Visible en el sitio: publicado y con precio. El precio es obligatorio para
@@ -11,7 +11,11 @@ const PUBLIC_WHERE = { status: 'published', price: { not: null } } satisfies Pri
 
 const PRODUCT_INCLUDE = {
   brand: { select: { name: true } },
-  variants: { where: { active: true }, select: { stockCache: true } }
+  variants: {
+    where: { active: true },
+    select: { id: true, kind: true, name: true, slug: true, imageKey: true, stockCache: true },
+    orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }]
+  }
 } satisfies Prisma.ProductInclude;
 
 export type ProductRow = Prisma.ProductGetPayload<{ include: typeof PRODUCT_INCLUDE }>;
@@ -39,9 +43,25 @@ function imageUrl(key: string | null): string {
   return domain && key ? `https://${domain}/${key}` : '';
 }
 
+function toVariant(variant: ProductRow['variants'][number]): ProductVariant {
+  // La caché puede quedar negativa si el libro registra más salidas que
+  // entradas (un ajuste a destiempo): para el cliente eso es «agotado».
+  const stock = Math.max(variant.stockCache, 0);
+  return {
+    id: variant.id,
+    kind: variant.kind,
+    name: variant.name,
+    slug: variant.slug,
+    imageUrl: imageUrl(variant.imageKey),
+    inStock: stock > 0,
+    stock
+  };
+}
+
 /** Fila de Prisma -> contrato de la API. Exportada para sus tests. */
 export function toProduct(row: ProductRow): Product {
-  const stock = row.variants.reduce((sum, v) => sum + Math.max(v.stockCache, 0), 0);
+  const variants = row.variants.map(toVariant);
+  const stock = variants.reduce((sum, v) => sum + v.stock, 0);
   return {
     id: row.id,
     name: row.name,
@@ -60,7 +80,8 @@ export function toProduct(row: ProductRow): Product {
     isNewArrival: row.isNewArrival,
     isBestSeller: row.isBestSeller,
     specs: SpecsSchema.parse(row.specs),
-    tags: row.tags
+    tags: row.tags,
+    variants
   };
 }
 

@@ -1,0 +1,71 @@
+# Integración continua: cada PR a `main` y cada push a `main` pasan por aquí.
+# `main` tiene que estar SIEMPRE desplegable: a `produccion` solo llega lo que
+# ya está en `main` (lo comprueba deploy-produccion.yml), así que este workflow
+# es el filtro real antes de producción. docs/infrastructure-aws.md, «Flujo de
+# despliegue».
+#
+# No toca AWS: sin permisos de OIDC ni credenciales.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# En un PR, un push nuevo cancela la comprobación anterior, que ya no sirve.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CI: 'true'
+      # `prisma generate` carga prisma.config.ts, que exige la variable aunque
+      # no se conecte a nada. Valor ficticio: nada de esto toca una base.
+      MIGRATE_DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      NEXT_TELEMETRY_DISABLED: '1'
+    steps:
+      # Actions fijadas por SHA (con su versión al lado): una etiqueta se puede
+      # mover, un commit no. Dependabot las actualiza (.github/dependabot.yml).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22' # la instancia corre Node 22 (NODE_VERSION en app-stack.ts)
+          cache: npm
+
+      - name: Dependencias
+        run: npm ci --no-audit --no-fund
+
+      - name: Backend · tipos y tests
+        run: |
+          npm run db:generate --workspace=backend
+          npx --workspace=backend tsc --noEmit
+          npm run test --workspace=backend
+
+      # `next typegen` genera en .next/types los tipos globales de las rutas
+      # (`PageProps`, `LayoutProps`...). En local ya existen por `next dev` o
+      # `next build`; en un checkout limpio no, y `tsc` falla sin ellos.
+      - name: Frontend · lint y tipos
+        run: |
+          npm run lint --workspace=frontend
+          npx --workspace=frontend next typegen
+          npx --workspace=frontend tsc --noEmit
+
+      # Mismo build que el de producción (API relativa), con datos de contacto
+      # ficticios: aquí solo importa que compile.
+      - name: Frontend · build
+        env:
+          NEXT_PUBLIC_API_URL: /api
+          NEXT_PUBLIC_WHATSAPP_NUMBER: '570000000000'
+        run: npm run build --workspace=frontend
+
+      - name: Infra · tipos
+        run: npm run typecheck --workspace=infra

@@ -91,32 +91,18 @@ export function ImageUploadField({
         body: file,
       });
       if (!response.ok) throw new Error("No se pudo subir la imagen");
-      // `imageKey` es el valor de antes de esta carga: con él se sabe si la
-      // clave cambió o si se reemplazó el objeto dejando la misma.
-      const mismaClave = presigned.key === imageKey;
       onUploaded(presigned.key);
       setUploads((count) => count + 1);
 
-      // La imagen ya está en el bucket, así que un fallo al invalidar no
-      // convierte la carga en fallida: se dice lo que pasó y nada más. Se
-      // invalida también una clave nueva, porque el CDN pudo cachear el 403
-      // de cuando el objeto no existía.
-      let invalidada = true;
-      try {
-        await adminApi.invalidateImage(presigned.key);
-      } catch {
-        invalidada = false;
-      }
-
-      setStatus(
-        !mismaClave
-          ? "Imagen cargada. Se aplicará al guardar."
-          : invalidada
-            ? "Imagen reemplazada y caché del CDN invalidada: puede tardar unos segundos en verse. " +
-              "Al guardar queda constancia del cambio."
-            : "Imagen reemplazada en el bucket, pero no se pudo invalidar la caché del CDN: " +
-              "hasta que caduque se seguirá viendo la anterior. Al guardar queda constancia del cambio.",
-      );
+      // CADA CARGA ES UNA CLAVE NUEVA (`backend/src/catalog/image-keys.ts`), así
+      // que ya no se reemplaza nada en su sitio ni hace falta invalidar el CDN:
+      // una URL que nadie ha pedido no está en ninguna caché. Antes la clave era
+      // fija, CloudFront se invalidaba, pero el optimizador de imágenes de Next
+      // seguía sirviendo la anterior hasta 4 horas.
+      //
+      // La contrapartida es que la imagen no cambia en el sitio hasta guardar:
+      // la fila es la que apunta a la clave nueva.
+      setStatus("Imagen cargada. Se aplicará al guardar.");
     } catch (cause) {
       fail(errorMessage(cause, "No se pudo subir la imagen"));
     } finally {

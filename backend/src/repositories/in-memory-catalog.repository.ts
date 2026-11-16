@@ -221,6 +221,14 @@ export class InMemoryCatalogRepository implements CatalogRepository {
     return row ? { ...row } : undefined;
   }
 
+  public async isImageKeyInUse(key: string): Promise<boolean> {
+    const { brands, suppliers, products, variants } = this.state;
+    return [...brands.values()].some(row => row.logoKey === key)
+      || [...suppliers.values()].some(row => row.imageKey === key)
+      || [...products.values()].some(row => row.imageKey === key)
+      || [...variants.values()].some(row => row.imageKey === key);
+  }
+
   // --- Interno ---
 
   private variantsOf(state: State, productId: string): AdminVariantRow[] {

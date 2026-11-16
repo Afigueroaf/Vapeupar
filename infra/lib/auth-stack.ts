@@ -1,4 +1,4 @@
-import { Duration, Stack, StackProps } from 'aws-cdk-lib';
+import { Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
@@ -21,11 +21,14 @@ interface AuthStackProps extends StackProps {
  * invitar a un par de personas). Prod debe pasar a SES con dominio verificado.
  */
 export class AuthStack extends Stack {
+  /** Lo usa el stack de la aplicación para acotar los permisos de Cognito del backend. */
+  readonly userPool: cognito.UserPool;
+
   constructor(scope: Construct, id: string, props: AuthStackProps) {
     super(scope, id, props);
     const { config } = props;
 
-    const userPool = new cognito.UserPool(this, 'AdminUserPool', {
+    const userPool = (this.userPool = new cognito.UserPool(this, 'AdminUserPool', {
       userPoolName: resourceName(config, 'admins'),
       featurePlan: cognito.FeaturePlan.LITE,
       selfSignUpEnabled: false,
@@ -52,9 +55,12 @@ export class AuthStack extends Stack {
           'Usuario: {username}<br>Contraseña temporal: {####}<br>' +
           'Tendrás que cambiarla en el primer inicio de sesión. Vence en 3 días.',
       },
-      deletionProtection: config.envName === 'prod',
+      // Sigue a la política de retención y no al nombre del entorno: `dev` es
+      // hoy el entorno vivo (config.ts), y un pool que se conserva al borrar
+      // el stack también tiene que resistir un borrado desde la consola.
+      deletionProtection: config.auth.removalPolicy === RemovalPolicy.RETAIN,
       removalPolicy: config.auth.removalPolicy,
-    });
+    }));
 
     const backendClient = userPool.addClient('BackendClient', {
       userPoolClientName: resourceName(config, 'backend'),

@@ -27,6 +27,10 @@ function row(overrides: Partial<ProductRow> = {}): ProductRow {
   };
 }
 
+function variant(overrides: Partial<ProductRow['variants'][number]> = {}): ProductRow['variants'][number] {
+  return { id: 'v1', kind: 'flavor', name: 'Mango', slug: 'mango', imageKey: null, stockCache: 0, ...overrides };
+}
+
 describe('toProduct', () => {
   afterEach(() => vi.unstubAllEnvs());
 
@@ -36,10 +40,18 @@ describe('toProduct', () => {
   });
 
   it('suma el stock de las variantes activas e ignora cachés negativas', () => {
-    const product = toProduct(row({ variants: [{ stockCache: 3 }, { stockCache: 4 }, { stockCache: -2 }] }));
+    const product = toProduct(row({ variants: [variant({ stockCache: 3 }), variant({ stockCache: 4 }), variant({ stockCache: -2 })] }));
     expect(product.stock).toBe(7);
     expect(product.inStock).toBe(true);
     expect(toProduct(row()).inStock).toBe(false);
+  });
+
+  it('expone cada variante con su disponibilidad, sin stock negativo', () => {
+    const product = toProduct(row({ variants: [variant({ stockCache: 5 }), variant({ id: 'v2', name: 'Uva', slug: 'uva', stockCache: -1 })] }));
+    expect(product.variants).toEqual([
+      { id: 'v1', kind: 'flavor', name: 'Mango', slug: 'mango', imageUrl: '', inStock: true, stock: 5 },
+      { id: 'v2', kind: 'flavor', name: 'Uva', slug: 'uva', imageUrl: '', inStock: false, stock: 0 }
+    ]);
   });
 
   it('compone la URL de imagen con CDN_DOMAIN y la deja vacía sin él', () => {

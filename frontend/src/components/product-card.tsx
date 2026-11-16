@@ -1,11 +1,11 @@
 import Image from "next/image";
-import { MessageCircle } from "lucide-react";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { Product } from "@/types/product";
-import { Button } from "@/components/ui/button";
+import { buttonStyles } from "@/components/ui/button";
 import { PixelLabel } from "@/components/ui/pixel-label";
 import { Surface } from "@/components/ui/surface";
 import { cn, formatNumberCO, formatPriceCOP } from "@/lib/utils";
-import { waLink } from "@/lib/contact";
 
 interface ProductCardProps {
   product: Product;
@@ -21,9 +21,11 @@ interface ProductCardProps {
  *   CTA primario por vista (`docs/design-reset-inventory.md` §11, regla 2) y el
  *   hero ya lo gasta. Nueve rellenos lima en el grid anularían el lima como
  *   señal de acción y competirían con el brillo lima del hover.
- * - **El nombre no cambia de color al hover.** La tarjeta todavía no es un
- *   enlace: `/producto/[slug]` llega en V8 (§5.6). Encender el título
- *   prometería un destino que no existe.
+ * - **La tarjeta lleva a la ficha (`/producto/[slug]`), no a WhatsApp.** El
+ *   pedido se arma en el carrito, con el sabor elegido en la ficha; un botón
+ *   de WhatsApp por tarjeta mandaba pedidos sin sabor. Son enlaces el nombre
+ *   y el botón, y la foto no: tres enlaces al mismo destino son tres paradas
+ *   de tabulador para nada.
  * - **La imagen no hace `scale` al hover** (§8.1). La micro-interacción del
  *   conjunto la lleva `.vp-card`: borde lima, desplazamiento duro y el brillo
  *   que sigue al puntero. Por la misma razón el contorno de la silueta no
@@ -43,7 +45,7 @@ interface ProductCardProps {
  *   en adelante la tarjeta es exactamente la de antes.
  * - Los iconos `Check` / `XCircle` desaparecen: el estado se dice con color
  *   (lima disponible) y con etiqueta pixel (`AGOTADO`), no con decoración
- *   (§4.6). `MessageCircle` se conserva de forma provisional (§4.5).
+ *   (§4.6).
  */
 /**
  * Redacción corta de las caladas para las tarjetas estrechas: 10.000 -> "10K".
@@ -60,15 +62,10 @@ export function ProductCard({ product, eagerImage = false }: ProductCardProps) {
   const isAvailable = product.inStock && product.stock > 0;
   const isOnSale = Boolean(product.compareAtPrice && product.compareAtPrice > product.price);
 
-  const buyHref = waLink(
-    `Hola Vapeupar! Quiero pedir el producto: *${product.name}* (Precio: ${formatPriceCOP(product.price)}). ¿Tienen disponibilidad inmediata en Valledupar?`
-  );
-
-  const inquireHref = waLink(
-    `Hola Vapeupar! Me interesa el producto agotado: *${product.name}*. ¿Cuándo les llega nuevo stock?`
-  );
-
-  const actionHref = isAvailable ? buyHref : inquireHref;
+  const detailHref = `/producto/${product.slug}`;
+  const flavorCount = product.variants.length;
+  const ctaLong =
+    !isAvailable ? "Ver detalle" : flavorCount > 1 ? `Ver ${flavorCount} sabores` : "Ver producto";
 
   // Ficha técnica como una línea de especificaciones, no como pills: el
   // separador lima hace de marca HUD y evita bordes de 2px alrededor de
@@ -132,19 +129,30 @@ export function ProductCard({ product, eagerImage = false }: ProductCardProps) {
           página entera, así que el hueco se dibuja a mano.
         */}
           {product.imageUrl ? (
-            <Image
-              src={product.imageUrl}
-              alt={`${product.name} - ${product.brand} (${product.specs.flavorProfile || product.category})`}
-              fill
-              // Debe seguir a las columnas del grid (2 / 3 / 4), o el navegador
-              // descarga una imagen del doble de lo necesario en móvil.
-              sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 25vw"
-              /* `object-contain`, no `object-cover`: un recorte comería los
-               bordes del producto y el contorno quedaría truncado contra el
-               canto del hueco en vez de cerrar la silueta. */
-              className="vp-silhouette object-contain object-center"
-              loading={eagerImage ? "eager" : "lazy"}
-            />
+            /* Envoltorio que solo existe para llevar la sombra proyectada. El
+               contorno de silueta va en la imagen y la sombra aquí: separados,
+               el contorno —que no depende del puntero— deja de recalcularse en
+               cada fotograma del gesto. Ver `.vp-silhouette` en `globals.css`.
+
+               `absolute inset-0` y no un envoltorio en flujo: la imagen usa
+               `fill`, que se posiciona contra el ancestro posicionado más
+               cercano, y este envoltorio pasa a serlo sin cambiar la caja. */
+            <div className="vp-silhouette-sombra absolute inset-0">
+              <Image
+                src={product.imageUrl}
+                alt={`${product.name} - ${product.brand} (${product.specs.flavorProfile || product.category})`}
+                fill
+                // Debe seguir a las columnas del grid (2 / 3 / 4), o el
+                // navegador descarga una imagen del doble de lo necesario en
+                // móvil.
+                sizes="(max-width: 767px) 50vw, (max-width: 1023px) 33vw, 25vw"
+                /* `object-contain`, no `object-cover`: un recorte comería los
+                 bordes del producto y el contorno quedaría truncado contra el
+                 canto del hueco en vez de cerrar la silueta. */
+                className="vp-silhouette object-contain object-center"
+                loading={eagerImage ? "eager" : "lazy"}
+              />
+            </div>
           ) : (
             <div
               className="flex h-full w-full items-center justify-center border-2 border-muted bg-background rounded-vp"
@@ -236,7 +244,11 @@ export function ProductCard({ product, eagerImage = false }: ProductCardProps) {
           elástico del medio sin mover ni la imagen ni el filete. Reservar aquí
           solo dejaba 27px en blanco en los nombres de una línea. */}
         <h3 className="vp-plano vp-plano-texto [--vp-plano:56px] mt-4 text-lg font-bold uppercase leading-tight line-clamp-2 sm:mt-5 sm:text-[1.375rem]">
-          {product.name}
+          {/* El nombre es el enlace principal: es lo que se lee primero y lo
+              que un lector de pantalla anuncia en la lista de enlaces. */}
+          <Link href={detailHref} className="transition-colors hover:text-action">
+            {product.name}
+          </Link>
         </h3>
 
         {/* La descripción es opcional en el catálogo y hoy ningún producto la
@@ -347,43 +359,27 @@ export function ProductCard({ product, eagerImage = false }: ProductCardProps) {
           sombra dura de caja es para las piezas con contorno —etiquetas,
           chapas y este botón— y la de texto para los bloques que no lo
           tienen. */}
-      {actionHref && (
-        <Button
-          variant="secondary"
-          href={actionHref}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={
-            isAvailable
-              ? `Pedir por WhatsApp ${product.name}`
-              : `Consultar reposición de ${product.name}`
-          }
-          className={cn(
+      <Link
+        href={detailHref}
+        // Mismo nombre accesible para los dos enlaces de la tarjeta: van al
+        // mismo sitio y así se leen como uno.
+        aria-label={`${product.name}: ${ctaLong.toLowerCase()}`}
+        className={buttonStyles(
+          "secondary",
+          cn(
             // `px-1.5` sobrescribe el `px-6` de la variante (vía `twMerge`):
             // 48px de relleno horizontal no caben en una tarjeta de 2
             // columnas. El alto mínimo de 44px no se toca.
             "vp-plano vp-plano-sombra [--vp-plano:60px] mt-4 w-full px-1.5 sm:px-6",
             !isAvailable && "border-muted text-muted",
-          )}
-        >
-          {/* El icono es decorativo (`aria-hidden`) y es lo primero que se
-            sacrifica: por debajo de 360px el contenido del botón mide
-            112px (16 + 8 + 88) contra 94px útiles, y al estar centrado el
-            desborde recorta el rótulo por los dos lados. */}
-          <MessageCircle
-            className="hidden size-4 shrink-0 xs:block"
-            aria-hidden="true"
-          />
-          {/* Rótulo corto en móvil. El `aria-label` del botón mantiene la
-            frase completa, así que el lector de pantalla no pierde nada. */}
-          <span className="sm:hidden">
-            {isAvailable ? "Pedir" : "Consultar"}
-          </span>
-          <span className="hidden sm:inline">
-            {isAvailable ? "Pedir por WhatsApp" : "Consultar reposición"}
-          </span>
-        </Button>
-      )}
+          ),
+        )}
+      >
+        {/* Rótulo corto en móvil; el `aria-label` lleva la frase completa. */}
+        <span className="sm:hidden">{isAvailable ? "Elegir" : "Ver"}</span>
+        <span className="hidden sm:inline">{ctaLong}</span>
+        <ChevronRight className="hidden size-4 shrink-0 xs:block" aria-hidden="true" />
+      </Link>
       </div>
     </Surface>
   );

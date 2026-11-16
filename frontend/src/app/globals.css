@@ -84,6 +84,28 @@
 
   /* --- Movimiento --- */
   --ease-vp: cubic-bezier(0.2, 0, 0, 1);
+  /* Deslizamiento largo de paneles (vitrina ⇄ información). Sinusoidal y
+     simétrica: arranca y se posa igual de suave, porque la misma curva sirve
+     para entrar y para salir y las dos tienen que leerse como un solo gesto.
+     Más plana que una cúbica, así que el panel no acelera de golpe a mitad
+     de recorrido. `--ease-vp` frena en seco, que en un recorrido largo se
+     nota como un golpe al final. */
+  --ease-vp-slide: cubic-bezier(0.37, 0, 0.63, 1);
+
+  /* Parpadeo arcade de la flecha de los tiradores: a saltos, como un
+     «PRESS START», nunca un fundido. */
+  --animate-vp-blink: vp-blink 1.2s steps(1, end) infinite;
+
+  @keyframes vp-blink {
+    0%,
+    60% {
+      opacity: 1;
+    }
+    60.01%,
+    100% {
+      opacity: 0.2;
+    }
+  }
 }
 
 /* ============================================================================
@@ -104,6 +126,24 @@
    ========================================================================== */
 :root {
   --vp-lead: 48.125rem;
+
+  /* Alto de la barra de navegación (`navbar.tsx`), que es pegajosa: fila de
+     44px (los botones de 44 mandan sobre el logotipo de 40) + `py-4` + 2px de
+     borde = 78px; desde `sm` el logotipo pasa a 48px y manda él: 82px. Si
+     cambia la barra, cambia aquí. */
+  --vp-nav-h: 4.875rem;
+
+  /* Lo que queda de pantalla debajo de la barra. `svh` y no `vh`: en un
+     teléfono es el alto con las barras del navegador A LA VISTA, que es el
+     espacio que de verdad se ve al llegar; con `vh` la sección se metería por
+     debajo de la barra inferior de Safari o Chrome. */
+  --vp-screen: calc(100svh - var(--vp-nav-h));
+}
+
+@media (min-width: 40rem) {
+  :root {
+    --vp-nav-h: 5.125rem;
+  }
 }
 
 /* ============================================================================
@@ -113,12 +153,16 @@
    de la tarjeta (0,0 = centro). Las escribe `<CardField />` en el mismo
    `requestAnimationFrame` que ya calcula el brillo.
 
-   SE REGISTRAN CON `@property` POR UN MOTIVO CONCRETO: una variable CSS normal
-   no interpola. Metida dentro de un degradado, al cambiar de valor saltaría de
-   una posición a otra en lugar de desplazarse, y la lámina del holograma se
-   vería a tirones. Declarando `syntax: "<number>"` el navegador sabe que es un
-   número y puede transicionarla.
-   ========================================================================== */
+   SE REGISTRAN CON `@property` PARA DARLES TIPO: declarando
+   `syntax: "<number>"` el navegador sabe que son números, y eso es lo que
+   valida multiplicaciones como `calc(var(--vp-plano) * var(--vp-rx))` en la
+   sombra del plano. Con una variable sin registrar, esa `calc` no resolvería.
+
+   NO SE TRANSICIONAN. El registro también las haría interpolables, y durante
+   un tiempo `.vp-card` las transicionaba para suavizar la inclinación. Salía
+   carísimo —son heredables, así que cada tic de la animación invalidaba el
+   subárbol entero de la tarjeta— y era redundante con la transición de
+   `transform`. Ver el bloque `transition` de `.vp-card`. */
 @property --vp-rx {
   syntax: "<number>";
   inherits: true;
@@ -148,6 +192,52 @@ nav,
 button {
   font-family: var(--font-display);
 }
+
+/* ============================================================================
+   BARRA DE DESLIZAMIENTO: OCULTA
+   ----------------------------------------------------------------------------
+   La página no enseña barra de desplazamiento. SE OCULTA, NO SE DESACTIVA:
+   el documento sigue desplazándose igual con la rueda, el teclado (flechas,
+   av/re página, inicio/fin), el dedo y el cursor táctil. Lo único que
+   desaparece es el carril pintado.
+
+   Dos sintaxis, porque ningún navegador entiende las dos: `scrollbar-width:
+   none` es el estándar (Firefox) y `::-webkit-scrollbar { display: none }` es
+   lo único que obedecen Chrome y Safari.
+
+   SIN `scrollbar-gutter`, QUE ES LO QUE HABÍA. Reservaba el carril de 10px
+   para que el contenido no saltara al bloquear el scroll con la puerta +18;
+   sin barra que reservar, el salto no existe y el carril solo restaría 10px de
+   ancho a cada sección.
+
+   EL COSTE, DICHO CLARO: la barra es también el indicador de cuánto documento
+   queda por debajo, y este mide ~7000px. Quién use ratón pierde esa referencia
+   y la posibilidad de arrastrar el pulgar para saltar lejos. Es una decisión de
+   diseño pedida a propósito, no un descuido; si algún día hace falta devolver
+   la referencia sin devolver el carril del sistema, el sitio es un indicador
+   propio de progreso, no reactivar esto.
+
+   Se aplica a TODO contenedor con desbordamiento, no solo al documento: el
+   selector `-webkit-` no lleva sujeto a propósito, para que un panel con
+   scroll interno tampoco saque una barra gris del sistema en medio del
+   sistema VP.
+   ========================================================================== */
+html {
+  scrollbar-width: none;
+}
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* NO SE IMPORTA `lenis/dist/lenis.css`, y es deliberado. El desplazamiento
+   suavizado (`components/smooth-scroll.tsx`) funciona sin su hoja: lo único
+   que esa hoja hace que importe aquí es `html.lenis, html.lenis body {
+   height: auto }`, y eso pisaría el `h-full` del `<html>` y el `min-h-full`
+   del `<body>` que sostienen el pie pegado al fondo en páginas cortas. Lenis
+   no necesita esa regla porque no envuelve ni transforma nada: pide el
+   desplazamiento NATIVO fotograma a fotograma. Las demás reglas de la hoja
+   cuelgan de `[data-lenis-prevent]` y de `iframe`, y aquí no hay ni uno. */
 
 /* ============================================================================
    ETIQUETA PIXEL
@@ -289,17 +379,29 @@ html.glitch-armed .vp-glitch-on {
   will-change: filter;
 }
 
+/* EL VELO NO LLEGA NUNCA AL 100%. La opacidad colgaba directamente de
+   `--glitch-shift / 14`, así que en la entrada —donde la intensidad vale 1 y el
+   desplazamiento 14— el velo se pintaba al tope sobre TODO el viewport: navbar,
+   lienzo 3D y catálogo quedaban detrás de una rejilla maciza.
+
+   `--vp-scanline-veil` es el techo (0.4): el velo acompaña la ráfaga pero deja
+   ver lo que hay debajo, que es su trabajo. Las líneas también bajan del 8% al
+   6% de negro, porque a 1 de cada 4 píxeles el 8% ya se leía como un gris
+   plano encima del contenido. Si se sube el techo, hay que volver a medir el
+   contraste del texto sobre franja filtrada. */
 .vp-glitch-scanlines {
+  --vp-scanline-veil: 0.4;
+
   position: fixed;
   inset: 0;
   z-index: 45; /* sobre el navbar (40), bajo el modal +18 (50) */
   pointer-events: none;
-  opacity: calc(var(--glitch-shift, 0) / 14);
+  opacity: calc(var(--glitch-shift, 0) / 14 * var(--vp-scanline-veil));
   background: repeating-linear-gradient(
     to bottom,
     transparent 0px,
     transparent 3px,
-    color-mix(in srgb, var(--color-vp-black) 8%, transparent) 4px
+    color-mix(in srgb, var(--color-vp-black) 6%, transparent) 4px
   );
 }
 
@@ -310,10 +412,10 @@ html.glitch-active .vp-glitch-scanlines {
 @keyframes vp-glitch-scan {
   0%,
   100% {
-    opacity: calc(var(--glitch-shift, 0) / 14);
+    opacity: calc(var(--glitch-shift, 0) / 14 * var(--vp-scanline-veil));
   }
   50% {
-    opacity: calc(var(--glitch-shift, 0) / 14 * 0.6);
+    opacity: calc(var(--glitch-shift, 0) / 14 * var(--vp-scanline-veil) * 0.6);
   }
 }
 
@@ -434,17 +536,36 @@ html.glitch-active .vp-glitch-scanlines {
      que leer y un CTA de 44px que pulsar, y a 20 grados el texto se deforma y
      el objetivo táctil se escora. */
   perspective: 2000px;
-  transform-style: preserve-3d;
+  /* `preserve-3d` solo en la tarjeta activa: ver «3D SOLO EN LA TARJETA
+     ACTIVA» más abajo. */
   transform: rotateX(calc(var(--vp-ry) * -11deg))
     rotateY(calc(var(--vp-rx) * 11deg));
+  /* NO SE TRANSICIONAN `--vp-rx` NI `--vp-ry`, Y ES LA OPTIMIZACIÓN MÁS
+     RENTABLE DE TODA LA TARJETA.
+
+     Están registradas con `@property` y con `inherits: true`. Transicionarlas
+     obliga al navegador a animarlas en el hilo principal, y cada tic de esa
+     animación invalida el estilo de TODO el subárbol de la tarjeta —imagen,
+     lámina, silueta, textos—. Como `ui/card-field.tsx` las reescribe en cada
+     fotograma mientras el puntero se mueve, cada escritura dejaba detrás 180 ms
+     de animación propia, solapándose con la siguiente.
+
+     En caliente la ganancia en fps no es medible (ver el aviso de método en
+     `docs/performance-optimization-plan.md`); lo que sí se ve en las trazas
+     es que ese trabajo por fotograma desaparece.
+
+     EL MOVIMIENTO NO SE PIERDE. `transform` se sigue transicionando aquí
+     abajo, así que la inclinación llega suavizada igual; lo que desaparece es
+     el segundo suavizado, redundante, sobre las variables de las que esa
+     inclinación se calcula. Al salir el puntero, los degradados de la lámina
+     vuelven a su sitio de golpe en vez de deslizarse, pero eso ocurre bajo una
+     lámina que a la vez se está apagando en 0,3 s, así que no se ve. */
   transition:
     background-color 0.25s var(--ease-vp),
     border-color 0.25s var(--ease-vp),
     box-shadow 0.25s var(--ease-vp),
     translate 0.25s var(--ease-vp),
-    transform 0.2s linear,
-    --vp-rx 0.18s linear,
-    --vp-ry 0.18s linear;
+    transform 0.2s linear;
 }
 
 .vp-card::before,
@@ -550,9 +671,27 @@ html.glitch-active .vp-glitch-scanlines {
   overflow: hidden;
   z-index: -1;
   pointer-events: none;
-  opacity: 0.28;
+  /* APAGADA EN REPOSO, y `visibility: hidden` para que no se pinte: con
+     blend + máscara + `blur(18px)` en cada tarjeta, el velo del 28% costaba
+     una superficie desenfocada por tarjeta aunque ninguna estuviera activa.
+     Solo se enciende en la activa (reglas de abajo). El `visibility` se
+     retrasa al apagar para que el fundido de salida se vea entero. */
+  /* FUERZA DE LA LÁMINA ENCENDIDA, en un solo sitio. Las tres reglas que la
+     encienden (puntero, foco y cursor táctil) leen esta variable, así que se
+     ajusta aquí y no en tres. Bajó de 0.92 a 0.55 porque al 92% el velo
+     holográfico tapaba el contenido de la tarjeta en vez de acompañarlo.
+
+     Bajarla solo puede MEJORAR el contraste: la mezcla es `screen`, que aclara
+     el fondo bajo un texto claro. Las medidas de más abajo (el precio gris a
+     ~5:1 con la lámina encendida) siguen siendo el peor caso, no el actual. */
+  --vp-holo-on: 0.55;
+
+  opacity: 0;
+  visibility: hidden;
   mix-blend-mode: screen;
-  transition: opacity 0.35s var(--ease-vp);
+  transition:
+    opacity 0.35s var(--ease-vp),
+    visibility 0s linear 0.35s;
 
   /* La lámina se hunde detrás de todo. Al inclinar la tarjeta, el velo se
      queda rezagado respecto a lo que flota delante, que es justamente lo que
@@ -654,14 +793,18 @@ html.glitch-active .vp-glitch-scanlines {
    limitaba a puntero fino más abajo. */
 @media (hover: hover) and (pointer: fine) {
   .vp-card:hover .vp-holo {
-    opacity: 0.92;
+    opacity: var(--vp-holo-on);
+    visibility: visible;
+    transition: opacity 0.35s var(--ease-vp), visibility 0s;
   }
 }
 
 /* El foco sí vale a cualquier ancho: llega por teclado, y ahí encender la
    lámina señala qué tarjeta está activa sin depender del puntero. */
 .vp-card:focus-within .vp-holo {
-  opacity: 0.92;
+  opacity: var(--vp-holo-on);
+  visibility: visible;
+  transition: opacity 0.35s var(--ease-vp), visibility 0s;
 }
 
 /* Y el cursor táctil, que es la respuesta a la guarda de arriba: en un
@@ -669,18 +812,22 @@ html.glitch-active .vp-glitch-scanlines {
    conocido y que se apaga al salir, en vez de por un `:hover` que se queda
    clavado donde se tocó por última vez. */
 .vp-card.vp-hot .vp-holo {
-  opacity: 0.92;
+  opacity: var(--vp-holo-on);
+  visibility: visible;
+  transition: opacity 0.35s var(--ease-vp), visibility 0s;
 }
 
 /* En táctil la lámina responde al dedo mantenido. AVISO HONESTO: esto no se
    ha podido confirmar con el emulador —Chrome no aplica `:active` a los
    eventos de toque sintéticos del protocolo, verificado: `matches(':active')`
    devuelve false con el dedo puesto—, así que queda pendiente de probarlo en
-   un teléfono real. Si no llegara a dispararse, en móvil la lámina se queda en
-   su 28% de reposo, que es un estado correcto y no un fallo visible. */
+   un teléfono real. Si no llegara a dispararse, en móvil la lámina se queda
+   apagada como en reposo, que es un estado correcto y no un fallo visible. */
 @media (hover: none) {
   :where(html:not([data-vp-cursor="on"])) .vp-card:active .vp-holo {
-    opacity: 0.9;
+    opacity: var(--vp-holo-on);
+    visibility: visible;
+    transition: opacity 0.35s var(--ease-vp), visibility 0s;
   }
 }
 
@@ -714,12 +861,54 @@ html.glitch-active .vp-glitch-scanlines {
 /* La columna de contenido. YA NO GIRA —el giro volvió a la tarjeta, con su
    borde— pero sigue haciendo falta: es quien mantiene el 3D vivo para las
    capas `.vp-plano`, que tienen que ser hijas DIRECTAS suyas. */
-.vp-escena {
+.vp-plano {
+  /* En reposo plana; despega en Z al activarse la tarjeta (ver abajo). */
+  transition: transform 0.25s var(--ease-vp);
+}
+
+/* ----------------------------------------------------------------------------
+   3D SOLO EN LA TARJETA ACTIVA
+   ----------------------------------------------------------------------------
+   Con `preserve-3d` permanente, cada `.vp-plano` (6-7 por tarjeta) y la lámina
+   eran una capa de composición propia SIEMPRE: ~150 capas con 20 tarjetas,
+   aunque nadie las tocara, y en un teléfono sin cursor táctil la inclinación
+   ni siquiera puede ocurrir. Ahora la tarjeta en reposo es plana (una sola
+   superficie) y solo la activa —ratón encima, foco, cursor táctil o dedo
+   mantenido— monta el 3D y hace subir sus capas con una transición.
+
+   Mismos estados que encienden la lámina (`.vp-holo`, arriba). */
+.vp-card.vp-hot,
+.vp-card:focus-within,
+.vp-card.vp-hot .vp-escena,
+.vp-card:focus-within .vp-escena {
   transform-style: preserve-3d;
 }
 
-.vp-plano {
+.vp-card.vp-hot .vp-plano,
+.vp-card:focus-within .vp-plano {
   transform: translateZ(var(--vp-plano, 0));
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .vp-card:hover,
+  .vp-card:hover .vp-escena {
+    transform-style: preserve-3d;
+  }
+
+  .vp-card:hover .vp-plano {
+    transform: translateZ(var(--vp-plano, 0));
+  }
+}
+
+@media (hover: none) {
+  :where(html:not([data-vp-cursor="on"])) .vp-card:active,
+  :where(html:not([data-vp-cursor="on"])) .vp-card:active .vp-escena {
+    transform-style: preserve-3d;
+  }
+
+  :where(html:not([data-vp-cursor="on"])) .vp-card:active .vp-plano {
+    transform: translateZ(var(--vp-plano, 0));
+  }
 }
 
 /* ----------------------------------------------------------------------------
@@ -835,22 +1024,40 @@ html.glitch-active .vp-glitch-scanlines {
    su alfa es un rectángulo y el contorno se lee como un filo de 1px en el
    canto. No se rompe; solo deja de ser silueta.
    ========================================================================== */
+/* EL CONTORNO Y LA SOMBRA VAN EN ELEMENTOS DISTINTOS A PROPÓSITO.
+
+   Los cinco `drop-shadow` estaban en una sola propiedad `filter`, y una cadena
+   de filtros se aplica en cascada: cada uno toma como entrada el resultado del
+   anterior. Como el último depende de `--vp-rx` / `--vp-ry`, que cambian en
+   cada fotograma mientras el puntero se mueve, los cinco pases se rehacían
+   sesenta veces por segundo sobre la foto del producto —aunque los cuatro
+   primeros dieran exactamente el mismo resultado siempre—.
+
+   Separándolos, la entrada del contorno deja de cambiar nunca y el navegador
+   puede reutilizar su resultado; solo se rehace el pase de la sombra. Medido en
+   un Moto G15: la variante sin ninguna de las dos cosas daba +4,8 fps sobre la
+   línea base, que es el techo de lo que se puede recuperar aquí sin renunciar
+   al efecto. */
 .vp-silhouette {
   --vp-silhouette-color: var(--color-line);
   filter:
     drop-shadow(1px 0 0 var(--vp-silhouette-color))
     drop-shadow(-1px 0 0 var(--vp-silhouette-color))
     drop-shadow(0 1px 0 var(--vp-silhouette-color))
-    drop-shadow(0 -1px 0 var(--vp-silhouette-color))
-    /* La sombra del producto, con la forma del producto: `drop-shadow` lee el
-       canal alfa, así que sigue su silueta en vez de dibujar un rectángulo.
-       Sin desenfoque (§3.3). En reposo cae 7px hacia abajo —de ahí el volumen
-       cuando nadie toca nada— y al mover el puntero se va al lado contrario
-       del gesto. */
-    drop-shadow(
-      calc(var(--vp-rx) * -16px) calc(var(--vp-ry) * -16px + 7px) 0
-        rgb(0 0 0 / 0.6)
-    );
+    drop-shadow(0 -1px 0 var(--vp-silhouette-color));
+}
+
+/* La sombra del producto, con la forma del producto: `drop-shadow` lee el
+   canal alfa, así que sigue su silueta en vez de dibujar un rectángulo. Sin
+   desenfoque (§3.3). En reposo cae 7px hacia abajo —de ahí el volumen cuando
+   nadie toca nada— y al mover el puntero se va al lado contrario del gesto.
+
+   Va en el envoltorio de la imagen, no en la imagen: así toma como entrada la
+   silueta ya contorneada y el contorno no se recalcula con ella. */
+.vp-silhouette-sombra {
+  filter: drop-shadow(
+    calc(var(--vp-rx) * -16px) calc(var(--vp-ry) * -16px + 7px) 0 rgb(0 0 0 / 0.6)
+  );
 }
 
 /* ============================================================================

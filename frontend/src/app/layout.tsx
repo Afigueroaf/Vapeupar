@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Oxanium, Press_Start_2P } from "next/font/google";
 import { PageGlitch } from "@/components/page-glitch";
+import { SmoothScroll } from "@/components/smooth-scroll";
 import { VP_BLACK } from "@/lib/brand";
 import "./globals.css";
 
@@ -108,6 +109,9 @@ export default function RootLayout({
       {/* Fondo y color de texto se declaran una sola vez en globals.css sobre tokens */}
       <body className="min-h-full flex flex-col">
         <PageGlitch />
+        {/* Desplazamiento suavizado (Lenis). Como `<PageGlitch />`: singleton,
+            solo en la web pública y sin marcado propio. */}
+        <SmoothScroll />
         {children}
       </body>
     </html>

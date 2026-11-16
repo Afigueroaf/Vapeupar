@@ -177,12 +177,20 @@ export function createPrismScene(host: HTMLElement, options: PrismSceneOptions):
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(FOV, 1, 0.1, 100);
 
+  // EN TÁCTIL O CON DPR ≥ 2, SIN MSAA NI GPU DEDICADA. Con densidad de píxel
+  // alta el escalonado ya no se aprecia y el MSAA multiplica el coste de cada
+  // píxel de un lienzo que se redibuja a 60 fps; y en un teléfono o una
+  // tableta pedir `high-performance` no aporta nada y en portátiles con dos
+  // GPU despierta la dedicada sin motivo.
+  const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+  const denseScreen = (window.devicePixelRatio || 1) >= 2;
+
   const renderer = new THREE.WebGLRenderer({
-    antialias: true,
+    antialias: !coarsePointer && !denseScreen,
     // El negro lo pone la página: el lienzo se superpone a la banda de
     // confianza y a la nube de puntos de la intro, y un fondo opaco las taparía.
     alpha: true,
-    powerPreference: "high-performance",
+    powerPreference: coarsePointer ? "default" : "high-performance",
     stencil: false,
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxPixelRatio));

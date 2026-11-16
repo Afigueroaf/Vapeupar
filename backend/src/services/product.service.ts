@@ -47,7 +47,9 @@ export class ProductService {
           p.brand.toLowerCase().includes(q) ||
           p.description.toLowerCase().includes(q) ||
           (p.specs.flavorProfile && p.specs.flavorProfile.toLowerCase().includes(q)) ||
-          p.tags.some(t => t.toLowerCase().includes(q))
+          p.tags.some(t => t.toLowerCase().includes(q)) ||
+          // Quien busca «mango» busca la línea que lo tiene entre sus sabores.
+          p.variants.some(v => v.name.toLowerCase().includes(q))
         );
       }
 

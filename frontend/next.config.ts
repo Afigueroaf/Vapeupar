@@ -30,6 +30,24 @@ function localNetworkOrigins(): string[] {
 }
 
 const nextConfig: NextConfig = {
+  /**
+   * SERVIDOR AUTÓNOMO PARA PRODUCCIÓN (docs/aws-full-deployment-plan.md, F2).
+   *
+   * `next build` deja en `.next/standalone/` un `server.js` con SOLO las
+   * dependencias que el código usa de verdad, trazadas desde los imports, en
+   * vez de los ~700 paquetes de `node_modules` (que incluyen todo lo de
+   * compilar). En una instancia de 1 GB de RAM y 20 GB de disco esa diferencia
+   * es la que decide si cabe.
+   *
+   * Dos cosas que este modo NO hace y hace el script de release (F3):
+   *   - No copia `.next/static` ni `public/`: se sirven desde nginx o se
+   *     copian junto al servidor.
+   *   - No trae `sharp` para Linux ARM si se compila en Windows: el binario
+   *     nativo que traza es el de la máquina que compila.
+   *
+   * Solo afecta a `next build`. `next dev` no cambia.
+   */
+  output: "standalone",
   // Permite acceder al servidor de desarrollo desde otros dispositivos de la
   // red Wi-Fi (ej. para probar el sitio en un teléfono). Si la IP cambia, basta
   // con reiniciar `next dev`: la lista se vuelve a calcular.
@@ -40,12 +58,8 @@ const nextConfig: NextConfig = {
     // Las imágenes reales del catálogo vienen del CloudFront del entorno
     // (`CDN_DOMAIN` en el backend, el mismo valor aquí como público: es un
     // nombre de dominio, no un secreto). Sin la variable, el patrón no se
-    // añade y solo quedan las de respaldo.
+    // añade y solo se ven las de respaldo, que son locales.
     remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "images.unsplash.com",
-      },
       ...(process.env.NEXT_PUBLIC_CDN_DOMAIN
         ? [
             {

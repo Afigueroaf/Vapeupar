@@ -1,0 +1,54 @@
+# Web de Vapeupar (Next.js standalone) en 127.0.0.1:3000, detrás de nginx.
+# docs/aws-full-deployment-plan.md F2.
+[Unit]
+Description=Vapeupar frontend (Next.js, 127.0.0.1:3000)
+Wants=network-online.target
+# Después del backend: el render del servidor pide productos a la API. No es
+# una dependencia dura, porque la portada aguanta la API caída (cae en los
+# productos de respaldo, `src/app/page.tsx`), pero arrancar en orden evita que
+# la primera página generada salga con el respaldo sin necesidad.
+After=network-online.target vapeupar-backend.service
+
+[Service]
+Type=simple
+User=vapeupar
+Group=vapeupar
+# Raíz del `standalone`: en un monorepo con workspaces, Next deja `server.js`
+# dentro de la carpeta del paquete (`frontend/`) y `node_modules/` un nivel
+# por encima. Ver el empaquetado en F3.
+WorkingDirectory=/opt/vapeupar/current/web/frontend
+
+#  HOSTNAME=127.0.0.1  el `server.js` de Next escucha en esta interfaz.
+#  API_URL             el render del servidor llama a la API por loopback, sin
+#                      salir a internet ni pasar por nginx. El navegador usa
+#                      `/api` relativo, que viene compilado en el paquete.
+Environment=NODE_ENV=production
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=3000
+Environment=API_URL=http://127.0.0.1:4000/api
+Environment=NEXT_TELEMETRY_DISABLED=1
+Environment=NODE_OPTIONS=--max-old-space-size=384
+
+ExecStart=/usr/local/bin/node server.js
+Restart=always
+RestartSec=3
+TimeoutStopSec=15
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+# La ÚNICA escritura en disco: la caché de Next (`.next/cache`), con las
+# páginas regeneradas cada 60 s (ISR) y las imágenes optimizadas. Vive dentro
+# de la release, así que se abre la carpeta de releases y nada más. Se escribe
+# a través del enlace `current`, que resuelve a una ruta de aquí dentro.
+ReadWritePaths=/opt/vapeupar/releases
+
+[Install]
+WantedBy=multi-user.target

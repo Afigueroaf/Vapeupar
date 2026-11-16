@@ -17,6 +17,7 @@ function product(overrides: Partial<Product> & Pick<Product, 'id' | 'slug' | 'ca
     showcase: false,
     specs: { nicotineStrength: '20mg (2%)' },
     tags: [],
+    variants: [],
     ...overrides
   };
 }
@@ -79,6 +80,17 @@ describe('ProductService', () => {
     expect((await service.getAll({ search: 'mango' })).items.map(p => p.id)).toEqual(['p3']);
     expect((await service.getAll({ search: 'MENTA' })).items.map(p => p.id)).toEqual(['p4']);
     expect((await service.getAll({ search: 'pod kit' })).items.map(p => p.id)).toEqual(['p2']);
+  });
+
+  it('encuentra una línea por el nombre de uno de sus sabores', async () => {
+    const lines = [
+      product({ id: 'l1', name: 'Gamma 6K', variants: [
+        { id: 'v1', kind: 'flavor', name: 'Lychee Ice', slug: 'lychee-ice', imageUrl: '', inStock: true, stock: 2 }
+      ] }),
+      product({ id: 'l2', name: 'Delta 6K' })
+    ];
+    const byFlavor = new ProductService(new InMemoryProductRepository(lines));
+    expect((await byFlavor.getAll({ search: 'lychee' })).items.map(p => p.id)).toEqual(['l1']);
   });
 
   it('filtra por rango de precio inclusivo', async () => {

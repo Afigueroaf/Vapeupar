@@ -1,0 +1,26 @@
+# Actualizaciones automáticas en forma de PR a `main` (pasan por ci.yml como
+# cualquier otro cambio). docs/infrastructure-aws.md, «Flujo de despliegue».
+version: 2
+updates:
+  # Las actions van fijadas por SHA en los workflows; Dependabot mueve el SHA y
+  # el comentario de la versión a la vez.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: ci
+
+  # Monorepo con workspaces: un solo lockfile en la raíz. Agrupadas para no
+  # recibir un PR por paquete; las versiones mayores van aparte porque son las
+  # que pueden romper.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+    groups:
+      menores:
+        update-types: [minor, patch]

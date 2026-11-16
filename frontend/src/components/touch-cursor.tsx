@@ -13,6 +13,7 @@ import {
   VIBRATION_MS,
   VIRTUAL_POINTER_ID,
   hoverChain,
+  marksHot,
   scrollSpeedAt,
 } from "@/lib/touch-cursor";
 
@@ -179,6 +180,15 @@ export function TouchCursor() {
     let cx = 0;
     let cy = 0;
 
+    /**
+     * Punta en el último `pointermove` emitido. Ver el bucle.
+     *
+     * Arranca en -infinito y no en `NaN`: cualquier comparación con `NaN` es
+     * falsa, y el primer movimiento del gesto se habría descartado.
+     */
+    let movedAtX = Number.NEGATIVE_INFINITY;
+    let movedAtY = Number.NEGATIVE_INFINITY;
+
     /** Cadena bajo la punta, del elemento más interno hacia `<html>`. */
     let hot: Element[] = [];
 
@@ -261,7 +271,9 @@ export function TouchCursor() {
         emit("mouseout", before, after, true);
         for (const el of previous) {
           if (el === common) break;
-          el.classList.remove(HOT_CLASS);
+          // `marksHot` decide qué se marcó al entrar, así que decide también
+          // qué hay que limpiar al salir. Ver el porqué en `lib/touch-cursor`.
+          if (marksHot(el)) el.classList.remove(HOT_CLASS);
           emit("pointerleave", el, after, false);
           emit("mouseleave", el, after, false);
         }
@@ -277,7 +289,7 @@ export function TouchCursor() {
         }
         // De fuera hacia dentro, como los emite el navegador.
         for (const el of entering.reverse()) {
-          el.classList.add(HOT_CLASS);
+          if (marksHot(el)) el.classList.add(HOT_CLASS);
           emit("pointerenter", el, before, false);
           emit("mouseenter", el, before, false);
         }
@@ -352,6 +364,34 @@ export function TouchCursor() {
 
       const el = document.elementFromPoint(cx, cy);
       retarget(el);
+
+      /*
+        EL MOVIMIENTO SOLO SE ANUNCIA SI LA PUNTA SE HA MOVIDO DE VERDAD.
+
+        Antes se emitían `pointermove` y `mousemove` en cada fotograma mientras
+        la página se desplazaba, aunque el dedo estuviera clavado en el borde
+        de la pantalla —que es justo lo que pasa durante un recorrido largo—.
+        De esos dos eventos cuelgan el brillo y la inclinación de las tarjetas,
+        el empuje de la nube y el cabeceo del prisma, y cada uno vuelve a medir
+        su elemento: medido en un Moto G15, unas diez llamadas y seis
+        mediciones forzadas por fotograma sin que la punta se hubiera movido un
+        píxel.
+
+        Un ratón de verdad se comporta igual: si no lo mueves no emite
+        `mousemove` por mucho que la página se desplace bajo él. Los eventos de
+        frontera sí se siguen emitiendo arriba, en `retarget`, porque esos un
+        ratón real SÍ los recibe cuando el contenido pasa por debajo.
+
+        El umbral es de un píxel entero: por debajo de eso ningún efecto de los
+        que escuchan produce un cambio visible, y el redondeo del desplazamiento
+        ya trabaja en píxeles enteros.
+      */
+      const drifted = Math.abs(cx - movedAtX) >= 1 || Math.abs(cy - movedAtY) >= 1;
+      if (!drifted) return;
+
+      movedAtX = cx;
+      movedAtY = cy;
+
       if (el) {
         emit("pointermove", el, null, true);
         emit("mousemove", el, null, true);
@@ -404,6 +444,8 @@ export function TouchCursor() {
 
       const el = document.elementFromPoint(cx, cy);
       retarget(el);
+      movedAtX = cx;
+      movedAtY = cy;
       if (el) {
         emit("pointermove", el, null, true);
         emit("mousemove", el, null, true);
@@ -444,6 +486,16 @@ export function TouchCursor() {
       // cuanto se entera, y es el `pointerout` el que devuelve la tarjeta a
       // plano.
       retarget(null);
+
+      // Barrido de seguridad, una vez por gesto. `retarget` limpia lo que
+      // marcó, pero solo mientras `marksHot` siga diciendo lo mismo del
+      // elemento que dijo al entrar; si un componente cambiara su `class` en
+      // medio del recorrido, la marca se quedaría pegada y el `hover` con
+      // ella. Esto cuesta un `querySelectorAll` al soltar el dedo.
+      for (const el of document.querySelectorAll("." + HOT_CLASS)) {
+        el.classList.remove(HOT_CLASS);
+      }
+
       window.dispatchEvent(new Event(CURSOR_MODE_EVENT));
     }
 

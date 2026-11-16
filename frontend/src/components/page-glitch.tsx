@@ -151,6 +151,8 @@ export function PageGlitch() {
 
     const root = document.documentElement;
     let frame = 0;
+    /** Temporizador que despierta el bucle antes de la siguiente ráfaga. */
+    let timer = 0;
     let start = 0;
     let burstAt = 0;
     let burstStart = -1;
@@ -298,6 +300,25 @@ export function PageGlitch() {
       }
 
       apply(intensity, now);
+
+      // ENTRE RÁFAGAS EL BUCLE SE DUERME. Pasada la entrada, sin ráfaga en
+      // curso y con el filtro ya en reposo, los fotogramas hasta la siguiente
+      // no harían nada: `burstAt` se conoce de antemano, así que basta un
+      // temporizador que despierte el rAF justo al empezar el precalentado.
+      // Quita un `requestAnimationFrame` permanente (5-9 s de cada ~7,5).
+      const idle =
+        sinceStart >= INTRO_DECAY_MS && burstStart < 0 && now < burstAt - ARM_LEAD_MS;
+      if (idle && appliedShift === 0) {
+        frame = 0;
+        timer = window.setTimeout(wake, burstAt - ARM_LEAD_MS - now);
+        return;
+      }
+
+      frame = requestAnimationFrame(tick);
+    };
+
+    const wake = () => {
+      timer = 0;
       frame = requestAnimationFrame(tick);
     };
 
@@ -313,7 +334,7 @@ export function PageGlitch() {
     let hiddenAt = 0;
 
     const resume = () => {
-      if (frame) return;
+      if (frame || timer) return;
       const now = performance.now();
 
       // EL RELOJ SE ADELANTA, NO SE REINICIA. Reiniciarlo volvería a meter
@@ -340,9 +361,11 @@ export function PageGlitch() {
     };
 
     const pause = () => {
-      if (!frame) return;
+      if (!frame && !timer) return;
       cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
       frame = 0;
+      timer = 0;
       hiddenAt = performance.now();
       // Se deja el filtro en reposo, no a medio glitch: una pestaña que se
       // oculta en mitad de una ráfaga volvería congelada con los canales
@@ -364,6 +387,7 @@ export function PageGlitch() {
     return () => {
       document.removeEventListener("visibilitychange", syncVisibility);
       cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
       disarm();
       root.classList.remove("glitch-ready", "glitch-active");
       root.style.removeProperty("--glitch-shift");

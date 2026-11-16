@@ -6,6 +6,30 @@ export type ProductCategory =
   | 'freebase-liquids' // E-líquidos base libre
   | 'coils-accessories';// Resistencias, pods de repuesto, accesorios
 
+/** Una línea varía en sabor (ECO PRO) o en color (ONE). */
+export type VariantKind = 'flavor' | 'color';
+
+/**
+ * Sabor o color que se puede pedir de una línea.
+ *
+ * Solo las variantes activas: una inactiva está retirada del sitio, mientras
+ * que una agotada sigue aquí con `inStock: false` para que el cliente vea que
+ * existe y pueda preguntar por ella. El precio es de la línea, no de la
+ * variante (ADR-002 §3).
+ */
+export interface ProductVariant {
+  id: string;
+  kind: VariantKind;
+  name: string;
+  /** Único dentro de su línea, no en todo el catálogo. */
+  slug: string;
+  /** Vacía si la variante no tiene foto propia: se usa la de la línea. */
+  imageUrl: string;
+  inStock: boolean;
+  /** Disponible según la caché del libro de inventario, nunca negativo. */
+  stock: number;
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -41,6 +65,8 @@ export interface Product {
     rechargeable?: boolean;      // Batería recargable en desechables
   };
   tags: string[];
+  /** Variantes activas, en el orden de la consola (`sortOrder`, luego nombre). */
+  variants: ProductVariant[];
 }
 
 export interface ProductFilters {

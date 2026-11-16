@@ -1,4 +1,5 @@
 import { RemovalPolicy } from 'aws-cdk-lib';
+import { InstanceSize } from 'aws-cdk-lib/aws-ec2';
 
 /**
  * Configuración por entorno. Todo lo que cambia entre dev y prod vive aquí;
@@ -37,13 +38,60 @@ export interface EnvConfig {
     mfaRequired: boolean;
     removalPolicy: RemovalPolicy;
   };
+  /** EC2 de la aplicación: frontend + backend detrás de nginx (app-stack.ts). */
+  app: {
+    /** Tamaño Graviton (t4g). El plan gratuito solo admite micro y small. */
+    instanceSize: InstanceSize;
+    rootVolumeGb: number;
+    /**
+     * URL pública por la que se entra a la tienda y a la consola, sin barra
+     * final. Sin valor, `http://<IP elástica>`. El backend la usa para CORS
+     * (`FRONTEND_URL` y `ADMIN_URL`). Es lo único que cambia al pasar al
+     * nombre de No-IP y después al dominio definitivo (F4): el frontend se
+     * compila con la API relativa (`/api`) y no lleva el origen dentro.
+     */
+    publicOrigin?: string;
+  };
   monthlyBudgetUsd: number;
+  /**
+   * Despliegue continuo desde GitHub Actions (app-stack.ts, rol
+   * `vapeupar-<env>-github-deploy`). Solo los jobs que corren en el
+   * Environment `environment` de `repository` pueden asumir el rol; las
+   * reglas del Environment (aprobación y rama `produccion`) se configuran en
+   * GitHub. Sin valor, el entorno solo se despliega a mano.
+   */
+  ci?: {
+    /** `propietario/repositorio` en GitHub. */
+    repository: string;
+    /** GitHub Environment (Settings > Environments). */
+    environment: string;
+  };
 }
 
 const ACCOUNT = '342284838697';
 const REGION = 'us-east-1';
 
 const CONFIGS: Record<EnvName, EnvConfig> = {
+  /*
+   * `dev` ES EL ENTORNO DE PRODUCCIÓN (decisión D1 de
+   * docs/aws-full-deployment-plan.md, 2026-11-06). Se conserva el nombre porque
+   * renombrarlo reemplazaría todos los recursos físicos —base incluida—, y el
+   * nombre no cambia lo que importa: los ajustes de abajo.
+   *
+   * Endurecido en su sitio respecto a la configuración desechable original:
+   * protección de borrado y RETAIN en RDS y Cognito, backups de 7 días y
+   * CloudFront con edges de Sudamérica.
+   *
+   * QUEDA PENDIENTE, A PROPÓSITO, EL BUCKET DE CATÁLOGO (`storage.removalPolicy`
+   * y `versioned`). Pasar de DESTROY a RETAIN retira el recurso personalizado
+   * `autoDeleteObjects`, y ese recurso es el que VACÍA el bucket al borrarse.
+   * Las versiones recientes de CDK lo protegen, pero con las 89 imágenes reales
+   * dentro no se cambia sin una copia previa (`aws s3 sync`) y sin comprobarlo
+   * en el diff. Va en su propio paso, no mezclado con F1.
+   *
+   * MFA: `mfaRequired` sigue en false porque Cognito NO PERMITE pasar un pool
+   * existente de OPCIONAL a OBLIGATORIO; solo se fija al crearlo.
+   */
   dev: {
     envName: 'dev',
     account: ACCOUNT,
@@ -53,22 +101,40 @@ const CONFIGS: Record<EnvName, EnvConfig> = {
       multiAz: false,
       allocatedStorageGb: 20,
       maxAllocatedStorageGb: 50,
+      // 1 DÍA ES EL MÁXIMO QUE PERMITE EL PLAN GRATUITO DE AWS. Se intentó subir
+      // a 7 el 2026-11-06 y RDS lo rechazó: «The specified backup retention
+      // period exceeds the maximum available to free tier customers».
+      // CloudFormation deshizo el cambio sin tocar la base. Mientras dure el
+      // plan gratuito, la red de seguridad son los snapshots MANUALES antes de
+      // cada migración o despliegue con riesgo (docs/aws-full-deployment-plan.md
+      // F1.8 y F5). Subirlo a 7 es parte de pasar a plan de pago.
+      //
+      // Si se vuelve a intentar: el conjunto de cambios marca la instancia como
+      // REEMPLAZO CONDICIONAL, así que va en un despliegue propio y con snapshot.
       backupRetentionDays: 1,
-      deletionProtection: false,
-      // Snapshot final al destruir: dev es desechable, sus datos no tanto.
-      removalPolicy: RemovalPolicy.SNAPSHOT,
+      deletionProtection: true,
+      removalPolicy: RemovalPolicy.RETAIN,
     },
     storage: {
+      // F4 añade aquí el nombre de No-IP (y después el dominio definitivo).
       uploadOrigins: ['http://localhost:3000'],
       versioned: false,
-      cdnPriceClassAll: false,
+      // Colombia se sirve desde edges de Sudamérica, que PRICE_CLASS_100 excluye.
+      cdnPriceClassAll: true,
       removalPolicy: RemovalPolicy.DESTROY,
     },
     auth: {
       mfaRequired: false,
-      removalPolicy: RemovalPolicy.DESTROY,
+      removalPolicy: RemovalPolicy.RETAIN,
+    },
+    app: {
+      instanceSize: InstanceSize.MICRO,
+      rootVolumeGb: 20,
     },
     monthlyBudgetUsd: 30,
+    // `.github/workflows/deploy-produccion.yml` y `rollback-produccion.yml`.
+    // Recuerda: dev ES producción.
+    ci: { repository: 'Afigueroaf/Vapeupar', environment: 'produccion' },
   },
   // Definido para que la transición sea revisar diferencias, no escribir desde
   // cero. NO desplegado: antes hay que cerrar la lista de docs/infrastructure-aws.md §8.
@@ -94,6 +160,10 @@ const CONFIGS: Record<EnvName, EnvConfig> = {
     auth: {
       mfaRequired: true,
       removalPolicy: RemovalPolicy.RETAIN,
+    },
+    app: {
+      instanceSize: InstanceSize.MICRO,
+      rootVolumeGb: 20,
     },
     monthlyBudgetUsd: 80,
   },

@@ -1,3 +1,6 @@
 # Las migraciones de Prisma se validan por checksum: deben conservar LF en
 # cualquier sistema operativo, o una migración aplicada aparecería como modificada.
 backend/prisma/migrations/**/*.sql text eol=lf
+# Se ejecutan o se leen en la EC2 (Linux): siempre LF, aunque se clone en Windows.
+infra/deploy/** text eol=lf
+*.sh text eol=lf

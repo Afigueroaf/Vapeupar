@@ -293,3 +293,101 @@ describe('variantes', () => {
     expect((await repo.findProduct(productId))?.variants[0]?.stock).toBe(0);
   });
 });
+
+describe('imagen reemplazada', () => {
+  /** Servicio con un borrado que apunta lo que se le pide, o falla si se le dice. */
+  function withRemoval(fail = false) {
+    const removed: string[] = [];
+    const removing = new CatalogService(repo, async key => {
+      if (fail) throw new Error('S3 no responde');
+      removed.push(key);
+    });
+    return { removing, removed };
+  }
+
+  it('al cambiar la imagen de una variante borra la anterior', async () => {
+    const { productId } = await publishable();
+    const variant = repo.seedVariant({ productId, slug: 'uva', imageKey: 'productos/eco-pro/uva.webp' });
+    const { removing, removed } = withRemoval();
+
+    await removing.updateVariant(productId, variant.id, { imageKey: 'productos/eco-pro/uva-m3k9x2ab.webp' }, AUTHOR);
+
+    expect(removed).toEqual(['productos/eco-pro/uva.webp']);
+  });
+
+  it('también en marca, proveedor y línea', async () => {
+    const { brandId, productId } = await publishable();
+    repo.seedBrand({ slug: 'otra' });
+    const supplier = repo.seedSupplier({ imageKey: 'proveedores/x/logo.webp' });
+    await service.updateBrand(brandId, { logoKey: 'marcas/lifepod/logo.webp' }, AUTHOR);
+    const { removing, removed } = withRemoval();
+
+    await removing.updateBrand(brandId, { logoKey: 'marcas/lifepod/logo-1.webp' }, AUTHOR);
+    await removing.updateSupplier(supplier.id, { imageKey: 'proveedores/x/logo-1.webp' }, AUTHOR);
+    await removing.updateProduct(productId, { imageKey: 'productos/eco-pro/linea-1.webp' }, AUTHOR);
+
+    expect(removed).toEqual(['marcas/lifepod/logo.webp', 'proveedores/x/logo.webp', 'lifepod/eco-pro.webp']);
+  });
+
+  it('quitar la imagen también libera la anterior', async () => {
+    const { productId } = await publishable();
+    const variant = repo.seedVariant({ productId, slug: 'uva', imageKey: 'productos/eco-pro/uva.webp' });
+    const { removing, removed } = withRemoval();
+
+    await removing.updateVariant(productId, variant.id, { imageKey: null }, AUTHOR);
+
+    expect(removed).toEqual(['productos/eco-pro/uva.webp']);
+  });
+
+  it('no borra nada si la clave no cambia o si el cambio es de otro campo', async () => {
+    const { productId } = await publishable();
+    const variant = repo.seedVariant({ productId, slug: 'uva', imageKey: 'productos/eco-pro/uva.webp' });
+    const { removing, removed } = withRemoval();
+
+    await removing.updateVariant(productId, variant.id, { imageKey: 'productos/eco-pro/uva.webp' }, AUTHOR);
+    await removing.updateVariant(productId, variant.id, { name: 'Uva Ice' }, AUTHOR);
+
+    expect(removed).toEqual([]);
+  });
+
+  it('no borra una imagen que otra fila sigue usando', async () => {
+    const { productId } = await publishable();
+    const shared = 'productos/eco-pro/compartida.webp';
+    const one = repo.seedVariant({ productId, slug: 'uno', imageKey: shared });
+    repo.seedVariant({ productId, slug: 'dos', imageKey: shared });
+    const { removing, removed } = withRemoval();
+
+    await removing.updateVariant(productId, one.id, { imageKey: 'productos/eco-pro/uno-1.webp' }, AUTHOR);
+
+    expect(removed).toEqual([]);
+  });
+
+  it('no borra nada si la escritura se rechaza', async () => {
+    const { productId } = await publishable();
+    const { removing, removed } = withRemoval();
+
+    // Precio anterior menor que el actual: la regla de la oferta rechaza el
+    // guardado entero, imagen incluida.
+    await expectError(
+      removing.updateProduct(productId, { imageKey: 'productos/eco-pro/linea-2.webp', compareAtPrice: 1 }, AUTHOR),
+      'VALIDATION'
+    );
+
+    expect(removed).toEqual([]);
+    expect((await repo.findProduct(productId))?.imageKey).toBe('lifepod/eco-pro.webp');
+  });
+
+  it('un fallo al borrar no deshace el guardado', async () => {
+    const { productId } = await publishable();
+    const variant = repo.seedVariant({ productId, slug: 'uva', imageKey: 'productos/eco-pro/uva.webp' });
+    const { removing } = withRemoval(true);
+    const warn = console.warn;
+    console.warn = () => {};
+    try {
+      const saved = await removing.updateVariant(productId, variant.id, { imageKey: 'productos/eco-pro/uva-2.webp' }, AUTHOR);
+      expect(saved.imageKey).toBe('productos/eco-pro/uva-2.webp');
+    } finally {
+      console.warn = warn;
+    }
+  });
+});
