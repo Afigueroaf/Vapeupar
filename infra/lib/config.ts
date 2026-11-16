@@ -63,6 +63,14 @@ export interface EnvConfig {
   ci?: {
     /** `propietario/repositorio` en GitHub. */
     repository: string;
+    /**
+     * El mismo repositorio en el formato INMUTABLE del `sub` de OIDC,
+     * `propietario@<id>/repositorio@<id>`: GitHub lo usa por defecto en este
+     * repositorio. Con IDs y no con nombres, un repositorio recreado con el
+     * mismo nombre no puede asumir el rol. Se consulta con
+     * `gh api repos/<propietario>/<repo>/actions/oidc/customization/sub`.
+     */
+    oidcRepository: string;
     /** GitHub Environment (Settings > Environments). */
     environment: string;
   };
@@ -134,7 +142,11 @@ const CONFIGS: Record<EnvName, EnvConfig> = {
     monthlyBudgetUsd: 30,
     // `.github/workflows/deploy-produccion.yml` y `rollback-produccion.yml`.
     // Recuerda: dev ES producción.
-    ci: { repository: 'Afigueroaf/Vapeupar', environment: 'produccion' },
+    ci: {
+      repository: 'Afigueroaf/Vapeupar',
+      oidcRepository: 'Afigueroaf@178751164/Vapeupar@1430535178',
+      environment: 'produccion',
+    },
   },
   // Definido para que la transición sea revisar diferencias, no escribir desde
   // cero. NO desplegado: antes hay que cerrar la lista de docs/infrastructure-aws.md §8.

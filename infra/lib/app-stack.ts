@@ -305,7 +305,7 @@ export class AppStack extends Stack {
         assumedBy: new iam.WebIdentityPrincipal(github.openIdConnectProviderArn, {
           StringEquals: {
             'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
-            'token.actions.githubusercontent.com:sub': `repo:${config.ci.repository}:environment:${config.ci.environment}`,
+            'token.actions.githubusercontent.com:sub': `repo:${config.ci.oidcRepository}:environment:${config.ci.environment}`,
           },
         }),
       });
