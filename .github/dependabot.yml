@@ -24,3 +24,18 @@ updates:
     groups:
       menores:
         update-types: [minor, patch]
+    # Versiones mayores que se actualizan a propósito, en su propio PR, no
+    # cuando las proponga Dependabot. Las alertas de seguridad siguen llegando.
+    ignore:
+      # Tipos de Node: siguen a la versión de la instancia (Node 22,
+      # NODE_VERSION en infra/lib/app-stack.ts), no a la última de Node.
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+      # Cambian la API o las reglas: express 5 (rutas y errores), TypeScript 7
+      # (compilador nuevo), ESLint 10 (configuración y reglas).
+      - dependency-name: express
+        update-types: ['version-update:semver-major']
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+      - dependency-name: eslint
+        update-types: ['version-update:semver-major']
