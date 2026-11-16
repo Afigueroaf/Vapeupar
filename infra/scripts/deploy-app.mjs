@@ -123,8 +123,12 @@ try {
   delete backendPkg.devDependencies;
   delete backendPkg.scripts;
   fs.writeFileSync(path.join(deps, 'backend', 'package.json'), JSON.stringify(backendPkg, null, 2));
+  // `--no-bin-links`: en Linux npm crea `node_modules/.bin/*` como enlaces
+  // simbólicos (en Windows, archivos `.cmd`), y la release no admite enlaces
+  // (ver la comprobación de abajo). El backend arranca con `node dist/index.js`
+  // y no usa ningún ejecutable de `.bin`.
   run(NPM, ['install', '--omit=dev', '--workspace=vapeupar-backend', '--include-workspace-root=false',
-    '--ignore-scripts', '--no-audit', '--no-fund', '--loglevel=error'], { cwd: deps });
+    '--ignore-scripts', '--no-bin-links', '--no-audit', '--no-fund', '--loglevel=error'], { cwd: deps });
 
   cp('backend/dist', 'backend/dist');
   // Esquema y migraciones para `deploy/migrate.mjs`, que las aplica en la

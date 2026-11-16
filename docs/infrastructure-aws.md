@@ -464,7 +464,12 @@ No hay claves de AWS en GitHub. Los jobs que corren en el Environment
 `produccion` asumen por OIDC el rol `vapeupar-dev-github-deploy`
 (`infra/lib/app-stack.ts`, `config.ci`), que:
 
-- solo confía en `repo:Afigueroaf/Vapeupar:environment:produccion`. Un job
+- solo confía en `repo:Afigueroaf@178751164/Vapeupar@1430535178:environment:produccion`
+  (formato **inmutable** del `sub`, con los IDs de la cuenta y del repositorio,
+  que GitHub usa por defecto: un repositorio recreado con el mismo nombre no
+  sirve; si GitHub cambiara el formato, el error es «Not authorized to perform
+  sts:AssumeRoleWithWebIdentity» y se revisa con
+  `gh api repos/Afigueroaf/Vapeupar/actions/oidc/customization/sub`). Un job
   entra en ese Environment solo si cumple sus reglas (rama `produccion` y
   aprobación), así que ni PRs, ni otras ramas, ni forks pueden asumirlo;
 - solo puede leer los parámetros que usa el despliegue, subir
