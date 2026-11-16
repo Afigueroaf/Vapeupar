@@ -39,3 +39,7 @@ updates:
         update-types: ['version-update:semver-major']
       - dependency-name: eslint
         update-types: ['version-update:semver-major']
+      # dotenv 17+ cambia lo que imprime al cargarse, y el backend lo carga al
+      # arrancar (backend/src/index.ts).
+      - dependency-name: dotenv
+        update-types: ['version-update:semver-major']
