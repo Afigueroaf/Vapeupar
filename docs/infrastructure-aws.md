@@ -300,46 +300,224 @@ lado de DeliPan, su responsable debería considerar:
 | `npm run infra:deploy` | Despliega todos los stacks del entorno dev |
 | `npm run infra:db-tunnel` | Abre `localhost:15432` → RDS dev a través de `TUNNEL_INSTANCE_ID` (la EC2 de la aplicación). Comprueba que el puerto esté libre y arranca la instancia si está detenida. Ctrl+C cierra |
 | `npm run infra:env-backend` | Escribe en `backend/.env` las variables de AWS (§5.3). No imprime valores |
+| `npm run app:deploy` | Compila y despliega la aplicación en la EC2, con migraciones (§5.2.1). Lo normal es que lo lance GitHub Actions |
+| `npm run app:rollback` | Lista las releases que siguen en la instancia; `-- dev <id>` reactiva una (§5.2.1, «Volver atrás») |
 
 Para otro entorno: `npm run diff --workspace=infra -- -c env=prod` (solo cuando
 prod esté habilitado, §8).
 
-### 5.2.1 Despliegue continuo: rama `produccion`
+### 5.2.1 Flujo de despliegue a producción
 
-Cada `git push` a la rama **`produccion`** despliega la aplicación (tienda,
-consola y API) en la EC2 de `dev`, que es el entorno de producción.
-Workflow: `.github/workflows/deploy-produccion.yml`. Hace lo mismo que
-`npm run app:deploy` desde un portátil: tests del backend, build, subida de la
-release y `activate.sh` por SSM. Si la verificación de la instancia falla,
-`activate.sh` vuelve solo a la release anterior y el job queda en rojo.
+La EC2 de `dev` **es** producción. Todo lo que llega a ella sigue este camino:
 
-```bash
-git switch produccion
-git merge --ff-only <rama-con-los-cambios>
-git push origin produccion        # despliega; se sigue en GitHub > Actions
+```
+rama de trabajo ──PR──▶ main ──(CI en verde)──▶ git push origin main:produccion
+                                                  │
+                     GitHub Actions «Despliegue a producción»
+                       1. verificar: el commit está en main + tests
+                       2. aprobación manual (Environment `produccion`)
+                       3. desplegar: build → S3 → SSM → activate.sh
+                            migraciones → activar → verificar
+                            (si la verificación falla, vuelve sola a la anterior)
 ```
 
-También se puede relanzar sin commit nuevo: Actions > «Despliegue a
-producción» > *Run workflow*.
+| Pieza | Dónde |
+|---|---|
+| CI de PRs y de `main` (tipos, lint, tests, build) | `.github/workflows/ci.yml` |
+| Despliegue al mover `produccion` | `.github/workflows/deploy-produccion.yml` → `npm run app:deploy` |
+| Vuelta atrás manual | `.github/workflows/rollback-produccion.yml` → `npm run app:rollback` |
+| Migraciones en la instancia | `infra/deploy/migrate.mjs`, llamado por `activate.sh` antes de activar |
+| Rol de AWS de GitHub (OIDC) | `infra/lib/app-stack.ts`, `config.ci` |
+| Actualizaciones de dependencias y actions | `.github/dependabot.yml` |
 
-**Credenciales.** No hay claves de AWS en GitHub. El job asume por OIDC el rol
-`vapeupar-dev-github-deploy` (`infra/lib/app-stack.ts`, `config.ci`), que:
+**Reglas del flujo**
 
-- solo confía en `repo:Afigueroaf/Vapeupar:ref:refs/heads/produccion` (ni PRs,
-  ni otras ramas, ni forks);
+- **`main` siempre desplegable.** Todo entra por PR y solo se fusiona con el CI
+  en verde.
+- **`produccion` es un puntero, no una rama de trabajo.** Solo avanza en
+  *fast-forward* hasta un commit de `main`. El job `verificar` rechaza un
+  commit que no esté en `main`; si `git push` se niega por no ser
+  *fast-forward*, **no se fuerza**: hay que averiguar qué hay en `produccion`
+  que no está en `main`.
+- **Las migraciones son compatibles con el código anterior** (ver
+  «Migraciones»). La vuelta atrás reactiva código, no deshace el esquema.
+- **Infraestructura antes que aplicación.** Si un cambio toca `infra/lib`, se
+  aplica con `npm run infra:deploy` antes de mover `produccion`.
+
+#### Paso a paso
+
+1. **Rama de trabajo.**
+   ```bash
+   git switch main && git pull
+   git switch -c feat/lo-que-sea
+   # cambios y commits
+   git push -u origin feat/lo-que-sea
+   ```
+   Si cambia el modelo:
+   `npm run db:migrate:create --workspace=backend -- --name <nombre>` (crea la
+   migración sin aplicarla, `docs/backend.md`) y revisar el SQL. Ver
+   «Migraciones».
+2. **PR a `main`.** El CI corre solo. Si el PR toca `infra/`, revisar también
+   `npm run infra:diff`. Fusionar con el CI en verde.
+3. **Infraestructura, solo si cambió.**
+   ```bash
+   git switch main && git pull
+   npm run infra:diff      # confirmar que es lo esperado
+   npm run infra:deploy
+   ```
+4. **Antes de desplegar.** `main` en verde; hora de poco tráfico (los
+   servicios se reinician: unos segundos sin servicio); anotar la release
+   activa (último despliegue correcto en *Actions*, o `npm run app:rollback`
+   sin argumentos). Si hay una migración con riesgo, **snapshot manual** de
+   RDS antes (la retención automática es de 1 día, §6.1):
+   ```bash
+   aws rds create-db-snapshot --db-instance-identifier vapeupar-dev-db \
+     --db-snapshot-identifier vapeupar-dev-antes-de-$(date +%Y%m%d-%H%M)
+   ```
+5. **Promover.**
+   ```bash
+   git switch main && git pull
+   git push origin main:produccion
+   ```
+6. **Aprobar.** *Actions* → la ejecución de «Despliegue a producción» queda en
+   *Waiting* tras `verificar` → **Review deployments** → `produccion` →
+   **Approve and deploy**.
+7. **Seguir el job.** En el log de `desplegar` aparecen el id de la release
+   (`release <fecha>-<sha>`), las migraciones aplicadas (`[migrate]`) y la
+   verificación (`[activate]`).
+8. **Comprobar a mano** (2 minutos): tienda, catálogo, ficha, carrito y enlace
+   de WhatsApp; entrar en la consola.
+9. **Si algo va mal**, ver «Volver atrás».
+
+Relanzar el mismo commit sin cambios: *Actions* → «Despliegue a producción» →
+*Run workflow* sobre `produccion`.
+
+Desde un portátil sigue funcionando `npm run app:deploy` (mismo script, con tus
+credenciales). Es la salida de emergencia si GitHub Actions no está
+disponible; lo normal es el flujo de arriba, que deja rastro y pasa por CI.
+
+#### Migraciones
+
+`activate.sh` ejecuta `infra/deploy/migrate.mjs` **después** de desempaquetar
+la release y **antes** de cambiar `current`:
+
+- Instala en la instancia el CLI de Prisma de la versión exacta del lockfile
+  (`/opt/vapeupar/tools/prisma-<versión>`, una vez por versión: el motor de
+  migraciones es un binario nativo y no viaja en la release).
+- Se conecta con el usuario maestro (`vapeupar/dev/rds-master`, que solo puede
+  leer el rol de la instancia) y TLS verificado contra la CA de RDS
+  (`sslaccept=strict`, el equivalente de `verify-full`).
+- `prisma migrate deploy` aplica solo las pendientes; sin pendientes, no hace
+  nada.
+- **Si una migración falla, no se activa nada**: la release anterior sigue
+  sirviendo. Hay que corregir y volver a desplegar; si la migración quedó a
+  medias, se marca con `npx prisma migrate resolve` desde `backend/` con el
+  túnel abierto (§5.3) antes de reintentar.
+
+**Expandir y contraer.** Como la vuelta atrás (automática o manual) no deshace
+el esquema, el código **anterior** tiene que seguir funcionando con el esquema
+**nuevo**:
+
+| Se quiere | Despliegue 1 (expandir) | Despliegue 2 (contraer), cuando ya no se vuelva atrás |
+|---|---|---|
+| Columna nueva | Añadirla opcional o con valor por defecto | Hacerla obligatoria si hace falta |
+| Renombrar columna | Añadir la nueva, escribir en las dos, copiar datos | Leer solo la nueva y borrar la vieja |
+| Borrar columna o tabla | Dejar de usarla en el código | Borrarla |
+| Tabla nueva | Crearla **con sus `GRANT` para `vapeupar_app`** (no hay privilegios por defecto) | — |
+
+`db:sync-app-role` no forma parte del despliegue: solo hace falta al crear la
+base o al rotar la contraseña del rol (`docs/backend.md`).
+
+#### Volver atrás
+
+| Situación | Qué pasa / qué hacer |
+|---|---|
+| Falla una migración | No se activa nada; sigue la release anterior. Corregir y desplegar de nuevo |
+| Falla la verificación de `activate.sh` | Vuelve sola a la release anterior; el job queda en rojo |
+| El despliegue pasó pero hay un error funcional | *Actions* → «Vuelta atrás en producción» → *Run workflow* sobre `produccion` |
+
+La vuelta atrás reactiva una de las **3 últimas releases**, que siguen en la
+instancia (`/opt/vapeupar/releases`). No compila, no sube nada y **no migra**.
+
+1. *Run workflow* con `release` vacío: el log lista las disponibles y cuál está
+   activa (o, desde un portátil, `npm run app:rollback`).
+2. Aprobar en el Environment.
+3. *Run workflow* otra vez con el id (`20261116-153000-0123456789ab`), o
+   `npm run app:rollback -- dev <id>`.
+4. Arreglar con un PR normal y desplegar. **No** se mueve `produccion` hacia
+   atrás: el siguiente despliegue tiene que ser una corrección hacia delante.
+
+Más atrás de 3 releases: el bucket de artefactos conserva las 5 versiones
+anteriores de `releases/app.tar.gz`. Buscar el `VersionId` (metadato
+`release`) con `aws s3api list-object-versions --bucket <ARTIFACTS_BUCKET>
+--prefix releases/app.tar.gz` y relanzar `activate.sh` con ese `VersionId`
+(como hace `runActivate` en `infra/scripts/aws.mjs`). Esa vía **sí** migra, y
+solo hacia delante: con migraciones expand/contract no hay nada que aplicar.
+
+Volver atrás el esquema de la base no está automatizado: es restaurar el
+snapshot del paso 4 en una instancia nueva. Por eso las migraciones son
+compatibles hacia atrás y los cambios con riesgo llevan snapshot.
+
+#### Credenciales
+
+No hay claves de AWS en GitHub. Los jobs que corren en el Environment
+`produccion` asumen por OIDC el rol `vapeupar-dev-github-deploy`
+(`infra/lib/app-stack.ts`, `config.ci`), que:
+
+- solo confía en `repo:Afigueroaf/Vapeupar:environment:produccion`. Un job
+  entra en ese Environment solo si cumple sus reglas (rama `produccion` y
+  aprobación), así que ni PRs, ni otras ramas, ni forks pueden asumirlo;
 - solo puede leer los parámetros que usa el despliegue, subir
-  `releases/app.tar.gz` al bucket de artefactos y lanzar
-  `AWS-RunShellScript` en la instancia de la aplicación.
+  `releases/app.tar.gz` al bucket de artefactos y lanzar `AWS-RunShellScript`
+  en la instancia de la aplicación. **No** lee secretos ni toca la base: las
+  migraciones corren en la instancia, con el rol de la instancia.
 
 El proveedor OIDC de GitHub es uno por cuenta y **ya existía (DeliPan)**: el
 stack lo importa, no lo crea ni lo borra.
 
-**Variables públicas del frontend** (WhatsApp, teléfono, nombre y ciudad de la
-tienda). Viven en SSM, en `/vapeupar/dev/web/NEXT_PUBLIC_*`, fuera del
-repositorio porque son datos de contacto. `deploy-app.mjs` las lee en todos los
-builds, el de GitHub y el local, y ganan a `frontend/.env.local`. Sin
-`NEXT_PUBLIC_WHATSAPP_NUMBER` el despliegue en CI falla, porque el carrito no
-podría enviar pedidos. Para cambiar una (en Git Bash, con `MSYS_NO_PATHCONV=1`):
+Las actions de los workflows van **fijadas por SHA** con la versión en un
+comentario. Dependabot abre PRs semanales que actualizan SHA y comentario a la
+vez, y también las dependencias de npm (menores y parches agrupados).
+
+#### Configuración de GitHub (una vez)
+
+En *Settings* del repositorio:
+
+1. **Environments → New environment → `produccion`**
+   - *Required reviewers*: tu usuario. Con un solo mantenedor, dejar
+     **desmarcado** *Prevent self-review*; si no, nadie podría aprobar.
+   - *Deployment branches and tags* → *Selected branches and tags* →
+     `produccion`.
+2. **Rules → Rulesets → New branch ruleset** para `main`:
+   *Require a pull request before merging* (0 aprobaciones si trabajas solo),
+   *Require status checks to pass* → `checks` (el job de `ci.yml`; aparece
+   después de su primera ejecución), *Block force pushes*, *Restrict
+   deletions*.
+3. **Otro ruleset** para `produccion`: *Block force pushes* y *Restrict
+   deletions*. Sin exigir PR: se mueve con `git push origin main:produccion`.
+4. **Code security → Dependabot**: activar *Dependabot version updates* (lee
+   `.github/dependabot.yml`) y las alertas de seguridad.
+
+**Orden de la puesta en marcha.** El rol pasó de confiar en la rama a confiar
+en el Environment; hasta que estén las dos piezas, el despliegue falla al
+asumir el rol:
+
+1. Fusionar los workflows en `main` (PR).
+2. Crear el Environment `produccion` (paso 1 de arriba).
+3. `npm run infra:diff` (debe cambiar solo la política de confianza y la
+   descripción de `vapeupar-dev-github-deploy`) y `npm run infra:deploy`.
+4. Primer despliegue: `git push origin main:produccion`. Si es la primera vez
+   que se migra desde la instancia, revisar en el log que `[migrate]` instala
+   Prisma y termina en «migraciones al día».
+
+#### Variables públicas del frontend
+
+WhatsApp, teléfono, nombre y ciudad de la tienda. Viven en SSM, en
+`/vapeupar/dev/web/NEXT_PUBLIC_*`, fuera del repositorio porque son datos de
+contacto. `deploy-app.mjs` las lee en todos los builds, el de GitHub y el
+local, y ganan a `frontend/.env.local`. Sin `NEXT_PUBLIC_WHATSAPP_NUMBER` el
+despliegue en CI falla, porque el carrito no podría enviar pedidos. Para
+cambiar una (en Git Bash, con `MSYS_NO_PATHCONV=1`):
 
 ```bash
 aws ssm put-parameter --overwrite --type String \
@@ -348,10 +526,15 @@ aws ssm put-parameter --overwrite --type String \
 
 Se aplica en el siguiente despliegue.
 
-**Lo que NO hace el workflow**, y por tanto va a mano y **antes** del push:
+#### Lo que sigue siendo manual
 
-- migraciones de base de datos (`npm run db:migrate` con el túnel abierto);
-- cambios de infraestructura (`npm run infra:diff` + `npm run infra:deploy`).
+- Cambios de infraestructura (`npm run infra:diff` + `npm run infra:deploy`),
+  **antes** de mover `produccion`.
+- Snapshot de RDS antes de migraciones con riesgo.
+- Volver atrás el esquema (restaurar un snapshot).
+- Los despliegues reinician los servicios: unos segundos sin servicio. Un
+  *blue/green* en la misma instancia (dos puertos y `nginx reload`) lo evitaría;
+  no compensa mientras el tráfico sea bajo.
 
 ### 5.3 Conectar el backend local a la base de dev
 

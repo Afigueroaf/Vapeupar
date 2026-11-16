@@ -1,0 +1,55 @@
+# Vuelta atrás manual: reactiva una release que sigue en la instancia (las 3
+# últimas) con infra/scripts/rollback-app.mjs. No compila ni migra.
+#
+#   Actions > «Vuelta atrás en producción» > Run workflow
+#     rama:    produccion (el Environment solo admite esa)
+#     release: vacío para LISTAR las disponibles; el id para activarla
+#
+# Pasa por el mismo Environment `produccion` (aprobación) y el mismo rol que
+# el despliegue. docs/infrastructure-aws.md, «Volver atrás».
+name: Vuelta atrás en producción
+
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'Id de la release (p. ej. 20261116-153000-0123456789ab). Vacío: listar las disponibles.'
+        required: false
+        default: ''
+
+# Nunca a la vez que un despliegue.
+concurrency:
+  group: deploy-produccion
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  rollback:
+    if: github.ref == 'refs/heads/produccion'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: produccion
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      AWS_REGION: us-east-1
+    steps:
+      # Solo hacen falta los scripts (node y el AWS CLI ya están en el runner).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Credenciales de AWS (OIDC)
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::342284838697:role/vapeupar-dev-github-deploy
+          aws-region: us-east-1
+          role-session-name: vapeupar-rollback-${{ github.run_id }}
+
+      - name: Vuelta atrás
+        env:
+          # Por variable de entorno, nunca interpolado en el script: el valor
+          # lo escribe una persona en un formulario.
+          RELEASE: ${{ inputs.release }}
+        run: node infra/scripts/rollback-app.mjs dev "$RELEASE"

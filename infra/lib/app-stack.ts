@@ -275,15 +275,19 @@ export class AppStack extends Stack {
 
     /* --- Despliegue continuo desde GitHub Actions ------------------------ */
 
-    // Lo que necesita `infra/scripts/deploy-app.mjs` y nada más: leer sus
-    // parámetros de SSM, subir `releases/app.tar.gz` y lanzar `activate.sh`
-    // en ESTA instancia con AWS-RunShellScript. No puede tocar CDK, la base ni
-    // los secretos: la aplicación los lee en la instancia, no en el build.
+    // Lo que necesitan `infra/scripts/deploy-app.mjs` y `rollback-app.mjs` y
+    // nada más: leer sus parámetros de SSM, subir `releases/app.tar.gz` y
+    // lanzar `activate.sh` en ESTA instancia con AWS-RunShellScript. No puede
+    // tocar CDK, la base ni los secretos: la aplicación los lee y las
+    // migraciones se aplican EN LA INSTANCIA, con su propio rol.
     //
     // Sin claves de acceso guardadas en GitHub: el job pide un token OIDC y
-    // lo cambia por credenciales de 1 hora. La confianza se limita al push a
-    // la rama de `config.ci` de ese repositorio (`sub` exacto, sin comodines):
-    // un PR, otra rama o un fork no pueden asumir el rol.
+    // lo cambia por credenciales de 1 hora. La confianza se limita a los jobs
+    // del GitHub Environment de `config.ci` (`sub` exacto, sin comodines). Un
+    // job solo entra en el Environment si cumple sus reglas —rama `produccion`
+    // y aprobación manual—, así que un PR, otra rama o un fork no pueden
+    // asumir el rol. Es más estricto que confiar en la rama: además exige la
+    // aprobación.
     //
     // El proveedor OIDC de GitHub es UNO POR CUENTA y ya existe (lo creó
     // DeliPan, cuenta compartida): se importa, no se crea. Crear otro falla, y
@@ -296,12 +300,12 @@ export class AppStack extends Stack {
       );
       const deployRole = new iam.Role(this, 'GithubDeployRole', {
         roleName: resourceName(config, 'github-deploy'),
-        description: `Despliegue de la aplicacion desde ${config.ci.repository}@${config.ci.branch}`,
+        description: `Despliegue de la aplicacion desde ${config.ci.repository} (environment ${config.ci.environment})`,
         maxSessionDuration: Duration.hours(1),
         assumedBy: new iam.WebIdentityPrincipal(github.openIdConnectProviderArn, {
           StringEquals: {
             'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
-            'token.actions.githubusercontent.com:sub': `repo:${config.ci.repository}:ref:refs/heads/${config.ci.branch}`,
+            'token.actions.githubusercontent.com:sub': `repo:${config.ci.repository}:environment:${config.ci.environment}`,
           },
         }),
       });
@@ -343,7 +347,7 @@ export class AppStack extends Stack {
 
       new CfnOutput(this, 'GithubDeployRoleArn', {
         value: deployRole.roleArn,
-        description: 'Rol que asume .github/workflows/deploy-produccion.yml',
+        description: 'Rol que asumen los workflows de despliegue y vuelta atras',
       });
     }
 

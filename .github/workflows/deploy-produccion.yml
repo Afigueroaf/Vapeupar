@@ -3,13 +3,19 @@
 # de producción (infra/lib/config.ts). Hace lo mismo que `npm run app:deploy`
 # desde un portátil: infra/scripts/deploy-app.mjs.
 #
-# Sin claves de AWS en GitHub: el job cambia su token OIDC por el rol
-# `vapeupar-dev-github-deploy` (infra/lib/app-stack.ts), que solo confía en
-# los push a esta rama y solo puede subir la release y activarla por SSM.
+# `produccion` es solo un PUNTERO a un commit de `main`: se mueve con
+#   git push origin main:produccion
+# y el job `verificar` rechaza cualquier commit que no esté ya en `main`.
 #
-# NO aplica migraciones de base de datos ni cambios de CDK: siguen siendo a
-# mano (`npm run db:migrate`, `npm run infra:deploy`) y ANTES del push.
-# docs/infrastructure-aws.md, «Despliegue continuo».
+# Dos jobs:
+#   verificar  sin credenciales: el commit está en `main` y los tests pasan.
+#   desplegar  en el GitHub Environment `produccion`, que pide APROBACIÓN
+#              manual. Solo ese job puede asumir el rol de AWS
+#              `vapeupar-dev-github-deploy` (OIDC, sin claves en GitHub).
+#
+# Las MIGRACIONES pendientes se aplican en la instancia antes de activar
+# (infra/deploy/migrate.mjs). Los cambios de CDK NO: van a mano y ANTES
+# (`npm run infra:deploy`). docs/infrastructure-aws.md, «Flujo de despliegue».
 name: Despliegue a producción
 
 on:
@@ -19,32 +25,39 @@ on:
   workflow_dispatch:
 
 # Un despliegue a la vez y en orden: el siguiente espera, no cancela al que
-# está a medias (activate.sh cambia `current` y reinicia servicios).
+# está a medias (activate.sh migra, cambia `current` y reinicia servicios).
+# Mismo grupo que rollback-produccion.yml.
 concurrency:
   group: deploy-produccion
   cancel-in-progress: false
 
 permissions:
-  id-token: write # token OIDC para asumir el rol de AWS
   contents: read
 
 jobs:
-  deploy:
+  verificar:
     if: github.ref == 'refs/heads/produccion'
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 15
     env:
-      AWS_REGION: us-east-1
       CI: 'true'
-      # `prisma generate` carga prisma.config.ts, que exige la variable aunque
-      # no se conecte a nada. Valor ficticio: el build no toca la base.
       MIGRATE_DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          node-version: '22' # la instancia corre Node 22 (NODE_VERSION en app-stack.ts)
+          fetch-depth: 0 # historial completo para comparar con `main`
+
+      - name: El commit ya está en main
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_SHA no está en main. Fusiona primero por PR y despliega con: git push origin main:produccion"
+            exit 1
+          fi
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
           cache: npm
 
       - name: Dependencias
@@ -55,12 +68,36 @@ jobs:
           npm run db:generate --workspace=backend
           npm run test --workspace=backend
 
+  desplegar:
+    needs: verificar
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # Aprobación manual y rama permitida: Settings > Environments > produccion.
+    environment: produccion
+    permissions:
+      id-token: write # token OIDC para asumir el rol de AWS
+      contents: read
+    env:
+      AWS_REGION: us-east-1
+      CI: 'true'
+      MIGRATE_DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22' # la instancia corre Node 22 (NODE_VERSION en app-stack.ts)
+          cache: npm
+
+      - name: Dependencias
+        run: npm ci --no-audit --no-fund
+
       - name: Credenciales de AWS (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: arn:aws:iam::342284838697:role/vapeupar-dev-github-deploy
           aws-region: us-east-1
           role-session-name: vapeupar-deploy-${{ github.run_id }}
 
-      - name: Build y despliegue
+      - name: Build, migraciones y despliegue
         run: npm run app:deploy

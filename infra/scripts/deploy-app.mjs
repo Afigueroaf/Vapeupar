@@ -16,22 +16,23 @@
 //   3. Sube `releases/app.tar.gz` al bucket de artefactos (versionado) con el
 //      sha de git en los metadatos.
 //   4. Ejecuta `deploy/activate.sh` en la instancia por SSM con el versionId
-//      EXACTO subido. activate.sh verifica y, si falla, vuelve atrás.
+//      EXACTO subido. activate.sh aplica las migraciones pendientes
+//      (`deploy/migrate.mjs`), activa, verifica y, si falla, vuelve atrás.
 //   5. Comprueba la portada desde fuera, por la IP pública.
 //
-// Volver a una release anterior: las 3 últimas siguen en la instancia
-// (`/opt/vapeupar/releases`), y todas las versiones del objeto en S3 (5).
+// Volver a una release anterior: `npm run app:rollback` (las 3 últimas siguen
+// en la instancia, `/opt/vapeupar/releases`) o, más atrás, las versiones del
+// objeto en S3 (5). docs/infrastructure-aws.md, «Volver atrás».
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { envName, getParam, getParamsByPath } from './aws.mjs';
+import { envName, getParam, getParamsByPath, REGION, runActivate } from './aws.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const skipBuild = process.argv.includes('--skip-build');
 const KEY = 'releases/app.tar.gz';
-const REGION = process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? 'us-east-1';
 const NPM = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 // En Windows, el tar de System32 (bsdtar): el GNU tar de Git Bash toma
 // `C:\...` por un host remoto.
@@ -126,6 +127,16 @@ try {
     '--ignore-scripts', '--no-audit', '--no-fund', '--loglevel=error'], { cwd: deps });
 
   cp('backend/dist', 'backend/dist');
+  // Esquema y migraciones para `deploy/migrate.mjs`, que las aplica en la
+  // instancia antes de activar, con el CLI de Prisma de esta versión EXACTA
+  // (la del lockfile, no un rango).
+  cp('backend/prisma/schema.prisma', 'backend/prisma/schema.prisma');
+  cp('backend/prisma/migrations', 'backend/prisma/migrations');
+  const prismaVersion = JSON.parse(
+    fs.readFileSync(path.join(ROOT, 'node_modules', 'prisma', 'package.json'), 'utf8'),
+  ).version;
+  fs.writeFileSync(path.join(rel, 'backend', 'prisma', 'PRISMA_VERSION'), `${prismaVersion}
+`);
   fs.copyFileSync(path.join(deps, 'backend', 'package.json'), path.join(rel, 'backend', 'package.json'));
   fs.cpSync(path.join(deps, 'node_modules'), path.join(rel, 'backend', 'node_modules'), {
     recursive: true,
@@ -193,44 +204,8 @@ try {
     '--metadata', `release=${releaseId},git-sha=${sha},dirty=${dirty}`]);
   log(`subido s3://${bucket}/${KEY} versión ${put.VersionId}`);
 
-  // --- 4. Activación por SSM ---------------------------------------------------
-  // El script va dentro del comando (base64), no se descarga aparte: así lo
-  // que se ejecuta es exactamente lo de esta release.
-  const script = fs.readFileSync(path.join(ROOT, 'infra', 'deploy', 'activate.sh')).toString('base64');
-  const params = {
-    commands: [
-      'set -e',
-      'F=$(mktemp)',
-      `echo '${script}' | base64 -d > "$F"`,
-      `bash "$F" '${bucket}' '${KEY}' '${put.VersionId}' '${releaseId}' '${envName}' '${REGION}'; R=$?`,
-      'rm -f "$F"; exit $R',
-    ],
-    executionTimeout: ['900'],
-  };
-  const paramsFile = path.join(work, 'ssm-params.json');
-  fs.writeFileSync(paramsFile, JSON.stringify(params));
-  const sent = awsJson(['ssm', 'send-command', '--instance-ids', instanceId, '--document-name', 'AWS-RunShellScript',
-    '--comment', `vapeupar deploy ${releaseId}`.slice(0, 100), '--timeout-seconds', '600',
-    '--parameters', `file://${paramsFile}`]);
-  const commandId = sent.Command.CommandId;
-  log(`activando en ${instanceId} (comando ${commandId})`);
-
-  let inv;
-  for (;;) {
-    await new Promise((r) => setTimeout(r, 5000));
-    try {
-      inv = awsJson(['ssm', 'get-command-invocation', '--command-id', commandId, '--instance-id', instanceId]);
-    } catch {
-      continue; // la invocación tarda unos segundos en existir
-    }
-    if (!['Pending', 'InProgress', 'Delayed'].includes(inv.Status)) break;
-    process.stdout.write('.');
-  }
-  console.log(`\n${inv.StandardOutputContent}`);
-  if (inv.StandardErrorContent) console.error(inv.StandardErrorContent);
-  if (inv.Status !== 'Success') {
-    throw new Error(`la activación terminó en ${inv.Status}: revisa la salida de arriba`);
-  }
+  // --- 4. Migraciones y activación por SSM ------------------------------------
+  await runActivate(instanceId, [bucket, KEY, put.VersionId, releaseId, envName, REGION], `vapeupar deploy ${releaseId}`);
 
   // --- 5. Desde fuera -----------------------------------------------------------
   const res = await fetch(`http://${publicIp}/`, { signal: AbortSignal.timeout(20000) });

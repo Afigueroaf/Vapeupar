@@ -7,8 +7,14 @@
 #
 # Pasos: descargar la versión EXACTA del objeto (no "la última": si alguien
 # sube otra mientras tanto, se activa la que se pidió), desempaquetar en una
-# carpeta nueva, instalar unidades y nginx, mover `current`, reiniciar y
-# VERIFICAR. Si la verificación falla, vuelve a la release anterior.
+# carpeta nueva, APLICAR LAS MIGRACIONES pendientes (deploy/migrate.mjs),
+# instalar unidades y nginx, mover `current`, reiniciar y VERIFICAR. Si la
+# verificación falla, vuelve a la release anterior (las migraciones no se
+# deshacen: deben ser compatibles con el código anterior).
+#
+# VOLVER ATRÁS a una release que sigue en la instancia: `<versionId>` = `-`.
+# No descarga nada NI MIGRA: reactiva `releases/<releaseId>` tal cual. Lo usa
+# `infra/scripts/rollback-app.mjs`.
 set -euo pipefail
 
 BUCKET="$1"; KEY="$2"; VERSION="$3"; RELEASE="$4"; ENV_NAME="$5"; REGION="$6"
@@ -25,9 +31,16 @@ log() { echo "[activate $(date +%T)] $*"; }
 PREV=""
 [ -L "$CUR" ] && PREV="$(readlink -f "$CUR")"
 
-# --- 1. Descargar y desempaquetar -------------------------------------------
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
+
+if [ "$VERSION" = "-" ]; then
+  # --- 1'. Volver atrás: la release ya está en la instancia ----------------
+  [ -d "$DEST" ] || { log "no existe $DEST; disponibles:"; ls -1t "$BASE/releases"; exit 2; }
+  [ "$(readlink -f "$DEST")" != "$PREV" ] || { log "$RELEASE ya es la release activa"; exit 0; }
+  log "volviendo atrás a $RELEASE, sin migraciones"
+else
+# --- 1. Descargar y desempaquetar -------------------------------------------
 log "descargando s3://$BUCKET/$KEY ($VERSION)"
 aws s3api get-object --region "$REGION" --bucket "$BUCKET" --key "$KEY" \
   --version-id "$VERSION" "$TMP/app.tar.gz" >/dev/null
@@ -44,6 +57,20 @@ chown -R vapeupar:vapeupar "$DEST.partial/web/frontend/.next"
 rm -rf "$DEST"
 mv "$DEST.partial" "$DEST"
 log "release en $DEST ($(du -sh "$DEST" | cut -f1))"
+
+# --- 1b. Migraciones ---------------------------------------------------------
+# ANTES de cambiar `current`: si fallan, la release anterior sigue sirviendo y
+# no se toca nada más. La carpeta se borra para que no ocupe el sitio de una
+# release buena entre las $KEEP que se conservan. Releases antiguas sin
+# migrate.mjs: se omite.
+if [ -f "$DEST/deploy/migrate.mjs" ]; then
+  /usr/local/bin/node "$DEST/deploy/migrate.mjs" "$DEST" "$ENV_NAME" "$REGION" || {
+    log "FALLO en las migraciones: no se activa nada; sigue ${PREV:-ninguna}"
+    rm -rf "$DEST"
+    exit 1
+  }
+fi
+fi
 
 # --- 2. Entorno de la instancia ----------------------------------------------
 install -d -m 700 /etc/vapeupar

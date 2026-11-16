@@ -429,6 +429,10 @@ Pasos (para el dominio definitivo, con las salvedades de arriba para No-IP):
 
 Desde la instancia, que ya tiene ruta a RDS:
 
+> **2026-11-16:** el punto 1 está automatizado: `activate.sh` ejecuta
+> `infra/deploy/migrate.mjs` en cada despliegue, antes de activar la release.
+> Ver `docs/infrastructure-aws.md` §5.2.1, «Migraciones».
+
 1. `prisma migrate deploy` con `MIGRATE_DATABASE_URL` (usuario maestro).
 2. `npm run db:sync-app-role` (aplica la contraseña del rol `vapeupar_app`).
 3. Semilla o importación del catálogo real, según lo que haya en dev.
