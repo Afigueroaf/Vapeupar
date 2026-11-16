@@ -50,9 +50,13 @@ jobs:
           npx --workspace=backend tsc --noEmit
           npm run test --workspace=backend
 
+      # `next typegen` genera en .next/types los tipos globales de las rutas
+      # (`PageProps`, `LayoutProps`...). En local ya existen por `next dev` o
+      # `next build`; en un checkout limpio no, y `tsc` falla sin ellos.
       - name: Frontend · lint y tipos
         run: |
           npm run lint --workspace=frontend
+          npx --workspace=frontend next typegen
           npx --workspace=frontend tsc --noEmit
 
       # Mismo build que el de producción (API relativa), con datos de contacto
