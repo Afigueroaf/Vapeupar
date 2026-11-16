@@ -1,0 +1,13 @@
+{
+  "title": "Esquema Prisma, rol de aplicación y semilla desde assets (A1)",
+  "status": "hecho",
+  "priority": "alta",
+  "area": "datos",
+  "summary": "Diez entidades de ADR-002 en Prisma 7, rol vapeupar_app sin DDL ni DELETE, y semilla idempotente con 1 marca, 4 líneas y 79 variantes.",
+  "source": "docs/admin-console-execution-plan.md (Fase A1)",
+  "evidence": "Commit 7ae3c93; backend/prisma/schema.prisma, backend/prisma/seed.ts",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z",
+  "completedAt": "2026-11-16T21:41:14.151Z"
+}

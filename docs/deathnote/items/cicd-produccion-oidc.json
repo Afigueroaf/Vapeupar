@@ -1,0 +1,13 @@
+{
+  "title": "CI y despliegue continuo a producción con OIDC, migraciones y rollback",
+  "status": "hecho",
+  "priority": "alta",
+  "area": "infra",
+  "summary": "CI en PRs, despliegue al mover la rama produccion con aprobación manual, migraciones automáticas en activate.sh, rollback manual y Dependabot.",
+  "source": "docs/infrastructure-aws.md (§5.2.1 Flujo de despliegue) + docs/aws-full-deployment-plan.md (F5.1)",
+  "evidence": "Commits dee0914, 03b1eda y b9cecb8; PRs #9, #10 y #13; ejecuciones correctas de deploy-produccion.yml el 2026-11-16",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z",
+  "completedAt": "2026-11-16T21:41:14.151Z"
+}

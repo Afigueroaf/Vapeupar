@@ -1,0 +1,31 @@
+{
+  "title": "MFA de la consola en producción",
+  "status": "decision",
+  "priority": "alta",
+  "area": "seguridad",
+  "summary": "El backend responde 501 al reto SOFTWARE_TOKEN_MFA y el pool vivo tiene MFA opcional, que Cognito no permite pasar a obligatorio sin recrear el pool.",
+  "question": "¿Cómo se exige MFA en la consola ahora que dev es producción y el pool no puede cambiar a obligatorio?",
+  "options": [
+    {
+      "detail": "Mantiene el pool y los usuarios; el backend obliga a enrolar TOTP antes de dar sesión, con algo más de código propio.",
+      "label": "Soportar TOTP en el backend y exigirlo por aplicación",
+      "prompt": "Decisión: MFA TOTP obligatorio por aplicación sobre el pool actual. Lee docs/security.md §2.1, backend/src/services/auth.service.ts, backend/src/routes/admin/auth.routes.ts y session-cookies.ts. Implementa los retos SOFTWARE_TOKEN_MFA y MFA_SETUP (AssociateSoftwareToken + VerifySoftwareToken + SetUserMFAPreference) con la sesión del reto en cookie httpOnly como el de contraseña temporal, y rechaza dar sesión a un usuario sin MFA configurado cuando NODE_ENV=production. Añade el paso en frontend/src/app/(admin)/admin/login/page.tsx con el QR. Tests con Cognito sustituido, npm run test:backend, npm run build, y actualiza docs/security.md y ADR-002.",
+      "recommended": true
+    },
+    {
+      "detail": "La garantía la da Cognito, pero hay que reemplazar el pool, reinvitar usuarios y actualizar User.id (sub cambia).",
+      "label": "Recrear el User Pool con MFA obligatorio",
+      "prompt": "Decisión: recrear el User Pool con mfaRequired true. Lee infra/lib/auth-stack.ts, infra/lib/config.ts y docs/infrastructure-aws.md. Diseña la migración: pool nuevo con otro id lógico, actualizar SSM/Secrets, reinvitar al owner y remapear User.id al nuevo sub, y además implementar el reto SOFTWARE_TOKEN_MFA en el backend. Muéstrame el plan paso a paso y npm run infra:diff; no despliegues sin aprobación."
+    },
+    {
+      "detail": "Cero trabajo, pero la consola queda solo con contraseña al exponerse por HTTPS.",
+      "label": "Aceptar MFA opcional temporalmente",
+      "prompt": "Decisión: se acepta MFA opcional hasta <fecha>. Registra el riesgo aceptado con fecha de revisión en docs/security.md §2.1 y en ADR-002, y asegúrate de que el rate limit del login (10 fallos/15 min) está activo en producción con TRUST_PROXY=1. No cambies código."
+    }
+  ],
+  "source": "docs/security.md (§2.1 Pendiente) + infra/lib/config.ts (comentario MFA) + docs/decisions/002-consola-de-administracion-y-persistencia.md (Decisión 6)",
+  "evidence": "backend/src/services/auth.service.ts:123 y routes/admin/http.ts UNSUPPORTED_CHALLENGE: 501; config.dev.auth.mfaRequired = false",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

@@ -1,0 +1,13 @@
+{
+  "title": "ProductService con repositorio y libro de movimientos de stock (A2–A3)",
+  "status": "hecho",
+  "priority": "alta",
+  "area": "backend",
+  "summary": "ProductService recibe un repositorio inyectable; StockService con idempotencia por operationKey, bloqueo por fila, reconciliación, kardex y auditoría.",
+  "source": "docs/admin-console-execution-plan.md (Fases A2 y A3)",
+  "evidence": "Commits 30df664 y 3ffc561; backend/src/services/stock.service.ts",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z",
+  "completedAt": "2026-11-16T21:41:14.151Z"
+}

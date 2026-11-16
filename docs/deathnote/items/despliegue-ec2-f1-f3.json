@@ -1,0 +1,13 @@
+{
+  "title": "Despliegue en EC2 con nginx, systemd y releases en S3 (F1–F3)",
+  "status": "hecho",
+  "priority": "alta",
+  "area": "infra",
+  "summary": "EC2 t4g.micro con IP elástica, apps en standalone, releases versionadas en S3, activación por SSM con vuelta atrás automática y bastión retirado.",
+  "source": "docs/aws-full-deployment-plan.md (F1, F2 y F3)",
+  "evidence": "Commits 997c070, f8a851e y ee5bac8; infra/lib/app-stack.ts, infra/deploy/activate.sh",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z",
+  "completedAt": "2026-11-16T21:41:14.151Z"
+}

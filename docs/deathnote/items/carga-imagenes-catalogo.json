@@ -1,0 +1,18 @@
+{
+  "title": "Subir las imágenes de variantes del catálogo al bucket",
+  "status": "en_curso",
+  "priority": "media",
+  "area": "datos",
+  "summary": "Las imágenes de línea ya están en el CDN, pero el traspaso documenta un bucket casi vacío y no consta que las 79 imágenes de variante de assets/brands se hayan subido con las claves de §4.2.",
+  "suggestions": [
+    {
+      "label": "Script de carga idempotente",
+      "prompt": "Lee docs/session-handoff-2026-10-27-inventory-images.md (§4.2 y §4.6), backend/src/catalog/image-keys.ts y backend/prisma/seed.ts. Crea backend/scripts/upload-catalog-images.ts (npm run db:upload-images) que recorra assets/brands/<marca>/products/<linea>/, derive la clave con las funciones de image-keys.ts, suba solo los objetos que falten en S3 con ContentType correcto, rellene imageKey en las variantes que lo tengan vacío y registre la escritura en AuditLog. Debe tener modo --dry-run que liste qué haría. No toques node_modules. Ejecuta npm run build --workspace=backend y npm run test:backend, y documenta el comando en docs/backend.md."
+    }
+  ],
+  "source": "docs/session-handoff-2026-10-27-inventory-images.md (§4.6) + docs/admin-console-execution-plan.md (A8)",
+  "evidence": "El commit 548f7b3 copió las fotos de línea desde el CDN; infra/lib/config.ts habla de «89 imágenes reales» pero ningún script de carga está versionado",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

@@ -1,0 +1,13 @@
+{
+  "title": "Migración a zod 4 por GHSA-mrhx-c7xc-m3w5",
+  "status": "hecho",
+  "priority": "media",
+  "area": "seguridad",
+  "summary": "Subida de zod 3.24 a 4.6.7 para cerrar una vulnerabilidad alta, con 0 avisos de npm audit.",
+  "source": "docs/admin-console-execution-plan.md (Migración a zod 4)",
+  "evidence": "Commit 8b50eb8",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z",
+  "completedAt": "2026-11-16T21:41:14.151Z"
+}

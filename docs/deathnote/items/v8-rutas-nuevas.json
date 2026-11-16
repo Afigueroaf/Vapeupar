@@ -1,0 +1,22 @@
+{
+  "title": "Rutas nuevas del sitio: colecciones y nosotros (V8)",
+  "status": "en_curso",
+  "priority": "media",
+  "area": "frontend",
+  "summary": "Existe /producto/[slug], pero faltan /coleccion/[categoria] y /nosotros, y la navegación sigue usando anclas.",
+  "suggestions": [
+    {
+      "label": "Crear /coleccion/[categoria]",
+      "prompt": "Lee docs/design-reset-inventory.md (§5.5, §5.6 y §6.3), docs/design-execution-plan.md y frontend/src/lib/api.ts. Crea frontend/src/app/coleccion/[categoria]/page.tsx como Server Component con ISR que liste solo los productos de esa categoría (validando la categoría contra las 6 del contrato y devolviendo notFound() si no existe), reutilizando ProductCard y las primitivas de components/ui. Añade generateMetadata y enlázala desde el navbar y el menú móvil en lugar de las anclas. Ejecuta npm run lint --workspace=frontend y npm run build y actualiza docs/frontend.md."
+    },
+    {
+      "label": "Crear /nosotros",
+      "prompt": "Crea frontend/src/app/nosotros/page.tsx con la voz VP (docs/design-reset-inventory.md §6) usando textos de docs/catalog-domain.md §2 (autenticidad, entrega en Valledupar) y la advertencia legal del footer. Deja el copy marcado como provisional en un comentario si no hay texto aprobado. Ejecuta npm run lint --workspace=frontend y npm run build y actualiza docs/frontend.md."
+    }
+  ],
+  "source": "docs/design-execution-plan.md (V8) + docs/design-reset-inventory.md (§5.5, §5.6, §6.3)",
+  "evidence": "frontend/src/app/ solo tiene page.tsx, producto/[slug] y admin",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

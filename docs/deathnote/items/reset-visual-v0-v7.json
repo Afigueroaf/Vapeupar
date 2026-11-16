@@ -1,0 +1,13 @@
+{
+  "title": "Reset visual VP (fases V0 a V7)",
+  "status": "hecho",
+  "priority": "alta",
+  "area": "diseño",
+  "summary": "Fuentes Oxanium/Press Start 2P, tokens de color, primitivas de UI, hero, navbar, tarjeta, catálogo, FAQ, footer y modal +18 rehechos con la identidad VP.",
+  "source": "docs/design-execution-plan.md (Resumen de fases) + docs/design-reset-inventory.md",
+  "evidence": "Commits e463d9b, 3bd8a72, 9b0c4a9; frontend/src/components/ui/",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z",
+  "completedAt": "2026-11-16T21:41:14.151Z"
+}

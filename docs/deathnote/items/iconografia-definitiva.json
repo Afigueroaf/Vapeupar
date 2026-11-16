@@ -1,0 +1,26 @@
+{
+  "title": "Set de iconografía definitivo",
+  "status": "decision",
+  "priority": "baja",
+  "area": "diseño",
+  "summary": "Siguen 6 iconos funcionales de Lucide, estilo lineal redondeado ajeno a la identidad VP.",
+  "question": "¿Se sustituye Lucide por iconos propios en estilo pixel/HUD o se mantiene Lucide estilizado?",
+  "options": [
+    {
+      "detail": "Coherente con Press Start 2P y el lenguaje arcade; requiere dibujar unos 6–10 iconos.",
+      "label": "Iconos pixel propios en SVG para el sitio público",
+      "prompt": "Decisión §4.5: iconos propios en estilo pixel para el sitio público; la consola /admin puede seguir con Lucide. Lista los iconos de lucide-react usados fuera de components/admin, crea frontend/src/components/ui/icons.tsx con SVG en rejilla de 16 px (currentColor, aria-hidden por defecto) y sustitúyelos. npm run lint --workspace=frontend, npm run build y cierra el pendiente #5 en docs/design-execution-plan.md.",
+      "recommended": true
+    },
+    {
+      "detail": "Cero dibujo; strokeWidth y strokeLinecap cuadrado acercan el estilo, sin llegar a ser propio.",
+      "label": "Mantener Lucide con trazo y terminaciones ajustados",
+      "prompt": "Decisión §4.5: se mantiene Lucide. Crea un envoltorio en frontend/src/components/ui/icon.tsx con strokeWidth 2.5, strokeLinecap y strokeLinejoin square y tamaño por token, y úsalo en todos los iconos. npm run lint --workspace=frontend, npm run build y cierra el pendiente #5."
+    }
+  ],
+  "source": "docs/design-execution-plan.md (Pendientes abiertos #5) + docs/design-reset-inventory.md (§4.5)",
+  "evidence": "16 archivos de frontend/src importan lucide-react (incluida la consola)",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

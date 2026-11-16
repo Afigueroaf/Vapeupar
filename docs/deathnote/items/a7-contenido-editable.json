@@ -1,0 +1,22 @@
+{
+  "title": "Contenido del sitio editable: esquemas, lectura y barrido (A7.1, A7.2, A7.4)",
+  "status": "pendiente",
+  "priority": "alta",
+  "area": "backend",
+  "summary": "Esquemas Zod por clave (hero, trust-band, faq, seo, contact), endpoint público de contenido, lectura en Server Component con fallback y sacar FAQ, banda de confianza, hero y SEO de los componentes.",
+  "suggestions": [
+    {
+      "label": "Ejecutar A7.1 + A7.2",
+      "prompt": "Lee docs/admin-console-execution-plan.md (Fase A7), ADR-002 §5 e invariante 6, y docs/backend.md. Crea backend/src/schemas/content/ con un esquema Zod por clave (hero, trust-band, faq, seo, contact) con límites de longitud, cuyos defaults sean los textos actuales de frontend/src/components/{hero,trust-band,faq}.tsx y layout.tsx. Valida por clave en PUT /api/admin/content/:key y añade GET /api/content/:key público. Crea frontend/src/lib/content.ts que lea en Server Component con next: { tags: ['contenido'] }, haga safeParse y caiga al default. Criterios: apagando el backend la FAQ sale con el texto por defecto; una clave mal formada devuelve 400. Añade tests, ejecuta npm run test:backend, npm run lint --workspace=frontend y npm run build, y documenta en docs/backend.md."
+    },
+    {
+      "label": "Barrido A7.4 (marcas aliadas generadas)",
+      "prompt": "Tras A7.1/A7.2, lee docs/admin-console-execution-plan.md (A7.4). Haz que faq.tsx, trust-band.tsx, hero.tsx y layout.tsx lean su texto de lib/content.ts, y que la enumeración de marcas aliadas se genere de Brand.isPartner a través de la API pública. Criterio: marcar una marca como no aliada la quita del texto de autenticidad tras la revalidación. Ejecuta npm run build y actualiza el plan."
+    }
+  ],
+  "source": "docs/admin-console-execution-plan.md (Fase A7) + docs/decisions/002-consola-de-administracion-y-persistencia.md (Decisión 5)",
+  "evidence": "No existe backend/src/schemas/content/ ni frontend/src/lib/content.ts ni ruta pública de contenido; PUT /api/admin/content acepta cualquier JSON de 64 kB",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

@@ -1,0 +1,18 @@
+{
+  "title": "Rendimiento: WebGL con presupuesto (fase 2)",
+  "status": "en_curso",
+  "priority": "media",
+  "area": "rendimiento",
+  "summary": "Ya hay prisma sin MSAA en táctil, nube sin GPGPU en reposo y frameloop pausado fuera de pantalla; faltan menos partículas, DPR adaptativo, tope MAX_DRAW_PIXELS móvil y pickPanel solo con pointermove.",
+  "suggestions": [
+    {
+      "label": "Completar fase 2 con A/B en caliente",
+      "prompt": "Lee docs/performance-optimization-plan.md (Fase 2 y «AVISO DE MÉTODO: el teléfono frío miente»). Implementa los puntos pendientes de la fase 2 en frontend/src/components/vaporizer-point-cloud.tsx, frontend/src/components/vaporizer/ y frontend/src/components/prism/: tope MAX_DRAW_PIXELS de ~1,4 M en pointer: coarse, pickPanel solo tras un pointermove y degradación de DPR de un solo escalón si el fotograma medio supera ~22 ms en los primeros 2 s. No cambies el número de partículas sin consultarme. Ejecuta npm run lint --workspace=frontend y npm run build, y añade una sección con los cambios al plan indicando qué falta medir en el teléfono."
+    }
+  ],
+  "source": "docs/performance-optimization-plan.md (Fase 2 — WebGL con presupuesto)",
+  "evidence": "Commit 662cfd6; frontend/src/components/prism/scene.ts:189, vaporizer/canvas.tsx:46; MAX_DRAW_PIXELS sigue en 2_600_000",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

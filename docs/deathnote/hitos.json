@@ -1,0 +1,79 @@
+[
+  {
+    "id": "h20261027-1",
+    "date": "2026-10-27",
+    "title": "Inventario e imágenes del catálogo",
+    "detail": "Invitaciones de usuarios corregidas y catálogo real pintando en el frontend.",
+    "ref": "92c60b3 · 6d3737b"
+  },
+  {
+    "id": "h20261104-2",
+    "date": "2026-11-04",
+    "title": "Imágenes en S3, notas de inventario y vitrina",
+    "detail": "Backend con imágenes en S3/CloudFront y notas; consola con imágenes y vitrina; nueva identidad de marca.",
+    "ref": "d960862 · 2671402 · 5afb3a7"
+  },
+  {
+    "id": "h20261104-3",
+    "date": "2026-11-04",
+    "title": "Sistema visual y portada con vitrina 3D",
+    "detail": "Rediseño VP: portada 3D, cursor táctil y sistema visual.",
+    "ref": "9b0c4a9"
+  },
+  {
+    "id": "h20261105-4",
+    "date": "2026-11-05",
+    "title": "Optimización de rendimiento del frontend",
+    "detail": "3D y lámina holográfica solo en la tarjeta activa, glitch que duerme, sin MSAA en táctil.",
+    "ref": "a83c512 · 426630c · f1a929a · 662cfd6"
+  },
+  {
+    "id": "h20261106-5",
+    "date": "2026-11-06",
+    "title": "Aplicación lista para producción en EC2",
+    "detail": "EC2 con IP elástica, retirada del bastión y despliegue por S3 + SSM.",
+    "ref": "997c070 · f8a851e · ee5bac8"
+  },
+  {
+    "id": "h20261108-6",
+    "date": "2026-11-08",
+    "title": "Ficha de línea con sabores y pedido por WhatsApp",
+    "detail": "Variantes en la API, página /producto/[slug] y carrito con pedido por WhatsApp.",
+    "ref": "052304a"
+  },
+  {
+    "id": "h20261108-7",
+    "date": "2026-11-08",
+    "title": "Vitrina dual y claves de imagen versionadas",
+    "detail": "Vitrina con panel de información; borrado de la imagen reemplazada.",
+    "ref": "1e50952 · 0455638"
+  },
+  {
+    "id": "h20261116-10",
+    "date": "2026-11-16",
+    "title": "Dependabot configurado",
+    "detail": "Actualizaciones menores agrupadas y fusionadas; mayores de express, typescript, eslint, @types/node y dotenv excluidas.",
+    "ref": "PR #2 · #10 · #11 · #13"
+  },
+  {
+    "id": "h20261116-11",
+    "date": "2026-11-16",
+    "title": "Nace el Deathnote",
+    "detail": "Roadmap vivo con 44 pendientes inventariados desde docs/ y la skill /deathnote; consultable desde la terminal con npm run deathnote.",
+    "ref": "docs/deathnote"
+  },
+  {
+    "id": "h20261116-8",
+    "date": "2026-11-16",
+    "title": "Despliegue continuo a producción",
+    "detail": "Flujo de CI con aprobación, migraciones y vuelta atrás desde la rama produccion (PR #1).",
+    "ref": "PR #1 · dee0914 · 03b1eda"
+  },
+  {
+    "id": "h20261116-9",
+    "date": "2026-11-16",
+    "title": "OIDC de GitHub con sub inmutable",
+    "detail": "Corrige la confianza OIDC del despliegue (PR #9).",
+    "ref": "PR #9 · b9cecb8"
+  }
+]

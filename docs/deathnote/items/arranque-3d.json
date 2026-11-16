@@ -1,0 +1,26 @@
+{
+  "title": "Coste de arranque del 3D: diferir o aligerar",
+  "status": "decision",
+  "priority": "baja",
+  "area": "rendimiento",
+  "summary": "El perfil mostró que lo caro al cargar es crear el contexto WebGL y compilar shaders, no el muestreo; el plan pide elegir entre diferir el lienzo o reducir partículas.",
+  "question": "¿Se arranca la nube de puntos más tarde (requestIdleCallback) o se reduce su trabajo (menos partículas en móvil), que cambia su aspecto?",
+  "options": [
+    {
+      "detail": "No cambia el aspecto y saca el trabajo del camino crítico del INP; el coste total sigue.",
+      "label": "Diferir con requestIdleCallback",
+      "prompt": "Decisión de la fase 4 de docs/performance-optimization-plan.md: diferir el arranque. En frontend/src/components/vaporizer-point-cloud.tsx monta el lienzo tras la hidratación con requestIdleCallback (timeout ~1500 ms y respaldo con setTimeout donde no exista), manteniendo el hueco reservado para que no haya salto de layout. Mide con el protocolo del documento (calentamiento y A/B alternado) o deja los pasos para medir. npm run lint --workspace=frontend, npm run build y registra el cambio en el plan.",
+      "recommended": true
+    },
+    {
+      "detail": "Reduce trabajo real (~15 000 en táctil, ~30 000 en escritorio) pero la nube se ve menos densa.",
+      "label": "Menos partículas en táctil",
+      "prompt": "Decisión de la fase 4: reducir partículas. Baja el valor por defecto a ~30 000 en escritorio y ~15 000 en pointer: coarse en la configuración de la nube, y compáralo visualmente en capturas antes/después. npm run lint --workspace=frontend, npm run build y registra en el plan la medición A/B en caliente."
+    }
+  ],
+  "source": "docs/performance-optimization-plan.md (Fase 4 — el diagnóstico del arranque estaba equivocado)",
+  "evidence": "Perfil del 2026-11-05: getParameters 144 ms, getImageData 89 ms de 1 565 ms de tareas largas",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

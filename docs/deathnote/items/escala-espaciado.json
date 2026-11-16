@@ -1,0 +1,26 @@
+{
+  "title": "Escala de espaciado en tokens",
+  "status": "decision",
+  "priority": "baja",
+  "area": "diseño",
+  "summary": "Los espaciados (py-16, p-5, gap-6) siguen siendo ad hoc; falta decidir la escala.",
+  "question": "¿Qué escala de espaciado se adopta como token?",
+  "options": [
+    {
+      "detail": "Encaja con la rejilla pixel y Tailwind v4; pocos tokens con rol (sección, bloque, control).",
+      "label": "Escala de 4 px con nombres semánticos",
+      "prompt": "Decisión §3.7: escala de espaciado base 4 px con tokens semánticos (--space-section, --space-block, --space-stack, --space-inline) declarados en @theme de frontend/src/app/globals.css. Sustituye los valores ad hoc de las secciones públicas por esos tokens sin cambiar visualmente más de 4 px, documenta la escala en docs/frontend.md, ejecuta npm run lint --workspace=frontend y npm run build, y cierra el pendiente #6.",
+      "recommended": true
+    },
+    {
+      "detail": "Más rígida y fácil de auditar, pero obliga a reajustes visibles en componentes ya aprobados.",
+      "label": "Escala de 8 px estricta",
+      "prompt": "Decisión §3.7: escala estricta de 8 px. Declara los tokens en globals.css, migra las secciones públicas y lista los cambios visuales que superen 4 px para revisarlos. npm run lint --workspace=frontend, npm run build y cierra el pendiente #6."
+    }
+  ],
+  "source": "docs/design-execution-plan.md (Pendientes abiertos #6) + docs/design-reset-inventory.md (§3.7)",
+  "evidence": "frontend/src/app/globals.css no declara tokens de espaciado propios",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

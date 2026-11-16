@@ -1,0 +1,13 @@
+{
+  "title": "Respaldo del catálogo con los productos reales y sin Unsplash",
+  "status": "hecho",
+  "priority": "media",
+  "area": "frontend",
+  "summary": "FALLBACK_PRODUCTS pasa a ser una copia de las líneas LifePod con fotos locales en public/productos/; Unsplash sale de remotePatterns.",
+  "source": "docs/admin-console-execution-plan.md (Verificación A8) + docs/design-reset-inventory.md (§7.1, §7.3)",
+  "evidence": "Commit 548f7b3; frontend/next.config.ts ya no autoriza images.unsplash.com",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z",
+  "completedAt": "2026-11-16T21:41:14.151Z"
+}

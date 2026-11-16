@@ -1,0 +1,18 @@
+{
+  "title": "Pruebas automáticas del frontend",
+  "status": "pendiente",
+  "priority": "baja",
+  "area": "frontend",
+  "summary": "El workspace frontend no tiene runner; la red de seguridad son el build y el lint. Lo más valioso: carrito, mensaje de WhatsApp y modal +18.",
+  "suggestions": [
+    {
+      "label": "Vitest para la lógica pura",
+      "prompt": "Añade Vitest al workspace frontend (instalando desde la raíz con npm install -D --workspace=frontend, nunca dentro de frontend/) y escribe tests para frontend/src/lib/cart.ts, order-message.ts y contact.ts, y para el cálculo de expiración del modal +18. Añade el paso al CI en .github/workflows/ci.yml. Ejecuta npm test --workspace=frontend y npm run build."
+    }
+  ],
+  "source": "docs/admin-console-execution-plan.md (Registro A5.1, No verificado)",
+  "evidence": "frontend/package.json sin script de test",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

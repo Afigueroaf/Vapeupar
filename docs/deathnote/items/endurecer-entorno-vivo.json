@@ -1,0 +1,21 @@
+{
+  "title": "Endurecer el entorno vivo: backups y bucket de catálogo",
+  "status": "en_curso",
+  "priority": "media",
+  "area": "infra",
+  "summary": "RDS y Cognito ya tienen RETAIN y protección de borrado; faltan versionado y RETAIN del bucket de catálogo, y la retención de backups de 7 días está bloqueada por el plan gratuito.",
+  "suggestions": [
+    {
+      "label": "Bucket de catálogo con RETAIN y versionado",
+      "prompt": "Lee el comentario de CONFIGS.dev en infra/lib/config.ts, infra/lib/storage-stack.ts y docs/infrastructure-aws.md (§2 y §5.5). Prepara el cambio de storage.removalPolicy a RETAIN y versioned a true para dev, sin desplegar: primero muéstrame el comando aws s3 sync de copia de seguridad del bucket, luego ejecuta npm run infra:diff y explícame si el recurso autoDeleteObjects se retira y si hay riesgo de vaciado. No ejecutes infra:deploy hasta que lo apruebe. Actualiza docs/infrastructure-aws.md §8.2."
+    }
+  ],
+  "blockedBy": [
+    "plan-pago-aws"
+  ],
+  "source": "docs/aws-full-deployment-plan.md (§3 D1, F1.8) + infra/lib/config.ts (comentario de CONFIGS.dev)",
+  "evidence": "infra/lib/config.ts: storage.removalPolicy DESTROY, versioned false, backupRetentionDays 1",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

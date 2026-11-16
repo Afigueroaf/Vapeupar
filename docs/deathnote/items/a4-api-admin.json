@@ -1,0 +1,13 @@
+{
+  "title": "Sesión Cognito y superficie /api/admin completa (A4)",
+  "status": "hecho",
+  "priority": "alta",
+  "area": "backend",
+  "summary": "Login mediado por el backend con cookies httpOnly, roles owner/operator, límites de tasa y CORS propios, y CRUD de marcas, proveedores, líneas, variantes, contenido y auditoría.",
+  "source": "docs/admin-console-execution-plan.md (Fase A4) + docs/security.md (§2.1)",
+  "evidence": "Commits 9d6342f y 7462982; backend/src/routes/admin/. El puente AdminJS (A4.4) se descartó",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z",
+  "completedAt": "2026-11-16T21:41:14.151Z"
+}

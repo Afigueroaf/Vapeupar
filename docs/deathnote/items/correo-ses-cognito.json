@@ -1,0 +1,21 @@
+{
+  "title": "Correo de invitaciones por SES con dominio verificado",
+  "status": "pendiente",
+  "priority": "baja",
+  "area": "seguridad",
+  "summary": "Pasar el User Pool del correo integrado de Cognito a SES con DKIM, SPF y DMARC y salir del sandbox.",
+  "suggestions": [
+    {
+      "label": "SES en el stack de autenticación",
+      "prompt": "Cuando haya dominio propio, lee docs/infrastructure-aws.md §8.1 e infra/lib/auth-stack.ts. Añade una identidad de SES para el dominio con DKIM, documenta los registros SPF y DMARC a crear en el DNS y cambia el User Pool a UserPoolEmail.withSES. Ejecuta npm run build --workspace=infra y npm run infra:diff y muéstrame si el pool se reemplaza antes de desplegar."
+    }
+  ],
+  "blockedBy": [
+    "dominio-definitivo"
+  ],
+  "source": "docs/infrastructure-aws.md (§8.1 punto 4) + docs/admin-console-execution-plan.md (Dependencia externa #7)",
+  "evidence": "infra/lib/auth-stack.ts sigue con el correo de Cognito",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

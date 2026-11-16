@@ -1,0 +1,26 @@
+{
+  "title": "Registro de ventas: manual o entidad de pedido",
+  "status": "decision",
+  "priority": "baja",
+  "area": "producto",
+  "summary": "El carrito genera un pedido por WhatsApp con referencia VP-XXXXXX, pero no hay tabla de pedidos: cada venta se descuenta a mano como movimiento de venta.",
+  "question": "¿Se mantiene el descuento manual de stock por venta o se crea una entidad de pedido que la consola confirme?",
+  "options": [
+    {
+      "detail": "Cero desarrollo y coherente con el volumen actual; depende de la disciplina de registrar cada venta.",
+      "label": "Mantener manual por ahora",
+      "prompt": "Decisión: las ventas se siguen registrando a mano como movimientos de venta. Añade en /admin/stock un campo opcional de referencia VP-XXXXXX al registrar una venta (guardado en el motivo o en lote) para cruzarla con el chat de WhatsApp, sin cambiar el esquema. npm run test:backend, npm run build y documenta la regla en docs/admin-console-execution-plan.md.",
+      "recommended": true
+    },
+    {
+      "detail": "Trazabilidad de pedidos y descuento automático de stock, pero introduce estados, reservas y más superficie.",
+      "label": "Entidad Order confirmada desde la consola",
+      "prompt": "Decisión: se crea una entidad de pedido. Lee ADR-001, ADR-002 y docs/admin-console-execution-plan.md (Alcance). Redacta un ADR-003 con el modelo Order/OrderLine (referencia VP-XXXXXX, estados pendiente/confirmado/entregado/cancelado), cuándo se descuenta stock vía StockService y qué datos personales se guardan (y cuáles no). No implementes nada hasta que apruebe el ADR."
+    }
+  ],
+  "source": "docs/admin-console-execution-plan.md (Alcance explícito: Fuera) + docs/decisions/001-stack-and-architecture.md",
+  "evidence": "Commit 052304a: «sin pasarela de pago ni tabla de pedidos»",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

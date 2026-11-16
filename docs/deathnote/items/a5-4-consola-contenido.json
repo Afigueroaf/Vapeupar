@@ -1,0 +1,22 @@
+{
+  "title": "Pantalla de contenido del sitio en la consola (A5.4)",
+  "status": "pendiente",
+  "priority": "media",
+  "area": "admin",
+  "summary": "Formularios generados desde los esquemas de contenido, con previsualización, historial de versiones y botón de publicar que dispara la revalidación.",
+  "suggestions": [
+    {
+      "label": "Construir /admin/content",
+      "prompt": "Con A7.1–A7.3 hechos, lee docs/admin-console-execution-plan.md (A5.4 y decisiones de A5.2/A5.3) y los componentes de frontend/src/components/admin/ (record-list, use-admin-query, form). Crea /admin/content con un formulario por clave, vista previa, listado de versiones (GET /:key/versions) y publicar solo para owner. Criterio: cambiar una pregunta de la FAQ y verla en el sitio sin desplegar. Ejecuta npm run lint --workspace=frontend y npm run build, y añade el registro de ejecución al plan."
+    }
+  ],
+  "blockedBy": [
+    "a7-contenido-editable",
+    "a7-revalidacion-on-demand"
+  ],
+  "source": "docs/admin-console-execution-plan.md (A5.4)",
+  "evidence": "No existe frontend/src/app/(admin)/admin/(panel)/content",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

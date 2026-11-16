@@ -1,0 +1,18 @@
+{
+  "title": "Nombre No-IP, TLS con Let's Encrypt y CORS de subida (F4)",
+  "status": "pendiente",
+  "priority": "alta",
+  "area": "infra",
+  "summary": "Sin HTTPS la consola /admin no funciona en producción (cookies Secure) y las subidas fallan por CORS; hay que apuntar el nombre No-IP, emitir certificado, redirigir a https y actualizar uploadOrigins y metadataBase.",
+  "suggestions": [
+    {
+      "label": "Preparar F4 con el nombre de No-IP",
+      "prompt": "Lee docs/aws-full-deployment-plan.md (F4 y F3, nota de activate.sh sobre vapeupar.conf con TLS), infra/deploy/nginx/, infra/deploy/activate.sh e infra/lib/config.ts. Te daré el nombre de No-IP. Prepara: config.app.publicOrigin y storage.uploadOrigins con https://<nombre>, metadataBase de frontend/src/app/layout.tsx leído de una variable pública, un vapeupar.conf versionado que incluya el bloque TLS y la redirección 301 (decidiendo cómo convive con certbot sin que activate.sh lo pise) y los comandos exactos de certbot --nginx y certbot renew --dry-run para ejecutar por SSM. No despliegues: muéstrame npm run infra:diff y el orden de pasos. Ejecuta npm run build."
+    }
+  ],
+  "source": "docs/aws-full-deployment-plan.md (F4 — Dominio, TLS y CORS)",
+  "evidence": "infra/deploy/nginx/vapeupar.conf solo escucha en 80; config.dev.storage.uploadOrigins = ['http://localhost:3000']; metadataBase apunta a vapeupar.com",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

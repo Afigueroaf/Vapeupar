@@ -1,0 +1,31 @@
+{
+  "title": "Pasar la cuenta AWS a plan de pago (y separarla de DeliPan)",
+  "status": "decision",
+  "priority": "alta",
+  "area": "infra",
+  "summary": "El plan gratuito vence el 2027-03-12 y el crédito compartido con DeliPan podría agotarse antes; si no se pasa a pago, AWS cierra la cuenta con ambos proyectos. Además limita backups a 1 día.",
+  "question": "¿Cuándo y cómo se pasa a plan de pago: misma cuenta compartida, o cuenta propia de Vapeupar con AWS Organizations?",
+  "options": [
+    {
+      "detail": "Sin migraciones y desbloquea backups de 7 días; se sigue compartiendo con DeliPan y su credencial de despliegue.",
+      "label": "Pasar a pago en diciembre en la misma cuenta",
+      "prompt": "Decisión: la cuenta compartida pasa a plan de pago en diciembre de 2026 (decisión conjunta con DeliPan ya tomada). Prepara la lista de cambios que se desbloquean: backupRetentionDays 7 en infra/lib/config.ts siguiendo el procedimiento de F1.8 de docs/aws-full-deployment-plan.md (snapshot previo, despliegue propio de Vapeupar-dev-Data), presupuesto a 45 USD y alarmas de coste. Actualiza §6.1 de docs/infrastructure-aws.md. No despliegues sin mi aprobación; muéstrame npm run infra:diff.",
+      "recommended": true
+    },
+    {
+      "detail": "Aislamiento total de permisos y facturación; exige migrar RDS, bucket, Cognito (usuarios) y la IP pública.",
+      "label": "Cuenta propia de Vapeupar con AWS Organizations",
+      "prompt": "Decisión: Vapeupar pasa a su propia cuenta con AWS Organizations. Lee ADR-002 (decisión 9 y alternativas), docs/infrastructure-aws.md §8 y infra/lib/config.ts. Redacta un plan de migración por fases (bootstrap CDK con qualifier vapeupar, snapshot y restauración de RDS, aws s3 sync del catálogo, nuevo User Pool y reinvitación, cambio de DNS, rol OIDC de GitHub) con coste y tiempo de corte estimados, como docs/aws-account-migration-plan.md. No ejecutes nada."
+    },
+    {
+      "detail": "Podría abaratar costes, pero rehace Cognito, S3/CloudFront, CI/CD y la EC2.",
+      "label": "Migrar fuera de AWS al vencer el plan",
+      "prompt": "Evalúa, sin cambiar código, el coste mensual y el esfuerzo de mover Vapeupar fuera de AWS al vencer el plan gratuito (Postgres gestionado, almacenamiento de objetos con CDN, auth y un VPS), contrastándolo con ~27,5 USD/mes actuales (docs/aws-full-deployment-plan.md §7). Señala qué archivos se reescribirían (auth.service.ts, storage/image-upload.service.ts, infra/). Entrega la comparación en la conversación."
+    }
+  ],
+  "source": "docs/infrastructure-aws.md (§6.1) + docs/aws-full-deployment-plan.md (§7.1, D3) + docs/decisions/002-consola-de-administracion-y-persistencia.md (Alternativas: cuenta separada)",
+  "evidence": "Crédito 137,34 USD al 2026-11-06 con ~36–37,5 USD/mes; plazo interno «antes de enero de 2027»",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

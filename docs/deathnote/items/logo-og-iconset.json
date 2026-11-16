@@ -1,0 +1,13 @@
+{
+  "title": "Logo vectorial, imagen OpenGraph propia e icon set",
+  "status": "hecho",
+  "priority": "media",
+  "area": "diseño",
+  "summary": "Logo en SVG, opengraph-image propia, favicon, apple-icon, manifest e iconos maskable.",
+  "source": "docs/design-execution-plan.md (Pendientes abiertos #2, #4 y registro del icon set)",
+  "evidence": "Commits 0613668 y a1815be; frontend/src/app/{icon.svg,apple-icon.png,opengraph-image.png,manifest.ts}",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z",
+  "completedAt": "2026-11-16T21:41:14.151Z"
+}

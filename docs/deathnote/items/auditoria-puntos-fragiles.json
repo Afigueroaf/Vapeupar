@@ -1,0 +1,13 @@
+{
+  "title": "Corrección de los 14 puntos frágiles de la auditoría",
+  "status": "hecho",
+  "priority": "alta",
+  "area": "seguridad",
+  "summary": "Zod en las rutas, Helmet, rate limit, paginación y filtro de nicotina, middleware de errores, modal +18 con TTL y ARIA, menú móvil, OpenGraph y anclas corregidas.",
+  "source": "docs/audit-and-fragile-points.md (Matriz de Puntos Frágiles) + docs/improvement-plan.md (Fase 1)",
+  "evidence": "Commit 5fbbf7c; backend/src/app.ts (helmet, rateLimit), backend/src/schemas/product.schema.ts",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z",
+  "completedAt": "2026-11-16T21:41:14.151Z"
+}

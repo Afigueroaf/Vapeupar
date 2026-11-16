@@ -1,0 +1,18 @@
+{
+  "title": "Carga de datos reales: proveedores, conteo físico y logos de marcas",
+  "status": "pendiente",
+  "priority": "media",
+  "area": "datos",
+  "summary": "Registrar los proveedores reales, el conteo físico inicial como movimientos de ingreso y los logos SVG de otras marcas aliadas; hoy hay 0 proveedores.",
+  "suggestions": [
+    {
+      "label": "Importador CSV para el conteo inicial",
+      "prompt": "Lee docs/admin-console-execution-plan.md (A3 y dependencias externas) y backend/src/services/stock.service.ts. Crea backend/scripts/import-initial-stock.ts que lea un CSV (variantSlug, productSlug, cantidad, proveedor, costoUnitario, lote) y registre cada fila con StockService.recordMovement como inbound, con operationKey determinista por fila para que reejecutar no duplique, y modo --dry-run. Incluye una plantilla CSV de ejemplo sin datos reales. Añade tests con el repositorio en memoria, ejecuta npm run test:backend y documenta el uso en docs/backend.md."
+    }
+  ],
+  "source": "docs/admin-console-execution-plan.md (Dependencias externas #3, #4 y #6)",
+  "evidence": "docs/session-handoff-2026-10-27-inventory-images.md §4.3: 0 proveedores; solo LifePod como marca",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}
