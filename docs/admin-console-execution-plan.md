@@ -47,13 +47,13 @@ o el despliegue.
 | 2 | Precio: ¿por línea o por variante? | **Por línea** (`Product.precio`, con `precioAnterior` opcional para ofertas) | `Variant` no lleva precio; la consola edita el precio una vez por línea (A5.3) |
 | 3 | Taxonomía de categorías | **Se mantienen las 6 actuales** (`disposables`, `pod-systems`, `mods-tanks`, `salt-nic`, `freebase-liquids`, `coils-accessories`) | `Product.categoria` es un enum de Prisma con esos 6 valores; los identificadores del contrato de API no cambian y A2.3 solo consolida las etiquetas, no la taxonomía |
 
-**Abiertas**
+**Cerradas (2026-11-16)**
 
-| # | Decisión | Opciones | Impacto si se elige mal |
+| # | Decisión | Resultado | Consecuencia en el plan |
 |---|---|---|---|
-| 4 | ¿Qué líneas LifePod se publican ya? | `eco-3`, `eco.pro`, `ONE`, `fit` | `fit/` solo tiene imagen de línea y ninguna variante: o se publica sin variantes o queda en `borrador` |
-| 5 | Umbral de «bajo stock» | Global (ej. 5 unidades) vs por variante | Define la alerta de la pantalla de stock (A5.1) |
-| 6 | Usuarios de la consola | Solo `owner` hoy; ¿habrá `operador`? | El rol se modela desde A1 en cualquier caso, pero define si A4 necesita pantalla de invitación |
+| 4 | ¿Qué líneas LifePod se publican ya? | **ONE se publica ya; FIT queda en `borrador`** hasta tener variantes. Categorías: ONE en `pod-systems`; ECO 3, ECO PRO y FIT en `disposables` | La regla de publicación no cambia: una línea sin variante activa no se publica |
+| 5 | Umbral de «bajo stock» | **Global y configurable** por el dueño desde la consola | Un solo valor guardado en la base; `GET /api/admin/stock` lo devuelve en `meta.threshold` |
+| 6 | Usuarios de la consola | **Habrá operadores**, con pantalla de usuarios para el dueño | `/admin/users` (solo `owner`): invitar y desactivar. El reparto de permisos de A4 se mantiene: el operador opera inventario e imágenes |
 
 ### A0.2 — Entorno AWS dev ✅
 
