@@ -2,14 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ChevronLeftIcon } from "@/components/ui/icons";
-import { AgeVerificationModal } from "@/components/age-verification-modal";
-import { Footer } from "@/components/footer";
-import { Navbar } from "@/components/navbar";
 import { ProductDetail } from "@/components/product-detail/product-detail";
-import { TouchCursor } from "@/components/touch-cursor";
-import { WhatsappFab } from "@/components/whatsapp-fab";
+import { PublicShell } from "@/components/public-shell";
 import { FALLBACK_PRODUCTS } from "@/data/fallback-products";
 import { fetchProductBySlug } from "@/lib/api";
+import { COLLECTIONS, collectionHref } from "@/lib/collections";
 import type { Product } from "@/types/product";
 
 /**
@@ -59,32 +56,25 @@ export default async function ProductPage({ params, searchParams }: PageProps<"/
   const product = await loadProduct(slug);
 
   return (
-    <div className="flex min-h-screen flex-col">
-      {/* Mismo armazón público que la portada, y por lo mismo fuera de todo
-          bloque filtrado: la puerta +18 no se salta entrando directo a una
-          ficha desde un enlace compartido. */}
-      <AgeVerificationModal />
-      <WhatsappFab />
-      <TouchCursor />
+    // La puerta +18 va en el armazón: no se salta entrando directo a una
+    // ficha desde un enlace compartido.
+    <PublicShell>
+      <div className="mx-auto max-w-vp px-inline pb-section pt-6 sm:pt-10">
+        {/* «Atrás» lleva a la colección de la línea (V8), no al catálogo
+            entero: es de donde se suele venir y donde están sus parecidas. */}
+        <Link
+          href={collectionHref(product.category)}
+          className="inline-flex min-h-[44px] items-center gap-1 text-sm font-semibold uppercase tracking-[0.04em] text-muted transition-colors hover:text-foreground"
+        >
+          <ChevronLeftIcon className="size-4" aria-hidden="true" />
+          {COLLECTIONS.find((c) => c.category === product.category)?.label ?? "Tienda"}
+        </Link>
 
-      <Navbar />
-      <main className="flex-1">
-        <div className="mx-auto max-w-vp px-inline pb-section pt-6 sm:pt-10">
-          <Link
-            href="/#catalogo"
-            className="inline-flex min-h-[44px] items-center gap-1 text-sm font-semibold uppercase tracking-[0.04em] text-muted transition-colors hover:text-foreground"
-          >
-            <ChevronLeftIcon className="size-4" aria-hidden="true" />
-            Catálogo
-          </Link>
-
-          <ProductDetail
-            product={product}
-            initialVariantSlug={typeof sabor === "string" ? sabor : undefined}
-          />
-        </div>
-      </main>
-      <Footer />
-    </div>
+        <ProductDetail
+          product={product}
+          initialVariantSlug={typeof sabor === "string" ? sabor : undefined}
+        />
+      </div>
+    </PublicShell>
   );
 }

@@ -7,26 +7,29 @@ import { BagIcon, CloseIcon, MenuIcon } from "@/components/ui/icons";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 import { PixelLabel } from "@/components/ui/pixel-label";
 import { setCartOpen, useCart, useCartOpen } from "@/lib/cart";
+import { COLLECTIONS } from "@/lib/collections";
 
 /**
  * Navegación principal VP.
  *
- * Los destinos apuntan a secciones de la portada, escritos como `/#seccion`
- * y no `#seccion` para que también lleven allí desde la ficha de producto:
- * en la portada misma, el navegador lo trata como un cambio de ancla y no
- * recarga nada. Se convierten en rutas reales (`/tienda`, `/coleccion/[categoria]`, `/nosotros`) en una
- * fase posterior (`docs/design-reset-inventory.md` §5.6).
+ * Desde V8 (`docs/design-reset-inventory.md` §5.6) «Nosotros» y las
+ * colecciones son rutas propias (`/nosotros`, `/coleccion/<slug>`). La tienda
+ * y el índice de colecciones siguen siendo secciones de la portada, escritas
+ * como `/#seccion` para que también lleven allí desde otra página.
  */
 const NAV_LINKS = [
   { href: "/#catalogo", label: "Tienda" },
   { href: "/#colecciones", label: "Colecciones" },
-  { href: "/#nosotros", label: "Nosotros" },
+  { href: "/nosotros", label: "Nosotros" },
 ];
 
+/**
+ * Accesos directos del menú móvil: las tres colecciones con más recorrido
+ * (las que antes eran anclas) y las preguntas frecuentes. Las seis están en el
+ * índice «Colecciones» y en la propia página de cada colección.
+ */
 const MOBILE_COLLECTIONS = [
-  { href: "/#desechables", label: "Desechables" },
-  { href: "/#pods", label: "Pods recargables" },
-  { href: "/#liquidos", label: "Sales de nicotina" },
+  ...COLLECTIONS.slice(0, 3).map((c) => ({ href: `/coleccion/${c.slug}`, label: c.label })),
   { href: "/#faq", label: "Preguntas frecuentes" },
 ];
 
@@ -62,9 +65,9 @@ export function Navbar() {
                     ·
                   </span>
                 )}
-                <a href={link.href} className="transition-colors hover:text-action">
+                <Link href={link.href} className="transition-colors hover:text-action">
                   {link.label}
-                </a>
+                </Link>
               </li>
             ))}
           </ul>
@@ -123,13 +126,13 @@ export function Navbar() {
             <ul className="flex flex-col gap-1">
               {NAV_LINKS.map((link) => (
                 <li key={link.href}>
-                  <a
+                  <Link
                     href={link.href}
                     onClick={closeMenu}
                     className="flex min-h-[44px] items-center text-2xl font-bold uppercase tracking-[-0.01em] transition-colors hover:text-action"
                   >
                     {link.label}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -140,13 +143,13 @@ export function Navbar() {
             <ul className="mt-4 flex flex-col gap-1">
               {MOBILE_COLLECTIONS.map((link) => (
                 <li key={link.href}>
-                  <a
+                  <Link
                     href={link.href}
                     onClick={closeMenu}
                     className="flex min-h-[44px] items-center text-base font-semibold text-muted transition-colors hover:text-action"
                   >
                     {link.label}
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>

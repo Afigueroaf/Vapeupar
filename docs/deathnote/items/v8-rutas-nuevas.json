@@ -15,8 +15,9 @@
     }
   ],
   "source": "docs/design-execution-plan.md (V8) + docs/design-reset-inventory.md (§5.5, §5.6, §6.3)",
-  "evidence": "frontend/src/app/ solo tiene page.tsx, producto/[slug] y admin",
+  "evidence": "docs/frontend.md «Rutas públicas (V8)»",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-16T21:41:14.151Z"
+  "updatedAt": "2026-11-17T20:58:57.215Z",
+  "claudeNote": "Rama feat/rutas-coleccion-nosotros (2026-11-17), sin fusionar. /coleccion/[categoria] con las 6 categorías (slugs en español en lib/collections.ts), ISR 60 s, 404 para slugs desconocidos y estado vacío «próximamente»; /nosotros con COPY PROVISIONAL (autenticidad, entrega, +18) pendiente de aprobar; armazón público compartido (public-shell.tsx). La barra enlaza Nosotros a /nosotros; menú móvil y pie, a las colecciones; la ficha vuelve a su colección. Lint y build OK. Falta: aprobar el texto de /nosotros."
 }

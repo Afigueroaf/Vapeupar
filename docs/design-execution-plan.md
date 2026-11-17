@@ -23,12 +23,12 @@
 | **V5** | Catálogo y filtros | `product-catalog.tsx` | ✅ **Ejecutada** |
 | **V6** | FAQ + footer | `faq.tsx`, `footer.tsx` | ✅ **Ejecutada** |
 | **V7** | Modal +18 | `age-verification-modal.tsx` | ✅ **Ejecutada** |
-| **V8** | Rutas nuevas y 3D | `/producto/[slug]`, `/coleccion/[categoria]`, `/nosotros` | ⬜ Pendiente |
+| **V8** | Rutas nuevas y 3D | `/producto/[slug]`, `/coleccion/[categoria]`, `/nosotros` | ✅ **Rutas ejecutadas** (2026-11-17): ficha, las 6 colecciones con ISR y nosotros (copy provisional). Detalle en `docs/frontend.md` «Rutas públicas (V8)» |
 
 Este documento **planificó** V0 a V3. Las fases V4 a V7 se ejecutaron después sin plan
 previo escrito, a petición directa: su registro está en
 [Registro de ejecución (V4 – V7)](#registro-de-ejecución-v4--v7), al final, con las
-decisiones tomadas durante la ejecución. V8 sigue pendiente y no está planificada aquí.
+decisiones tomadas durante la ejecución. Las rutas de V8 se ejecutaron el 2026-11-17 sin plan aparte; están documentadas en `docs/frontend.md` («Rutas públicas (V8)»).
 
 ---
 
