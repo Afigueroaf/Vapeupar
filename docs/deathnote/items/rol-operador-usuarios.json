@@ -1,6 +1,6 @@
 {
   "title": "Usuarios de la consola: ¿habrá operadores?",
-  "status": "decision",
+  "status": "pendiente",
   "priority": "media",
   "area": "admin",
   "summary": "Los roles owner/operator existen y el operator solo opera inventario e imágenes, pero no hay pantalla para invitar ni desactivar usuarios; la decisión #6 sigue abierta.",
@@ -27,5 +27,11 @@
   "evidence": "POST /api/admin/users/invite existe (backend/src/routes/admin/users.routes.ts); no hay /admin/users en el frontend",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-16T21:41:14.151Z"
+  "updatedAt": "2026-11-17T01:44:04.081Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "queued": true,
+  "queuedAt": "2026-11-17T01:44:04.079Z"
 }

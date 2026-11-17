@@ -1,6 +1,6 @@
 {
   "title": "Umbral de bajo stock: global o por variante",
-  "status": "decision",
+  "status": "pendiente",
   "priority": "baja",
   "area": "admin",
   "summary": "La alerta usa un 5 fijo repetido en frontend y backend; la decisión #5 sigue abierta.",
@@ -27,5 +27,11 @@
   "evidence": "LOW_STOCK_THRESHOLD = 5 en la consola y default threshold 5 en backend/src/schemas/admin/",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-16T21:41:14.151Z"
+  "updatedAt": "2026-11-17T01:44:15.620Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "queued": true,
+  "queuedAt": "2026-11-17T01:44:15.619Z"
 }

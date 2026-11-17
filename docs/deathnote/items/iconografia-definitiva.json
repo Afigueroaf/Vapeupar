@@ -1,6 +1,6 @@
 {
   "title": "Set de iconografía definitivo",
-  "status": "decision",
+  "status": "pendiente",
   "priority": "baja",
   "area": "diseño",
   "summary": "Siguen 6 iconos funcionales de Lucide, estilo lineal redondeado ajeno a la identidad VP.",
@@ -22,5 +22,11 @@
   "evidence": "16 archivos de frontend/src importan lucide-react (incluida la consola)",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-16T21:41:14.151Z"
+  "updatedAt": "2026-11-17T01:44:12.831Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "queued": true,
+  "queuedAt": "2026-11-17T01:44:12.830Z"
 }

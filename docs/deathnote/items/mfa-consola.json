@@ -1,6 +1,6 @@
 {
   "title": "MFA de la consola en producción",
-  "status": "decision",
+  "status": "pendiente",
   "priority": "alta",
   "area": "seguridad",
   "summary": "El backend responde 501 al reto SOFTWARE_TOKEN_MFA y el pool vivo tiene MFA opcional, que Cognito no permite pasar a obligatorio sin recrear el pool.",
@@ -27,5 +27,11 @@
   "evidence": "backend/src/services/auth.service.ts:123 y routes/admin/http.ts UNSUPPORTED_CHALLENGE: 501; config.dev.auth.mfaRequired = false",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-16T21:41:14.151Z"
+  "updatedAt": "2026-11-17T01:43:55.102Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "queued": true,
+  "queuedAt": "2026-11-17T01:43:55.101Z"
 }

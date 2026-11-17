@@ -1,6 +1,6 @@
 {
   "title": "Coste de arranque del 3D: diferir o aligerar",
-  "status": "decision",
+  "status": "pendiente",
   "priority": "baja",
   "area": "rendimiento",
   "summary": "El perfil mostró que lo caro al cargar es crear el contexto WebGL y compilar shaders, no el muestreo; el plan pide elegir entre diferir el lienzo o reducir partículas.",
@@ -22,5 +22,12 @@
   "evidence": "Perfil del 2026-11-05: getParameters 144 ms, getImageData 89 ms de 1 565 ms de tareas largas",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-16T21:41:14.151Z"
+  "updatedAt": "2026-11-17T01:44:07.198Z",
+  "choice": {
+    "kind": "option",
+    "index": 1
+  },
+  "userPrompt": "Para compensar la pérdida de partículas, aumenta el tamaño máximo que pueden alcanzar las partículas y disminuye las velocidades a las que se mueven, de modo que la nube conserve presencia visual con menos densidad. Compara capturas antes/después en táctil y escritorio.",
+  "queued": true,
+  "queuedAt": "2026-11-17T01:44:07.197Z"
 }

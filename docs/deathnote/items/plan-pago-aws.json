@@ -1,6 +1,6 @@
 {
   "title": "Pasar la cuenta AWS a plan de pago (y separarla de DeliPan)",
-  "status": "decision",
+  "status": "pendiente",
   "priority": "alta",
   "area": "infra",
   "summary": "El plan gratuito vence el 2027-03-12 y el crédito compartido con DeliPan podría agotarse antes; si no se pasa a pago, AWS cierra la cuenta con ambos proyectos. Además limita backups a 1 día.",
@@ -27,5 +27,11 @@
   "evidence": "Crédito 137,34 USD al 2026-11-06 con ~36–37,5 USD/mes; plazo interno «antes de enero de 2027»",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-16T21:41:14.151Z"
+  "updatedAt": "2026-11-17T01:43:57.877Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "queued": true,
+  "queuedAt": "2026-11-17T01:43:57.875Z"
 }

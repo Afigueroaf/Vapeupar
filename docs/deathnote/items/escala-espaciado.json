@@ -1,6 +1,6 @@
 {
   "title": "Escala de espaciado en tokens",
-  "status": "decision",
+  "status": "pendiente",
   "priority": "baja",
   "area": "diseño",
   "summary": "Los espaciados (py-16, p-5, gap-6) siguen siendo ad hoc; falta decidir la escala.",
@@ -22,5 +22,11 @@
   "evidence": "frontend/src/app/globals.css no declara tokens de espaciado propios",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-16T21:41:14.151Z"
+  "updatedAt": "2026-11-17T01:44:09.965Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "queued": true,
+  "queuedAt": "2026-11-17T01:44:09.964Z"
 }

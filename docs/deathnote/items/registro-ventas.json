@@ -1,6 +1,6 @@
 {
   "title": "Registro de ventas: manual o entidad de pedido",
-  "status": "decision",
+  "status": "pendiente",
   "priority": "baja",
   "area": "producto",
   "summary": "El carrito genera un pedido por WhatsApp con referencia VP-XXXXXX, pero no hay tabla de pedidos: cada venta se descuenta a mano como movimiento de venta.",
@@ -22,5 +22,6 @@
   "evidence": "Commit 052304a: «sin pasarela de pago ni tabla de pedidos»",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-16T21:41:14.151Z"
+  "updatedAt": "2026-11-17T01:41:09.711Z",
+  "userPrompt": "El dueño quiere un trabajo especializado aquí: diseñar una experiencia de compra disfrutable para los clientes y cómoda para el operador (del carrito y el pedido por WhatsApp hasta el registro de la venta y el descuento de stock). No decidir aún entre manual y entidad Order: primero proponer el flujo completo de cliente y operador."
 }
