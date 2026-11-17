@@ -211,6 +211,36 @@ function withReadiness(body: {
   return { product: body.data, readiness: body.meta?.readiness ?? fallback };
 }
 
+/** Paso siguiente del inicio de sesión de la consola. */
+export type LoginStep =
+  | { status: "authenticated"; email: string; role: string }
+  | { status: "new_password_required" }
+  | { status: "mfa_required" }
+  | { status: "mfa_setup"; secret: string; otpauthUri: string }
+  /** TOTP quedó activo pero no hubo sesión: hay que volver a entrar. */
+  | { status: "mfa_enrolled" };
+
+type LoginStepBody = {
+  status?: string;
+  email?: string;
+  role?: string;
+  secret?: string;
+  otpauthUri?: string;
+};
+
+function toLoginStep(data: LoginStepBody, email: string): LoginStep {
+  switch (data.status) {
+    case "new_password_required":
+    case "mfa_required":
+    case "mfa_enrolled":
+      return { status: data.status };
+    case "mfa_setup":
+      return { status: "mfa_setup", secret: data.secret ?? "", otpauthUri: data.otpauthUri ?? "" };
+    default:
+      return { status: "authenticated", email: data.email ?? email, role: data.role ?? "operator" };
+  }
+}
+
 export const adminApi = {
   /** Identidad de la sesión. `401` si no hay. */
   async me(): Promise<AdminIdentity> {
@@ -219,26 +249,37 @@ export const adminApi = {
   },
 
   /**
-   * Abre sesión. Con la contraseña temporal de la invitación no la abre:
-   * devuelve `new_password_required` y deja el reto en una cookie, así que el
-   * siguiente paso es `completeNewPassword` con el mismo correo.
+   * Abre sesión, o devuelve el paso que falta. Los retos quedan en cookies
+   * `httpOnly` del backend; aquí solo se sabe qué pedir a continuación:
+   * - `new_password_required`: contraseña temporal de la invitación →
+   *   `completeNewPassword`.
+   * - `mfa_required`: la cuenta tiene TOTP → `verifyMfa` con el código.
+   * - `mfa_setup`: hay que enrolar TOTP; trae el secreto para la app →
+   *   `verifyMfa` con el primer código.
    */
-  async login(email: string, password: string): Promise<
-    { status: "authenticated"; email: string; role: string } | { status: "new_password_required" }
-  > {
-    const body = await request<{ data: { status?: string; email?: string; role?: string } }>(
-      "/auth/login",
-      { method: "POST", body: JSON.stringify({ email, password }) },
-    );
-    if (body.data.status === "new_password_required") return { status: "new_password_required" };
-    return { status: "authenticated", email: body.data.email ?? email, role: body.data.role ?? "operator" };
-  },
-
-  async completeNewPassword(email: string, password: string): Promise<void> {
-    await request("/auth/new-password", {
+  async login(email: string, password: string): Promise<LoginStep> {
+    const body = await request<{ data: LoginStepBody }>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
     });
+    return toLoginStep(body.data, email);
+  },
+
+  async completeNewPassword(email: string, password: string): Promise<LoginStep> {
+    const body = await request<{ data: LoginStepBody }>("/auth/new-password", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    });
+    return toLoginStep(body.data, email);
+  },
+
+  /** Código de 6 dígitos: entra con TOTP o termina de enrolarlo. */
+  async verifyMfa(email: string, code: string): Promise<LoginStep> {
+    const body = await request<{ data: LoginStepBody }>("/auth/mfa", {
+      method: "POST",
+      body: JSON.stringify({ email, code }),
+    });
+    return toLoginStep(body.data, email);
   },
 
   async logout(): Promise<void> {

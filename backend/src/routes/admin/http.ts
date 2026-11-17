@@ -25,8 +25,9 @@ const AUTH_STATUS: Record<AuthErrorCode, number> = {
   SESSION_EXPIRED: 401,
   ALREADY_EXISTS: 409,
   THROTTLED: 429,
-  // El reto existe en Cognito pero la consola aún no sabe resolverlo (MFA).
+  // Un reto de Cognito que la consola no resuelve (SMS, correo): el pool solo usa TOTP.
   UNSUPPORTED_CHALLENGE: 501,
+  INVALID_MFA_CODE: 400,
   UPSTREAM: 502
 };
 

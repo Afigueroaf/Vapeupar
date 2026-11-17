@@ -598,8 +598,10 @@ falta de A4* al final de este registro.
   bloqueado por la **dependencia #2 del plan** (falta el correo del owner
   inicial), así que ni el login ni `npm run admin:invite` se han ejecutado
   contra el pool.
-- **MFA.** Es opcional en dev y obligatoria en prod. El backend responde `501`
-  al reto `SOFTWARE_TOKEN_MFA`; hay que resolverlo antes de exponer la consola.
+- **MFA.** ~~El backend responde `501` al reto `SOFTWARE_TOKEN_MFA`.~~ Resuelto
+  el 2026-11-16: TOTP con los retos `SOFTWARE_TOKEN_MFA` y `MFA_SETUP`, y
+  obligatoria en producción por aplicación (el pool sigue opcional). Ver
+  `docs/security.md` §2.1.
 - **Permisos IAM del backend.** En dev las llamadas salen con las credenciales
   locales, como anticipaba A4.1. El rol acotado al ARN del pool
   (`AdminCreateUser`, `AdminDisableUser`, `AdminUserGlobalSignOut`) va con el
@@ -904,9 +906,8 @@ formado).
   verdad hacen falta Cognito y la base, es decir la **dependencia #2** del plan
   (el correo del owner inicial) y el túnel. Hasta entonces el login solo se ha
   ejercitado contra el backend con Cognito sustituido.
-- **MFA.** Si el pool exige `SOFTWARE_TOKEN_MFA`, el backend responde `501` y la
-  pantalla mostrará ese mensaje. Resolverlo sigue siendo requisito antes de
-  exponer la consola.
+- **MFA.** Resuelto el 2026-11-16: la pantalla de acceso pide el código TOTP y,
+  la primera vez en producción, enseña el QR para enrolarlo.
 - **Sin pruebas automáticas de frontend.** El workspace no tiene runner y A5 no
   lo pedía; la red son el build, el lint y la comprobación de contrato de arriba.
 

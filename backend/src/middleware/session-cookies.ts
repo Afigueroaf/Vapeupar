@@ -20,6 +20,13 @@ export const REFRESH_COOKIE = 'vp_admin_rt';
 export const USERNAME_COOKIE = 'vp_admin_un';
 /** Reto NEW_PASSWORD_REQUIRED en curso. De un solo uso y de vida corta. */
 export const CHALLENGE_COOKIE = 'vp_admin_ch';
+/**
+ * Paso de MFA en curso: el reto de Cognito o, al enrolar con el pool opcional,
+ * los tokens de una sesión que todavía no se da por abierta. Nombres propios a
+ * propósito: `requireAuth` no los lee, así que con ellos no se entra a nada.
+ */
+export const MFA_COOKIE = 'vp_admin_mfa';
+export const MFA_REFRESH_COOKIE = 'vp_admin_mfa_rt';
 
 const COOKIE_PATH = '/api/admin';
 const CHALLENGE_TTL_MS = 10 * 60 * 1000;
@@ -54,7 +61,7 @@ export function setSessionCookies(res: Response, session: SessionCookies): void 
 }
 
 export function clearSessionCookies(res: Response): void {
-  for (const name of [ACCESS_COOKIE, REFRESH_COOKIE, USERNAME_COOKIE, CHALLENGE_COOKIE]) {
+  for (const name of [ACCESS_COOKIE, REFRESH_COOKIE, USERNAME_COOKIE, CHALLENGE_COOKIE, MFA_COOKIE, MFA_REFRESH_COOKIE]) {
     res.clearCookie(name, baseOptions());
   }
 }
@@ -65,6 +72,48 @@ export function setChallengeCookie(res: Response, challengeSession: string): voi
 
 export function clearChallengeCookie(res: Response): void {
   res.clearCookie(CHALLENGE_COOKIE, baseOptions());
+}
+
+/**
+ * Estado del paso de MFA, 10 minutos como el del cambio de contraseña:
+ * - `challenge`: sesión del reto `SOFTWARE_TOKEN_MFA`.
+ * - `setup-challenge`: sesión del reto `MFA_SETUP` (pool de MFA obligatoria).
+ * - `setup-token`: access token de una sesión sin MFA que el backend no abre
+ *   hasta que se enrole TOTP; el refresh token va en su propia cookie.
+ */
+export type MfaState =
+  | { kind: 'challenge'; session: string }
+  | { kind: 'setup-challenge'; session: string }
+  | { kind: 'setup-token'; accessToken: string; refreshToken?: string };
+
+// Ni `s:` ni `j:`: cookie-parser reserva esos prefijos (firmadas y JSON).
+const MFA_PREFIX = { challenge: 'c:', 'setup-challenge': 'e:', 'setup-token': 't:' } as const;
+
+export function setMfaCookie(res: Response, state: MfaState): void {
+  const value = state.kind === 'setup-token' ? state.accessToken : state.session;
+  res.cookie(MFA_COOKIE, MFA_PREFIX[state.kind] + value, { ...baseOptions(), maxAge: CHALLENGE_TTL_MS });
+  if (state.kind === 'setup-token' && state.refreshToken) {
+    res.cookie(MFA_REFRESH_COOKIE, state.refreshToken, { ...baseOptions(), maxAge: CHALLENGE_TTL_MS });
+  }
+}
+
+export function readMfaCookie(req: Request): MfaState | undefined {
+  const raw = readCookie(req, MFA_COOKIE);
+  if (!raw) return undefined;
+  const value = raw.slice(2);
+  if (!value) return undefined;
+  switch (raw.slice(0, 2)) {
+    case MFA_PREFIX.challenge: return { kind: 'challenge', session: value };
+    case MFA_PREFIX['setup-challenge']: return { kind: 'setup-challenge', session: value };
+    case MFA_PREFIX['setup-token']:
+      return { kind: 'setup-token', accessToken: value, refreshToken: readCookie(req, MFA_REFRESH_COOKIE) };
+    default: return undefined;
+  }
+}
+
+export function clearMfaCookies(res: Response): void {
+  res.clearCookie(MFA_COOKIE, baseOptions());
+  res.clearCookie(MFA_REFRESH_COOKIE, baseOptions());
 }
 
 /** Lectura tolerante: sin `cookie-parser` montado, `req.cookies` no existe. */

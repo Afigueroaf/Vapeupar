@@ -44,7 +44,9 @@ export interface AdminRouterDeps {
   auditView?: AuditViewRepository;
   inventoryNotes?: InventoryNoteService;
   imageUploads?: ImageUploadService;
-  auth?: Pick<typeof cognito, 'login' | 'completeNewPassword' | 'signOut' | 'inviteUser' | 'disableUser'>;
+  auth?: Partial<typeof cognito> & Pick<typeof cognito, 'login' | 'completeNewPassword' | 'signOut' | 'inviteUser' | 'disableUser'>;
+  /** Exigir TOTP en el login; por defecto, según el entorno (ver `isMfaRequired`). */
+  requireMfa?: boolean;
   verify?: typeof verifyAccessToken;
   /** Se sustituye en los tests para no hablar con Cognito ni con la base. */
   guard?: RequestHandler;
@@ -54,7 +56,7 @@ export function createAdminRouter(deps: AdminRouterDeps = {}): Router {
   const users = deps.users ?? new PrismaUserRepository();
   const router = Router();
 
-  router.use('/auth', createAuthRouter({ users, auth: deps.auth, verify: deps.verify }));
+  router.use('/auth', createAuthRouter({ users, auth: deps.auth, verify: deps.verify, requireMfa: deps.requireMfa }));
 
   // ---- A partir de aquí, sesión obligatoria ----
   router.use(deps.guard ?? requireAuth);
