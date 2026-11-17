@@ -8,6 +8,7 @@ function product(overrides: Partial<Product> & Pick<Product, 'id' | 'slug' | 'ca
   return {
     name: overrides.slug,
     brand: 'Marca Test',
+    brandSlug: overrides.brand ? overrides.brand.toLowerCase() : 'marca-test',
     description: '',
     shortDescription: '',
     inStock: true,
@@ -50,6 +51,15 @@ describe('ProductService', () => {
     const result = await service.getAll({ category: 'disposables' });
     expect(result.items.every(p => p.category === 'disposables')).toBe(true);
     expect(result.total).toBe(2);
+  });
+
+  it('filtra por marca usando el slug, aunque el nombre sea distinto', async () => {
+    const repo = new InMemoryProductRepository([
+      product({ id: 'x1', slug: 'x1', category: 'disposables', price: 1, brand: 'Lost Mary', brandSlug: 'lost-mary' }),
+      product({ id: 'x2', slug: 'x2', category: 'disposables', price: 1, brand: 'Otra', brandSlug: 'otra' })
+    ]);
+    const result = await new ProductService(repo).getAll({ brand: 'lost-mary' });
+    expect(result.items.map(p => p.id)).toEqual(['x1']);
   });
 
   it('filtra por marca sin distinguir mayúsculas', async () => {
@@ -112,9 +122,12 @@ describe('ProductService', () => {
     }
   });
 
-  it('ordena por puffs con los productos sin dato al principio', async () => {
-    const result = await service.getAll({ sortBy: 'puffCount', sortOrder: 'asc' });
-    expect(result.items.slice(-2).map(p => p.id)).toEqual(['p4', 'p1']);
+  it('ordena por puffs con los productos sin dato al final, en ambos sentidos', async () => {
+    const asc = await service.getAll({ sortBy: 'puffCount', sortOrder: 'asc' });
+    expect(asc.items.slice(0, 2).map(p => p.id)).toEqual(['p4', 'p1']);
+    const desc = await service.getAll({ sortBy: 'puffCount', sortOrder: 'desc' });
+    expect(desc.items.slice(0, 2).map(p => p.id)).toEqual(['p1', 'p4']);
+    expect(desc.items.slice(2).every(p => p.specs.puffCount === undefined)).toBe(true);
   });
 
   it('pagina con un límite pequeño', async () => {

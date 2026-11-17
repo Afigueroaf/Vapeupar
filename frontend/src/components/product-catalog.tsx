@@ -39,6 +39,48 @@ const CHIP_ACTIVE = "bg-action text-action-ink border-action";
 
 const CHIP_IDLE = "bg-transparent text-muted border-muted hover:border-line hover:text-foreground";
 
+/**
+ * Texto comparable: minúsculas y sin tildes, para que «sandia» encuentre
+ * «Sandía» y «limon», «Limón». Se escribe sin tildes en el móvil más de lo que
+ * parece.
+ */
+function fold(text: string): string {
+  return text.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+}
+
+/**
+ * ¿La línea responde a la búsqueda? Mira el nombre, la marca, las etiquetas y
+ * —desde A6— los NOMBRES DE SUS VARIANTES: quien busca «watermelon» busca la
+ * línea que tiene ese sabor, y la encuentra en su única tarjeta (una línea con
+ * 49 sabores no se desdobla en 49). `flavorProfile` se mantiene para las
+ * líneas antiguas sin variantes.
+ */
+function matchesSearch(product: Product, query: string): boolean {
+  const q = fold(query.trim());
+  if (q === "") return true;
+  return [
+    product.name,
+    product.brand,
+    product.specs.flavorProfile ?? "",
+    ...product.tags,
+    ...product.variants.map((v) => v.name),
+  ].some((text) => fold(text).includes(q));
+}
+
+/**
+ * Caladas para ordenar. Los pods recargables no tienen: van al final en vez de
+ * contar como 0, que es lo que son para «más caladas», pero sin mezclarse con
+ * desechables de verdad pequeños.
+ */
+function byPuffsDesc(a: Product, b: Product): number {
+  const pa = a.specs.puffCount;
+  const pb = b.specs.puffCount;
+  if (pa === undefined || pb === undefined) {
+    return (pa === undefined ? 1 : 0) - (pb === undefined ? 1 : 0);
+  }
+  return pb - pa;
+}
+
 export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
   const [selectedCategory, setSelectedCategory] = useState<ProductCategory | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -90,9 +132,17 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
     ? selectedCategory
     : "all";
 
+  /**
+   * Marcas del filtro, por slug. Antes se comparaba el nombre: dos grafías de
+   * la misma marca («LifePod» y «Lifepod») salían como dos opciones, y
+   * renombrarla en la consola rompía el filtro elegido.
+   */
   const brands = useMemo(() => {
-    const list = Array.from(new Set(initialProducts.map(p => p.brand)));
-    return ["all", ...list];
+    const bySlug = new Map<string, string>();
+    for (const p of initialProducts) {
+      if (!bySlug.has(p.brandSlug)) bySlug.set(p.brandSlug, p.brand);
+    }
+    return Array.from(bySlug, ([slug, name]) => ({ slug, name }));
   }, [initialProducts]);
 
   const filteredProducts = useMemo(() => {
@@ -101,22 +151,10 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
       if (activeCategory !== "all" && product.category !== activeCategory) {
         return false;
       }
-      // Brand match
-      if (selectedBrand !== "all" && product.brand !== selectedBrand) {
+      if (selectedBrand !== "all" && product.brandSlug !== selectedBrand) {
         return false;
       }
-      // Search match
-      if (searchQuery.trim() !== "") {
-        const q = searchQuery.toLowerCase();
-        const matchesName = product.name.toLowerCase().includes(q);
-        const matchesBrand = product.brand.toLowerCase().includes(q);
-        const matchesFlavor = product.specs.flavorProfile?.toLowerCase().includes(q);
-        const matchesTag = product.tags.some(t => t.toLowerCase().includes(q));
-        if (!matchesName && !matchesBrand && !matchesFlavor && !matchesTag) {
-          return false;
-        }
-      }
-      return true;
+      return matchesSearch(product, searchQuery);
     });
 
     // Sorting
@@ -125,7 +163,7 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
     } else if (sortBy === "price-desc") {
       result.sort((a, b) => b.price - a.price);
     } else if (sortBy === "puffs") {
-      result.sort((a, b) => (b.specs.puffCount ?? 0) - (a.specs.puffCount ?? 0));
+      result.sort(byPuffsDesc);
     }
 
     return result;
@@ -208,7 +246,7 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
         solo servía para desalinear.
       */}
       <div className="vp-glitch mt-6 flex flex-col gap-4 border-t-2 border-muted pt-6 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-        {brands.length > 2 && (
+        {brands.length > 1 && (
           <div className="flex items-center gap-3">
             {/* `shrink-0`: en la fila de móvil el selector se lleva el espacio
                 sobrante y la etiqueta no debe partirse para dárselo. */}
@@ -222,8 +260,8 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
                 onChange={(e) => setSelectedBrand(e.target.value)}
               >
                 <option value="all">Todas</option>
-                {brands.filter(b => b !== "all").map(b => (
-                  <option key={b} value={b}>{b}</option>
+                {brands.map((b) => (
+                  <option key={b.slug} value={b.slug}>{b.name}</option>
                 ))}
               </SelectField>
             </div>

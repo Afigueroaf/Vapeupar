@@ -10,7 +10,7 @@ import { ProductRepository } from './product.repository.js';
 const PUBLIC_WHERE = { status: 'published', price: { not: null } } satisfies Prisma.ProductWhereInput;
 
 const PRODUCT_INCLUDE = {
-  brand: { select: { name: true } },
+  brand: { select: { name: true, slug: true } },
   variants: {
     where: { active: true },
     select: { id: true, kind: true, name: true, slug: true, imageKey: true, stockCache: true },
@@ -67,6 +67,7 @@ export function toProduct(row: ProductRow): Product {
     name: row.name,
     slug: row.slug,
     brand: row.brand.name,
+    brandSlug: row.brand.slug,
     category: toApiCategory(row.category),
     description: row.description,
     shortDescription: row.shortDescription,
