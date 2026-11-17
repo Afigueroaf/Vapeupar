@@ -649,8 +649,8 @@ tests las de memoria.
 
 **Decisiones que hubo que tomar**
 
-- **Escribir es de `owner`; leer, de cualquier sesión.** La decisión #6 sigue
-  abierta, así que se tomó la lectura conservadora de «solo `owner` hoy»: el
+- **Escribir es de `owner`; leer, de cualquier sesión.** La decisión #6 seguía
+  abierta (se cerró el 2026-11-16 manteniendo este reparto), así que se tomó la lectura conservadora de «solo `owner` hoy»: el
   `operator` conserva el inventario diario (que A4 ya le dio explícitamente) y
   el catálogo, el contenido y la auditoría quedan para `owner`. Relajarlo es
   quitar un `requireRole` por ruta.
@@ -975,7 +975,8 @@ de A5.2 queda completa: marcas que trae, variantes abastecidas y ultimo ingreso.
 - **Las escrituras son del dueno.** El `operator` ve las cuatro pantallas y la
   ficha del proveedor, pero no los botones de alta ni de edicion. El backend lo
   impone igual con 403, y ese 403 tiene su mensaje propio en la consola. Sigue
-  siendo la postura conservadora de A4 mientras la decision #6 no se cierre.
+  siendo la postura de A4, que la decision #6 confirmo el 2026-11-16 al abrir la
+  consola a operadores (pantalla `/admin/users`, solo `owner`).
 - **Sin borrado, en ninguna de las tres.** Las lineas referencian la marca y el
   libro de inventario referencia las variantes, las dos con `Restrict`. Retirar
   es `active: false` o `status: 'draft'`, y la pantalla lo dice donde toca: la

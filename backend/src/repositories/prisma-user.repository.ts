@@ -17,6 +17,13 @@ export class PrismaUserRepository implements UserRepository {
     return row ?? undefined;
   }
 
+  public async list(): Promise<AdminUser[]> {
+    return getPrisma().user.findMany({
+      select: { id: true, email: true, role: true, active: true },
+      orderBy: { email: 'asc' }
+    });
+  }
+
   public async create(user: AdminUser): Promise<AdminUser> {
     try {
       return await getPrisma().user.create({ data: user });

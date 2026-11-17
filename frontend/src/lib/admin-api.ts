@@ -1,5 +1,7 @@
 import type { ProductCategory } from "@/types/product";
 import type {
+  AdminRole,
+  AdminUserRow,
   AdminIdentity,
   AdminProductDetail,
   AdminProductRow,
@@ -243,6 +245,29 @@ export const adminApi = {
 
   async logout(): Promise<void> {
     await request("/auth/logout", { method: "POST" });
+  },
+
+  /** Cuentas de la consola, activas e inactivas. Solo owner. */
+  async users(): Promise<AdminUserRow[]> {
+    const body = await request<{ data: AdminUserRow[] }>("/users");
+    return body.data;
+  },
+
+  /** Cognito envía la contraseña temporal por correo; vence en 3 días. */
+  async inviteUser(email: string, role: AdminRole): Promise<AdminUserRow> {
+    const body = await request<{ data: AdminUserRow }>("/users/invite", {
+      method: "POST",
+      body: JSON.stringify({ email, role }),
+    });
+    return body.data;
+  },
+
+  /** Revoca sus sesiones y deshabilita la cuenta. No se deshace desde la consola. */
+  async deactivateUser(id: string): Promise<AdminUserRow> {
+    const body = await request<{ data: AdminUserRow }>(`/users/${encodeURIComponent(id)}/deactivate`, {
+      method: "POST",
+    });
+    return body.data;
   },
 
   /** Inventario paginado, ordenado por disponible ascendente. */

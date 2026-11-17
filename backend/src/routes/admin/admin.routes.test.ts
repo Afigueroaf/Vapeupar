@@ -241,6 +241,38 @@ describe('superficie /api/admin', () => {
       expect(await users.findByEmail('nuevo@vapeupar.com')).toMatchObject({ role: 'operator', active: true });
     });
 
+    it('el owner lista todas las cuentas, también las inactivas', async () => {
+      const { url } = await start();
+      const response = await call(url, '/api/admin/users', { cookies: asOwner });
+      expect(response.status).toBe(200);
+      expect(response.body?.meta).toEqual({ count: 3 });
+      expect((response.body?.data as AdminUser[]).map(u => [u.email, u.active])).toEqual([
+        ['baja@vapeupar.com', false],
+        ['operador@vapeupar.com', true],
+        ['owner@vapeupar.com', true]
+      ]);
+    });
+
+    it('un operador no ve la lista de cuentas', async () => {
+      const { url } = await start();
+      const response = await call(url, '/api/admin/users', { cookies: asOperator });
+      expect(response.status).toBe(403);
+    });
+
+    it('el owner desactiva a un operador: base primero, luego Cognito', async () => {
+      const { url, disableUser, users } = await start();
+      const response = await call(url, `/api/admin/users/${OPERATOR}/deactivate`, {
+        method: 'POST',
+        cookies: asOwner
+      });
+      expect(response.status).toBe(200);
+      expect(disableUser).toHaveBeenCalledWith(OPERATOR);
+      expect(await users.findById(OPERATOR)).toMatchObject({ active: false });
+      // Sin fila activa, su sesión ya no pasa.
+      const after = await call(url, '/api/admin/me', { cookies: asOperator });
+      expect(after.status).toBe(403);
+    });
+
     it('el owner no puede desactivarse a sí mismo', async () => {
       const { url, disableUser } = await start();
       const response = await call(url, `/api/admin/users/${OWNER}/deactivate`, {

@@ -114,6 +114,7 @@ nace protegida.
 | `GET /api/admin/content/:key/versions` | sesión | Historial para volver atrás. `?limit=` |
 | `PUT /api/admin/content/:key` | **owner** | Publica una **versión nueva**; no sobrescribe. `201` |
 | `GET /api/admin/audit` | **owner** | Registro de escrituras. `?entity=&entityId=&action=&userId=&from=&to=&page=&limit=` |
+| `GET /api/admin/users` | **owner** | Todas las cuentas de la consola, activas e inactivas, por correo |
 | `POST /api/admin/users/invite` | **owner** | Invita a la consola y crea la fila en `User` |
 | `POST /api/admin/users/:id/deactivate` | **owner** | Desactiva la fila y deshabilita la cuenta en el pool |
 
