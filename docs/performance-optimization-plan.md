@@ -721,6 +721,29 @@ intermedia —3D en todas mientras el cursor está encendido— y se descartó: 
 fps y los peores picos de la tanda (200–216 ms), probablemente al montar de golpe
 las capas de todas las tarjetas.
 
+### Nube de puntos aligerada (2026-11-16, Deathnote `arranque-3d`)
+
+Decisión del dueño: menos partículas en táctil, con puntos más grandes y
+movimiento más lento. Rama `perf/nube-particulas`.
+
+| Parámetro | Antes | Ahora | Dónde |
+|---|---|---|---|
+| Partículas sobre el dispositivo | 55 000 | **30 000** | `vaporizer-point-cloud.tsx` (`particleCount`) |
+| Factor táctil (`pointer: coarse`) | ×0,6 (~33 000) | **×0,5 (~15 000)** | `vaporizer/device.ts` |
+| Tamaño de punto: superficie / aristas / ambientales | 0,7–1,2 / 1,0–1,4 / 0,4–0,9 | **0,7–1,6 / 1,0–1,8 / 0,4–1,2** | `vaporizer/sampling.ts` |
+| Giro | 0,3 rad/s | **0,18 rad/s** | `rotationSpeed` |
+| Respiración / parpadeo (frecuencia) | 0,9 / 1,9 | **0,55 / 1,2** | `vaporizer/point-material.ts` |
+
+La interacción con el cursor (`CURSOR_*`, `BURST_*` en `scene.tsx`) no cambia:
+es respuesta al gesto, no deriva propia de las partículas.
+
+**Sin medir todavía.** Lo que se espera, por razonamiento de coste: muestreo y
+pasadas GPGPU proporcionales al número de puntos (~45 % menos en escritorio,
+~55 % en táctil); el sobredibujado aditivo baja menos, porque los puntos
+grandes cubren más píxeles cada uno. Falta el A/B de la misma sesión (regla de
+arriba) y las capturas antes/después para validar que la silueta del box-mod
+se sigue leyendo como un volumen.
+
 ## 4. Orden recomendado y estimación
 
 | Fase | Esfuerzo | Impacto esperado |
