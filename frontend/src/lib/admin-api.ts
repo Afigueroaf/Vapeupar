@@ -312,8 +312,25 @@ export const adminApi = {
   },
 
   /** Inventario paginado, ordenado por disponible ascendente. */
-  stock(query: StockQuery = {}): Promise<PagedResponse<StockRow> & { meta?: { threshold?: number } }> {
+  stock(
+    query: StockQuery = {},
+  ): Promise<PagedResponse<StockRow> & { meta?: { threshold?: number; configuredThreshold?: number } }> {
     return request(`/stock${toSearchParams({ ...query })}`);
+  },
+
+  /** Umbral global de bajo stock (decisión #5). */
+  async stockThreshold(): Promise<number> {
+    const body = await request<{ data: { threshold: number } }>("/stock/threshold");
+    return body.data.threshold;
+  },
+
+  /** Solo owner. Queda versionado y en la auditoría. */
+  async setStockThreshold(threshold: number): Promise<number> {
+    const body = await request<{ data: { threshold: number } }>("/stock/threshold", {
+      method: "PUT",
+      body: JSON.stringify({ threshold }),
+    });
+    return body.data.threshold;
   },
 
   async movement(input: MovementInput): Promise<MovementResult> {

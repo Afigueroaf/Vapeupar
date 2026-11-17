@@ -11,6 +11,8 @@ import { AccessTokenClaims, TokenExpiredError, TokenInvalidError } from '../../s
 import { AuthError, CognitoSession, LoginResult } from '../../services/auth.service.js';
 import { StockError } from '../../services/stock.service.js';
 import { AdminUser } from '../../repositories/user.repository.js';
+import { InMemorySiteContentRepository } from '../../repositories/in-memory-site-content.repository.js';
+import { SettingsService } from '../../services/settings.service.js';
 
 /**
  * Verificación de A4: que la superficie autenticada responda 401 sin sesión,
@@ -134,7 +136,8 @@ async function start(options: {
           return { variantId, openingBalance: 0, entries: [], closingBalance: 0 };
         }) as never
       },
-      stockView: new InMemoryStockViewRepository(STOCK_ROWS)
+      stockView: new InMemoryStockViewRepository(STOCK_ROWS),
+      settings: new SettingsService(new InMemorySiteContentRepository())
     })
   });
 
@@ -362,6 +365,34 @@ describe('superficie /api/admin', () => {
 
       const bajo = await call(url, '/api/admin/stock?lowStock=true&threshold=5', { cookies: asOperator });
       expect((bajo.body?.data as StockRow[]).map(r => r.variantName)).toEqual(['Mango Ice']);
+    });
+
+    it('el umbral de bajo stock es global y lo cambia solo el dueño', async () => {
+      const { url } = await start();
+      const initial = await call(url, '/api/admin/stock/threshold', { cookies: asOperator });
+      expect(initial.body?.data).toEqual({ threshold: 5 });
+
+      const denied = await call(url, '/api/admin/stock/threshold', {
+        method: 'PUT', cookies: asOperator, body: { threshold: 1 }
+      });
+      expect(denied.status).toBe(403);
+
+      const invalid = await call(url, '/api/admin/stock/threshold', {
+        method: 'PUT', cookies: asOwner, body: { threshold: -1 }
+      });
+      expect(invalid.status).toBe(400);
+
+      const saved = await call(url, '/api/admin/stock/threshold', {
+        method: 'PUT', cookies: asOwner, body: { threshold: 1 }
+      });
+      expect(saved.status).toBe(200);
+      expect(saved.body?.data).toEqual({ threshold: 1 });
+
+      // Sin `threshold` en la consulta, el filtro usa el configurado: Mango Ice
+      // (2 unidades) ya no está en bajo stock con umbral 1.
+      const low = await call(url, '/api/admin/stock?lowStock=true', { cookies: asOperator });
+      expect(low.body?.meta).toEqual({ threshold: 1, configuredThreshold: 1 });
+      expect(low.body?.data).toEqual([]);
     });
 
     it('avisa sin bloquear sobre variantes publicadas con stock y sin imagen', async () => {

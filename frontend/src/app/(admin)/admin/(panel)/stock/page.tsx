@@ -14,7 +14,7 @@ import { useAdminQuery } from "@/components/admin/use-admin-query";
 import { Button } from "@/components/ui/button";
 import { TextField } from "@/components/ui/field";
 import { Surface } from "@/components/ui/surface";
-import { adminApi } from "@/lib/admin-api";
+import { adminApi, errorMessage } from "@/lib/admin-api";
 import type { StockRow, SupplierRow } from "@/types/admin";
 
 /**
@@ -34,11 +34,11 @@ import type { StockRow, SupplierRow } from "@/types/admin";
  */
 
 /**
- * Umbral de «bajo stock». La decisión #5 del plan (global o por variante) sigue
- * abierta; este es el valor por defecto del backend, repetido aquí porque la
- * consola tiene que poder mostrarlo antes de pedir nada.
+ * Umbral de «bajo stock» (decisión #5: global y configurable por el dueño). El
+ * valor real lo da `GET /api/admin/stock/threshold`; este es solo el que se
+ * muestra durante el primer instante, igual al por defecto del backend.
  */
-const LOW_STOCK_THRESHOLD = 5;
+const INITIAL_THRESHOLD = 5;
 
 const PAGE_SIZE = 20;
 
@@ -48,14 +48,14 @@ const SEARCH_DEBOUNCE_MS = 500;
 interface Filters {
   q: string;
   lowStock: boolean;
-  threshold: number;
+  /** Sin él, el backend aplica el umbral configurado. */
+  threshold?: number;
   page: number;
 }
 
 const INITIAL_FILTERS: Filters = {
   q: "",
   lowStock: false,
-  threshold: LOW_STOCK_THRESHOLD,
   page: 1,
 };
 
@@ -67,6 +67,7 @@ export default function StockPage() {
   const [filters, setFilters] = useState<Filters>(INITIAL_FILTERS);
 
   const [alertsTick, setAlertsTick] = useState(0);
+  const [threshold, setThreshold] = useState(INITIAL_THRESHOLD);
   const [alerts, setAlerts] = useState<{ out: number; low: number } | null>(null);
   // La lista entera, no solo el conteo: la alerta tiene que poder decir cuáles.
   const [missingImages, setMissingImages] = useState<StockRow[] | null>(null);
@@ -113,15 +114,18 @@ export default function StockPage() {
   useEffect(() => {
     let alive = true;
     // Una fila de cada consulta: lo que interesa es el total de la paginación.
+    // Sin `threshold`, la segunda usa el configurado y lo devuelve en `meta`.
     Promise.all([
       adminApi.stock({ lowStock: true, threshold: 0, limit: 1 }),
-      adminApi.stock({ lowStock: true, threshold: LOW_STOCK_THRESHOLD, limit: 1 }),
+      adminApi.stock({ lowStock: true, limit: 1 }),
       adminApi.imageAlerts(),
     ]).then(
       ([outOfStock, belowThreshold, missing]) => {
         if (!alive) return;
         const out = outOfStock.pagination.total;
         setAlerts({ out, low: Math.max(0, belowThreshold.pagination.total - out) });
+        const configured = belowThreshold.meta?.configuredThreshold ?? belowThreshold.meta?.threshold;
+        if (typeof configured === "number") setThreshold(configured);
         setMissingImages(missing);
       },
       () => {
@@ -205,7 +209,7 @@ export default function StockPage() {
       <StockAlerts
         out={alerts?.out ?? 0}
         low={alerts?.low ?? 0}
-        threshold={LOW_STOCK_THRESHOLD}
+        threshold={threshold}
         loading={alerts === null}
         missingImages={missingImages?.length ?? 0}
         imagesLoading={missingImages === null}
@@ -301,13 +305,25 @@ export default function StockPage() {
               setFilters((current) => ({
                 ...current,
                 lowStock: event.target.checked,
-                threshold: LOW_STOCK_THRESHOLD,
+                threshold: undefined,
                 page: 1,
               }))
             }
           />
-          Solo bajo stock (≤ {filters.threshold})
+          Solo bajo stock (≤ {filters.threshold ?? threshold})
         </label>
+
+        {canWrite && (
+          <ThresholdEditor
+            value={threshold}
+            onSaved={(saved) => {
+              setThreshold(saved);
+              setAlertsTick((tick) => tick + 1);
+              // Si el filtro usaba el umbral configurado, se vuelve a pedir.
+              setFilters((current) => (current.threshold === undefined ? { ...current } : current));
+            }}
+          />
+        )}
 
         {filtered && (
           <Button
@@ -333,7 +349,7 @@ export default function StockPage() {
       ) : (
         <StockList
           rows={rows}
-          threshold={filters.threshold}
+          threshold={filters.threshold ?? threshold}
           expanded={expanded}
           onToggle={toggle}
           renderPanel={(row, panel) =>
@@ -360,5 +376,67 @@ export default function StockPage() {
         onPage={(step) => setFilters((current) => ({ ...current, page: current.page + step }))}
       />
     </div>
+  );
+}
+
+/**
+ * Umbral global de bajo stock, solo para el dueño. Se guarda en el backend con
+ * versión y auditoría; el operador lo ve aplicado pero no lo cambia.
+ */
+function ThresholdEditor({ value, onSaved }: { value: number; onSaved: (threshold: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  const shown = draft ?? String(value);
+  const parsed = Number(shown);
+  const valid = shown.trim() !== "" && Number.isInteger(parsed) && parsed >= 0 && parsed <= 100000;
+
+  async function save(event: React.FormEvent) {
+    event.preventDefault();
+    if (!valid) return;
+    setSaving(true);
+    setMessage(null);
+    try {
+      const saved = await adminApi.setStockThreshold(parsed);
+      setDraft(null);
+      setMessage(`Umbral guardado: ${saved}`);
+      onSaved(saved);
+    } catch (cause) {
+      setMessage(errorMessage(cause, "No se pudo guardar el umbral"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form className="flex items-end gap-2" onSubmit={save} noValidate>
+      <div>
+        <label
+          htmlFor="stock-threshold"
+          className="mb-2 block font-display text-xs font-bold uppercase tracking-[0.04em] text-muted"
+        >
+          Umbral de bajo stock
+        </label>
+        <TextField
+          id="stock-threshold"
+          type="number"
+          inputMode="numeric"
+          min={0}
+          max={100000}
+          className="w-24"
+          value={shown}
+          onChange={(event) => setDraft(event.target.value)}
+          aria-describedby={message ? "stock-threshold-status" : undefined}
+        />
+      </div>
+      <Button type="submit" variant="secondary" disabled={!valid || saving || draft === null || parsed === value}>
+        {saving ? "Guardando…" : "Guardar"}
+      </Button>
+      {message && (
+        <p id="stock-threshold-status" role="status" className="self-center text-sm text-muted">
+          {message}
+        </p>
+      )}
+    </form>
   );
 }
