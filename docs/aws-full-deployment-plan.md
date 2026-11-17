@@ -432,6 +432,54 @@ dominio definitivo:
 - Al pasar al dominio definitivo se repiten los pasos 2 a 6 con el nuevo
   nombre; la infraestructura no cambia.
 
+#### F4 con `vapeupar.ddns.net` (2026-11-17)
+
+**Hecho:** nombre `vapeupar.ddns.net` → IP elástica; `publicOrigin` y
+`uploadOrigins` en `http://vapeupar.ddns.net`, desplegados (`Vapeupar-dev-Storage`
+y `-App`), y `vapeupar-env` + backend reiniciados por SSM: el CORS acepta el
+nombre. `NEXT_PUBLIC_SITE_URL` creado en SSM (entra con la próxima release).
+
+**Cómo encaja certbot sin que activate.sh lo pise.** certbot solo **obtiene** el
+certificado (`certonly --nginx --cert-name vapeupar`): no edita nginx. El repo
+trae el sitio en dos variantes que comparten las rutas
+(`infra/deploy/nginx/vapeupar-site.inc` → `/etc/nginx/vapeupar/site.inc`):
+
+| Archivo | Cuándo lo instala `activate.sh` |
+|---|---|
+| `vapeupar.conf` | Mientras NO exista `/etc/letsencrypt/live/vapeupar/fullchain.pem` |
+| `vapeupar-tls.conf` | En cuanto existe: 80 → 301 a https, 443 con el certificado |
+
+La verificación de `activate.sh` pasa a hacerse por https cuando el sitio lleva
+TLS (con `-k`: comprueba el reparto, no el certificado). Las dos variantes
+pasaron `nginx -t` en la instancia el 2026-11-17 (en `/tmp`, con certificado
+autofirmado). **Volver atrás** a una release anterior a este esquema reinstala
+su `vapeupar.conf` de una pieza: el sitio sigue funcionando, pero solo por http.
+
+**Orden de la puesta en marcha:**
+
+1. ✅ **Certificado — hecho el 2026-11-17**: `CN=vapeupar.ddns.net`, vence el
+   2027-02-15; `certbot-renew.timer` activo y `certbot renew --dry-run` correcto.
+   (No cambia lo que se sirve: la release activa no sabe de TLS.) Lo que se ejecutó
+   por SSM, como root,
+   ```bash
+   dnf install -y certbot python3-certbot-nginx
+   certbot certonly --nginx --cert-name vapeupar -d vapeupar.ddns.net      --non-interactive --agree-tos --register-unsafely-without-email      --deploy-hook "systemctl reload nginx"
+   systemctl enable --now certbot-renew.timer
+   certbot renew --dry-run
+   ```
+   Sin correo a propósito: Let's Encrypt ya no manda avisos de caducidad y la
+   renovación es automática; el riesgo real es que caduque el nombre de No-IP.
+2. **Orígenes a https**, justo antes del paso 3: `publicOrigin` y
+   `uploadOrigins` en `infra/lib/config.ts`, `npx cdk deploy -c env=dev -e
+   Vapeupar-dev-Storage Vapeupar-dev-App`, y
+   `/vapeupar/dev/web/NEXT_PUBLIC_SITE_URL` = `https://vapeupar.ddns.net`.
+3. **Release** (`dev` → `produccion`): `activate.sh` ve el certificado, instala
+   la variante TLS, regenera el `.env` con el origen https y verifica por https.
+4. **Comprobar**: `curl -I http://vapeupar.ddns.net` → 301; `https://` → 200;
+   login de `/admin` con MFA (las cookies son `secure` en producción: **por http
+   la consola no puede iniciar sesión**, por eso este paso es el que la desbloquea).
+5. **HSTS** (comentado en `vapeupar-tls.conf`) tras unos días sin problemas.
+
 Pasos (para el dominio definitivo, con las salvedades de arriba para No-IP):
 
 1. Zona en Route 53 (o registros delegados desde el registrador actual).
