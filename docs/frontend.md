@@ -88,16 +88,41 @@ bordes del sistema; se convierte en un `path` con `shape-rendering: crispEdges`.
   izquierda y derecha salen de girar el de abajo, no se dibujan aparte.
 - La tienda ya no importa `lucide-react`; solo la consola `/admin` lo usa.
 
+## Rutas públicas (V8)
+
+| Ruta | Qué es | Datos |
+|---|---|---|
+| `/` | Portada: hero, vitrina 3D, catálogo con filtros y FAQ | `fetchProducts`, ISR 60 s |
+| `/producto/[slug]` | Ficha de una línea; `?sabor=` preselecciona la variante | `fetchProductBySlug` |
+| `/coleccion/[categoria]` | Las líneas de una categoría | `fetchProducts(?category=…)`, ISR 60 s |
+| `/nosotros` | Autenticidad, entrega y +18 | Estática; **copy provisional** |
+
+Las colecciones salen de `lib/collections.ts`: slug en español (`desechables`,
+`pods`, `sales-de-nicotina`, `freebase`, `mods-y-tanques`, `resistencias`) para
+cada una de las 6 categorías del contrato. Se generan al compilar
+(`generateStaticParams`) y cualquier otro slug es 404 (`dynamicParams = false`).
+Sin backend, cada una filtra `FALLBACK_PRODUCTS`, igual que la portada.
+
+La barra enlaza «Nosotros» a `/nosotros`; el menú móvil y el pie, las tres
+primeras colecciones. «Tienda» y «Colecciones» siguen apuntando a la portada
+(`/#catalogo`, `/#colecciones`), y las anclas antiguas (`#desechables`,
+`#pods`, `#liquidos`, `#nosotros`) se conservan por los enlaces ya
+compartidos. La ficha vuelve a la colección de su línea.
+
 ## Estructura de Componentes
 ```
 frontend/src/
 ├── app/
 │   ├── layout.tsx                # Metadata, Viewport, OpenGraph, Fonts y tema oscuro
 │   ├── page.tsx                  # Landing page principal con ISR (revalidate: 60s)
+│   ├── producto/[slug]/          # Ficha de una línea (?sabor= elige la variante)
+│   ├── coleccion/[categoria]/    # Colección por categoría: 6 rutas ISR (lib/collections.ts), 404 el resto
+│   ├── nosotros/                 # Quiénes somos (copy provisional)
 │   ├── globals.css               # Import Tailwind v4 y soporte prefers-reduced-motion
 │   └── (admin)/admin/            # Consola: layout propio, login y (panel)/{stock,products,brands,suppliers}
 ├── components/
 │   ├── age-verification-modal.tsx# Modal +18 con TTL de 30 días y accesibilidad ARIA
+│   ├── public-shell.tsx          # Armazón de ficha, colección y nosotros (+18, WhatsApp, barra, pie)
 │   ├── navbar.tsx                # Barra fija con menú móvil hamburguesa
 │   ├── hero.tsx                  # Hero de alta conversión con propuestas de valor
 │   ├── product-catalog.tsx       # Catálogo con búsqueda, filtros, ordenamiento y anclas
@@ -109,6 +134,7 @@ frontend/src/
 │   └── admin/                    # Armazón, listas, formularios del catálogo y kardex
 ├── lib/
 │   ├── utils.ts                  # Utilidades cn(), formato COP y fecha es-CO
+│   ├── collections.ts            # Colecciones públicas: slug en español ↔ categoría del contrato
 │   ├── touch-cursor.ts           # Números, curva de velocidad y estado del cursor táctil
 │   └── admin-api.ts              # Cliente de /api/admin (desde el navegador)
 └── types/
