@@ -124,8 +124,8 @@ const CONFIGS: Record<EnvName, EnvConfig> = {
       removalPolicy: RemovalPolicy.RETAIN,
     },
     storage: {
-      // Nombre de No-IP (D2: se mantiene). Al llegar TLS (F4) se cambia a https.
-      uploadOrigins: ['http://vapeupar.ddns.net', 'http://localhost:3000'],
+      // Nombre de No-IP (D2: se mantiene), con TLS desde el 2026-11-17 (F4).
+      uploadOrigins: ['https://vapeupar.ddns.net', 'http://localhost:3000'],
       versioned: false,
       // Colombia se sirve desde edges de Sudamérica, que PRICE_CLASS_100 excluye.
       cdnPriceClassAll: true,
@@ -138,9 +138,9 @@ const CONFIGS: Record<EnvName, EnvConfig> = {
     app: {
       instanceSize: InstanceSize.MICRO,
       rootVolumeGb: 20,
-      // Nombre de No-IP apuntado a la IP elástica (D2). Desde aquí el CORS del
-      // backend acepta este origen y ya no el de la IP. Con TLS pasa a https.
-      publicOrigin: 'http://vapeupar.ddns.net',
+      // Nombre de No-IP apuntado a la IP elástica (D2), con TLS (F4). El CORS
+      // del backend acepta solo este origen: ni la IP ni http.
+      publicOrigin: 'https://vapeupar.ddns.net',
     },
     monthlyBudgetUsd: 30,
     // `.github/workflows/deploy-produccion.yml` y `rollback-produccion.yml`.
