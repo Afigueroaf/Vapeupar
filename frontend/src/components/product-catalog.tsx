@@ -135,7 +135,7 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
     <section
       id="catalogo"
       aria-label="Catálogo de productos"
-      className="mx-auto max-w-vp px-4 py-16 sm:px-6 xl:px-10 scroll-mt-20"
+      className="mx-auto max-w-vp px-inline py-section scroll-mt-20"
     >
       {/* Invisible anchor points for smooth navigation from header links */}
       <div id="desechables" className="scroll-mt-24" />
@@ -178,7 +178,7 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
         id="colecciones"
         role="group"
         aria-label="Filtro de categorías"
-        className="vp-glitch mt-10 flex flex-wrap gap-3 scroll-mt-24"
+        className="vp-glitch mt-block flex flex-wrap gap-3 scroll-mt-24"
       >
         {categories.map((cat) => (
           <button
@@ -260,7 +260,7 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
           // cada 12px de hueco son 6px que se le quitan a cada tarjeta.
           // `product-card.tsx` entra en modo compacto por debajo de `sm` para
           // acompañar este ancho.
-          className="mt-10 grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-4"
+          className="mt-block grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-4"
         >
           {filteredProducts.map((product, index) => (
             <ProductCard key={product.id} product={product} eagerImage={index === 0} />

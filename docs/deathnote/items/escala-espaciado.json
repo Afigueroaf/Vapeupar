@@ -1,6 +1,6 @@
 {
   "title": "Escala de espaciado en tokens",
-  "status": "pendiente",
+  "status": "en_curso",
   "priority": "baja",
   "area": "diseño",
   "summary": "Los espaciados (py-16, p-5, gap-6) siguen siendo ad hoc; falta decidir la escala.",
@@ -19,14 +19,14 @@
     }
   ],
   "source": "docs/design-execution-plan.md (Pendientes abiertos #6) + docs/design-reset-inventory.md (§3.7)",
-  "evidence": "frontend/src/app/globals.css no declara tokens de espaciado propios",
+  "evidence": "Rama feat/tokens-espaciado; frontend/src/app/globals.css, docs/frontend.md",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T01:44:09.965Z",
+  "updatedAt": "2026-11-17T02:41:33.259Z",
   "choice": {
     "kind": "option",
     "index": 0
   },
-  "queued": true,
-  "queuedAt": "2026-11-17T01:44:09.964Z"
+  "queued": false,
+  "claudeNote": "Rama feat/tokens-espaciado (sin push). Base 4 px (la de Tailwind) + --space-section (64), --space-block (40), --space-stack (16) y --space-inline (16/24/40 según ancho) en globals.css, con utilidades py-section, mt-block, gap-block, px-inline… Migrados el margen lateral de 9 contenedores (px-4 sm:px-6 xl:px-10 → px-inline) y el ritmo vertical de catálogo, FAQ, hero, footer y ficha: 0 px de cambio visual, mismos valores. Documentado en docs/frontend.md («Espaciado»); pendiente #6 del plan de diseño cerrado. Lint y build en verde."
 }

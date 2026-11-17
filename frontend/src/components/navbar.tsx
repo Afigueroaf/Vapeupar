@@ -40,7 +40,7 @@ export function Navbar() {
 
   return (
     <header className="vp-glitch sticky top-0 z-40 w-full border-b-2 border-line bg-background">
-      <div className="mx-auto flex max-w-vp items-center justify-between gap-6 px-4 py-4 sm:px-6 xl:px-10">
+      <div className="mx-auto flex max-w-vp items-center justify-between gap-6 px-inline py-4">
         <Link href="/" className="flex items-center" aria-label="Vapeupar, inicio">
           <Image
             src="/logo-detalle.svg"

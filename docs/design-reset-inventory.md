@@ -59,7 +59,7 @@
 | 3.4 | "Ambient glows": dos `div` decorativos con `size-96`/`size-80` + `blur-3xl` en emerald y cyan | `hero.tsx` | 🔴 Eliminar | Composición geométrica; el protagonismo visual pasa a producto/3D |
 | 3.5 | `backdrop-blur-lg` + fondo semitransparente en la barra fija | `navbar.tsx` | 🟡 Rediseñar | Barra con tratamiento propio (sólida o con regla gruesa inferior) |
 | 3.6 | Pills redondeadas (`rounded-full`) como contenedor de todas las etiquetas | `hero.tsx`, `product-card.tsx`, `faq.tsx` | 🔴 Reemplazar | Etiquetas rectangulares tipo HUD/arcade con Press Start 2P |
-| 3.7 | No existe sistema de espaciado. Valores ad-hoc: `py-16 sm:py-24`, `py-3`, `p-4`, `px-4 sm:px-6`, `mt-14`, `gap-2.5`, `pb-4` | todos los componentes | 🔴 Reemplazar | Escala de espaciado basada en tokens |
+| 3.7 | No existe sistema de espaciado. Valores ad-hoc: `py-16 sm:py-24`, `py-3`, `p-4`, `px-4 sm:px-6`, `mt-14`, `gap-2.5`, `pb-4` | todos los componentes | ✅ Resuelto (2026-11-16) | Escala de espaciado basada en tokens: base 4 px + `--space-section/block/stack/inline` (`globals.css`) |
 
 ---
 
