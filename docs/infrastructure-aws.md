@@ -517,7 +517,8 @@ asumir el rol:
 
 #### Variables públicas del frontend
 
-WhatsApp, teléfono, nombre y ciudad de la tienda. Viven en SSM, en
+WhatsApp, teléfono, nombre y ciudad de la tienda, y el origen público
+(`NEXT_PUBLIC_SITE_URL`, el nombre de No-IP con `https://`, para `metadataBase`). Viven en SSM, en
 `/vapeupar/dev/web/NEXT_PUBLIC_*`, fuera del repositorio porque son datos de
 contacto. `deploy-app.mjs` las lee en todos los builds, el de GitHub y el
 local, y ganan a `frontend/.env.local`. Sin `NEXT_PUBLIC_WHATSAPP_NUMBER` el

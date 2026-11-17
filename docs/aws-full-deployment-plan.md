@@ -101,6 +101,9 @@ Tres, y los tres son de una línea en `infra/`:
 > - **D2** → todavía no hay dominio. Se usa **temporalmente un nombre de
 >   No-IP** apuntado a la IP elástica de F1; el dominio definitivo se cambia
 >   después sin tocar la infraestructura (F4).
+>   **Confirmada el 2026-11-16: se sigue con No-IP indefinidamente**, sin
+>   dominio propio. Consecuencias aceptadas: renovación manual cada 30 días
+>   (ver F4) y sin dominio para SES ni para la marca.
 > - **D3** → se sigue desplegando con `delipan_admin`, por decisión expresa.
 >   El riesgo descrito abajo se acepta tal cual; no se repite en el resto del
 >   documento.
@@ -115,7 +118,7 @@ RDS y una segunda base vacía**: ~+26 USD/mes y migrar los datos del catálogo.
 justifiquen. Con 137 USD de crédito compartido con DeliPan (§7.1), duplicar la base de
 datos es la decisión más cara que se puede tomar aquí.
 
-**D2 — Dominio.** ¿Está registrado `vapeupar.com` (que es lo que declara
+**D2 — Dominio.** *(Resuelta: No-IP, ver arriba.)* ¿Está registrado `vapeupar.com` (que es lo que declaraba
 `metadataBase` en `frontend/src/app/layout.tsx`) y en qué registrador? De la
 respuesta depende si Route 53 es la zona autoritativa (0,50 USD/mes) o solo se
 apuntan registros desde fuera. Sin dominio no hay certificado, y sin
@@ -399,13 +402,33 @@ dominio definitivo:
 - **Los nombres gratuitos de No-IP caducan si no se confirman cada 30 días**
   (correo de aviso). Si caduca, el sitio deja de resolver y el certificado no
   se puede renovar. Es lo primero que revisar si un día «la página no carga».
+  **Recordatorio fijo** (D2 confirmada, 2026-11-16):
+  - No-IP manda el correo de confirmación unos 7 días antes de que venza el
+    nombre; se confirma con el enlace del correo o desde el panel de No-IP
+    (*Dynamic DNS → Hostnames → Confirm*). Sin confirmar, el nombre se borra
+    y puede tomarlo otra persona.
+  - El correo llega a la cuenta con la que se registró el nombre: que sea un
+    buzón que alguien lea, y con un filtro que lo marque como importante.
+  - Además, un evento en el calendario **cada 25 días** («Confirmar nombre
+    No-IP de Vapeupar»), por si el correo cae en spam.
+  - Comprobación rápida si se duda: `nslookup <nombre>` debe devolver
+    `APP_PUBLIC_IP`.
 - Sin `www`: un solo nombre.
-- **Let's Encrypt** emite certificados para estos nombres, pero conviene
-  comprobar al elegirlo que el dominio base de No-IP esté en la *Public Suffix
-  List*: si no lo está, el límite semanal de certificados por dominio
-  registrado se comparte con todos los usuarios de ese dominio.
-- **`metadataBase`** del layout pasa temporalmente al nombre de No-IP, o las
-  imágenes de OpenGraph apuntarán a `vapeupar.com`, que no existe.
+- **Let's Encrypt** emite certificados para estos nombres. **Comprobado el
+  2026-11-16**: los dominios base gratuitos de No-IP (`ddns.net`, `hopto.org`,
+  `zapto.org`, `sytes.net`, `myftp.org`, `servebeer.com`, `serveftp.com`,
+  `redirectme.net`, `no-ip.org`, `no-ip.biz`…) están en la sección privada
+  de la *Public Suffix List* (bloque «No-IP.com»), así que el límite semanal
+  de certificados se cuenta por nombre (`<nombre>.ddns.net`) y no se comparte
+  con el resto de usuarios de No-IP. Si se elige otro dominio base, comprobarlo
+  en https://publicsuffix.org/list/public_suffix_list.dat antes.
+- **`metadataBase`** sale de `NEXT_PUBLIC_SITE_URL` (`frontend/src/lib/site-url.ts`),
+  que vive en SSM con el resto de variables públicas. Al tener el nombre:
+  ```bash
+  MSYS_NO_PATHCONV=1 aws ssm put-parameter --overwrite --type String     --name /vapeupar/dev/web/NEXT_PUBLIC_SITE_URL --value https://<nombre>
+  ```
+  y redesplegar. Sin ella, `deploy-app.mjs` avisa y el OpenGraph apunta a
+  `localhost`.
 - Al pasar al dominio definitivo se repiten los pasos 2 a 6 con el nuevo
   nombre; la infraestructura no cambia.
 

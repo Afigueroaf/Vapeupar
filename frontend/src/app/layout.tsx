@@ -3,6 +3,7 @@ import { Oxanium, Press_Start_2P } from "next/font/google";
 import { PageGlitch } from "@/components/page-glitch";
 import { SmoothScroll } from "@/components/smooth-scroll";
 import { VP_BLACK } from "@/lib/brand";
+import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 
 /**
@@ -56,8 +57,9 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   // Sin `metadataBase`, Next resuelve las URL de OpenGraph contra localhost y
-  // ningún cliente de WhatsApp ni de X puede recuperar la imagen.
-  metadataBase: new URL("https://vapeupar.com"),
+  // ningún cliente de WhatsApp ni de X puede recuperar la imagen. El origen
+  // viene de `NEXT_PUBLIC_SITE_URL` (ver `lib/site-url.ts`).
+  metadataBase: new URL(siteUrl()),
   title: "Vapeupar | Tienda de Vaporizadores & Catálogo en Valledupar",
   description: "Catálogo exclusivo de vaporizadores desechables, pods recargables, sales de nicotina y accesorios en Valledupar. Envíos express contra entrega en moto.",
   keywords: [
@@ -77,7 +79,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Vapeupar | Tienda de Vaporizadores en Valledupar",
     description: "Vaporizadores 100% auténticos, pods y sales de nicotina con entrega inmediata en Valledupar. Pide directamente por WhatsApp.",
-    url: "https://vapeupar.com",
+    url: siteUrl(),
     siteName: "Vapeupar",
     locale: "es_CO",
     type: "website",
