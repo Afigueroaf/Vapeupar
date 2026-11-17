@@ -126,7 +126,8 @@ switch_to() {
 # certificado.
 verify() {
   local i web="http://127.0.0.1" tls=()
-  if grep -q 'listen 443' /etc/nginx/conf.d/vapeupar.conf 2>/dev/null; then
+  # Solo directivas: el vapeupar.conf antiguo menciona «listen 443» en un comentario.
+  if grep -qE '^[[:space:]]*listen[[:space:]]+443' /etc/nginx/conf.d/vapeupar.conf 2>/dev/null; then
     web="https://127.0.0.1"; tls=(-k)
   fi
   for i in $(seq 1 45); do

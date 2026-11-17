@@ -457,7 +457,9 @@ su `vapeupar.conf` de una pieza: el sitio sigue funcionando, pero solo por http.
 
 **Orden de la puesta en marcha:**
 
-1. **Certificado** (no cambia lo que se sirve; la release activa no sabe de TLS):
+1. ✅ **Certificado — hecho el 2026-11-17**: `CN=vapeupar.ddns.net`, vence el
+   2027-02-15; `certbot-renew.timer` activo y `certbot renew --dry-run` correcto.
+   (No cambia lo que se sirve: la release activa no sabe de TLS.) Lo que se ejecutó
    por SSM, como root,
    ```bash
    dnf install -y certbot python3-certbot-nginx
