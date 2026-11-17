@@ -75,5 +75,12 @@
     "title": "OIDC de GitHub con sub inmutable",
     "detail": "Corrige la confianza OIDC del despliegue (PR #9).",
     "ref": "PR #9 · b9cecb8"
+  },
+  {
+    "id": "h20261116-5",
+    "date": "2026-11-16",
+    "title": "Cola del Deathnote ejecutada (8 de 9 items en dev)",
+    "detail": "MFA TOTP, pantalla de usuarios, umbral de stock global, No-IP con metadataBase por variable, LifePod (FIT a borrador en producción), nube 3D aligerada, tokens de espaciado e iconos pixel. El paso a plan de pago de AWS sigue en su rama hasta diciembre. 171 tests, lint y build en verde.",
+    "ref": "merge en dev · aa28666"
   }
 ]
