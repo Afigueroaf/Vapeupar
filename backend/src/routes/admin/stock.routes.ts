@@ -1,7 +1,11 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import { StockService } from '../../services/stock.service.js';
 import { StockViewRepository } from '../../repositories/stock-view.repository.js';
-import { KardexQuerySchema, MovementBodySchema, StockQuerySchema, VariantIdSchema } from '../../schemas/admin/stock.schema.js';
+import {
+  KardexQuerySchema, MovementBodySchema, StockQuerySchema, ThresholdBodySchema, VariantIdSchema
+} from '../../schemas/admin/stock.schema.js';
+import { requireRole } from '../../middleware/require-role.js';
+import { SettingsError, SettingsReader } from '../../services/settings.service.js';
 import { sendDomainError, sendValidationError } from './http.js';
 
 /**
@@ -14,6 +18,7 @@ import { sendDomainError, sendValidationError } from './http.js';
 export interface StockRoutesDeps {
   stockService: Pick<StockService, 'recordMovement' | 'getKardex'>;
   stockView: StockViewRepository;
+  settings: SettingsReader;
 }
 
 export function createStockRouter(deps: StockRoutesDeps): Router {
@@ -26,10 +31,12 @@ export function createStockRouter(deps: StockRoutesDeps): Router {
       sendValidationError(res, parsed.error, 'Parámetros de consulta inválidos');
       return;
     }
-    const { page, limit, ...filter } = parsed.data;
+    const { page, limit, threshold: requested, ...filter } = parsed.data;
 
     try {
-      const result = await deps.stockView.list({ ...filter, limit, offset: (page - 1) * limit });
+      const configured = await deps.settings.getLowStockThreshold();
+      const threshold = requested ?? configured;
+      const result = await deps.stockView.list({ ...filter, threshold, limit, offset: (page - 1) * limit });
       res.json({
         success: true,
         data: result.rows,
@@ -39,9 +46,38 @@ export function createStockRouter(deps: StockRoutesDeps): Router {
           limit,
           totalPages: Math.max(1, Math.ceil(result.total / limit))
         },
-        meta: { threshold: filter.threshold }
+        // `threshold`: el que se aplicó; `configuredThreshold`: el del dueño.
+        meta: { threshold, configuredThreshold: configured }
       });
     } catch (error) {
+      next(error);
+    }
+  });
+
+  // GET /api/admin/stock/threshold — umbral de bajo stock vigente.
+  router.get('/threshold', async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      res.json({ success: true, data: { threshold: await deps.settings.getLowStockThreshold() } });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // PUT /api/admin/stock/threshold — solo el dueño lo cambia (decisión #5).
+  router.put('/threshold', requireRole('owner'), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    const parsed = ThresholdBodySchema.safeParse(req.body);
+    if (!parsed.success) {
+      sendValidationError(res, parsed.error, 'Umbral inválido');
+      return;
+    }
+    try {
+      const threshold = await deps.settings.setLowStockThreshold(parsed.data.threshold, { userId: req.admin!.userId });
+      res.json({ success: true, data: { threshold } });
+    } catch (error) {
+      if (error instanceof SettingsError) {
+        res.status(error.code === 'CONFLICT' ? 409 : 400).json({ success: false, message: error.message, code: error.code });
+        return;
+      }
       next(error);
     }
   });

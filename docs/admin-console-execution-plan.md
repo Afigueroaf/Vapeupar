@@ -852,9 +852,11 @@ mecanismo de sesión.
   Cada fila lleva la etiqueta de cada dato, visible solo donde no hay cabecera.
 - **Búsqueda con freno de 500 ms.** El límite de la consola son 30 peticiones por
   minuto (A4.3): buscar en cada tecla se lo comería escribiendo «mango».
-- **Umbral repetido en el frontend** (`LOW_STOCK_THRESHOLD = 5`) porque la
-  pantalla tiene que poder enseñarlo antes de pedir nada. Sigue siendo el valor
-  por defecto del backend y la decisión #5 sigue abierta.
+- **Umbral global y configurable** (decisión #5, cerrada el 2026-11-16). El
+  dueño lo cambia desde la pantalla de inventario; el backend lo guarda en
+  `site_content` (`setting.low-stock-threshold`, versionado y auditado) y lo
+  aplica cuando la consulta no trae `threshold`. El 5 de la consola es solo lo
+  que se ve el primer instante, antes de la respuesta.
 - **El glitch se apaga en `/admin`.** No hay `.vp-glitch` que filtrar ahí, así
   que su bucle de `requestAnimationFrame` solo gastaría batería.
 

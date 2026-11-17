@@ -85,7 +85,9 @@ nace protegida.
 | `POST /api/admin/auth/new-password` | — | Resuelve ese reto y abre sesión |
 | `POST /api/admin/auth/logout` | sesión | Revoca los refresh tokens en Cognito y borra las cookies |
 | `GET /api/admin/me` | sesión | Identidad y rol del usuario de la sesión |
-| `GET /api/admin/stock` | sesión | Inventario paginado. `?q=&brandId=&lowStock=&threshold=&page=&limit=` |
+| `GET /api/admin/stock` | sesión | Inventario paginado. `?q=&brandId=&lowStock=&threshold=&page=&limit=`. Sin `threshold` aplica el configurado; `meta` trae `threshold` (aplicado) y `configuredThreshold` |
+| `GET /api/admin/stock/threshold` | sesión | Umbral global de bajo stock (5 si nunca se configuró) |
+| `PUT /api/admin/stock/threshold` | **owner** | Cambia el umbral. Se guarda en `site_content` con clave `setting.low-stock-threshold` (versión nueva por cambio) y en `AuditLog` |
 | `POST /api/admin/stock/movements` | sesión | Registra un movimiento. `201`, o `200` si fue un reintento (`replayed`) |
 | `GET /api/admin/stock/:variantId/kardex` | sesión | Kardex de la variante. `?from=&to=` |
 | `GET /api/admin/stock/image-alerts` | sesión | Variantes `published` con stock y sin `imageKey`; alimenta la alerta de imágenes del inventario |

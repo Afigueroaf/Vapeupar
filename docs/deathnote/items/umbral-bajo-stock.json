@@ -1,6 +1,6 @@
 {
   "title": "Umbral de bajo stock: global o por variante",
-  "status": "pendiente",
+  "status": "en_curso",
   "priority": "baja",
   "area": "admin",
   "summary": "La alerta usa un 5 fijo repetido en frontend y backend; la decisión #5 sigue abierta.",
@@ -24,14 +24,14 @@
     }
   ],
   "source": "docs/admin-console-execution-plan.md (A0.1 decisión #5, registro A5.1)",
-  "evidence": "LOW_STOCK_THRESHOLD = 5 en la consola y default threshold 5 en backend/src/schemas/admin/",
+  "evidence": "Rama feat/umbral-stock; services/settings.service.ts, routes/admin/stock.routes.ts",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T01:44:15.620Z",
+  "updatedAt": "2026-11-17T02:26:53.636Z",
   "choice": {
     "kind": "option",
     "index": 0
   },
-  "queued": true,
-  "queuedAt": "2026-11-17T01:44:15.619Z"
+  "queued": false,
+  "claudeNote": "Implementado en la rama feat/umbral-stock (sin push): umbral global guardado en site_content (clave setting.low-stock-threshold, versionado y auditado, sin migración), GET/PUT /api/admin/stock/threshold (PUT solo owner), el filtro de bajo stock usa el configurado y el dueño lo edita en /admin/stock. 158 tests de backend, lint y build en verde."
 }
