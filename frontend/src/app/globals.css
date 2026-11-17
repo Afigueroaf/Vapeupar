@@ -64,6 +64,12 @@
   --font-display: var(--font-oxanium), system-ui, sans-serif;
   --font-pixel: var(--font-press-start), monospace;
 
+  /* --- Espaciado semántico (ver el bloque «Escala de espaciado» más abajo) --- */
+  --spacing-section: var(--space-section);
+  --spacing-block: var(--space-block);
+  --spacing-stack: var(--space-stack);
+  --spacing-inline: var(--space-inline);
+
   /* --- Geometría: VP es angular. Radio cero por defecto. --- */
   --radius-vp: 0px;
   --radius-vp-chamfer: 2px;
@@ -105,6 +111,42 @@
     100% {
       opacity: 0.2;
     }
+  }
+}
+
+/* ==========================================================================
+   Escala de espaciado (decisión §3.7, 2026-11-16)
+
+   Base de 4 px: todo espacio es un múltiplo de 4, que es la escala por
+   defecto de Tailwind (`gap-3` = 12 px, `mt-4` = 16 px…). Encima, cuatro
+   nombres para los espacios que se repiten con un mismo papel; generan
+   utilidades (`py-section`, `mt-block`, `space-y-stack`, `px-inline`):
+
+   - section  64 px  relleno vertical de una sección de la tienda
+   - block    40 px  entre bloques de una misma sección (cabecera → rejilla)
+   - stack    16 px  entre piezas de un bloque (etiqueta → título → texto)
+   - inline   16 / 24 / 40 px  margen lateral de página (móvil / sm / xl)
+
+   Viven aquí y no en @theme porque `inline` cambia con el ancho: @theme no
+   admite media queries. Los saltos son los de Tailwind (sm 40rem, xl 80rem).
+   Ver docs/frontend.md, «Espaciado».
+   ========================================================================== */
+:root {
+  --space-section: 4rem;
+  --space-block: 2.5rem;
+  --space-stack: 1rem;
+  --space-inline: 1rem;
+}
+
+@media (min-width: 40rem) {
+  :root {
+    --space-inline: 1.5rem;
+  }
+}
+
+@media (min-width: 80rem) {
+  :root {
+    --space-inline: 2.5rem;
   }
 }
 

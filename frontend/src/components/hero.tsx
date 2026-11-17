@@ -36,7 +36,7 @@ export function Hero() {
       */
       className="vp-glitch flex min-h-[var(--vp-screen)] flex-col border-b-2 border-line"
     >
-      <div className="mx-auto grid w-full max-w-vp items-center gap-12 px-4 py-16 sm:px-6 sm:py-24 xl:px-10 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 flex-1 portrait:grid-cols-1 portrait:grid-rows-[auto_minmax(0,1fr)] portrait:gap-8">
+      <div className="mx-auto grid w-full max-w-vp items-center gap-12 px-inline py-section sm:py-24 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 flex-1 portrait:grid-cols-1 portrait:grid-rows-[auto_minmax(0,1fr)] portrait:gap-8">
         {/* Columna de texto */}
         <div>
           <PixelLabel variant="outline">[ SYSTEM ONLINE ]</PixelLabel>

@@ -27,7 +27,7 @@ export function Footer() {
   return (
     <footer className="vp-glitch border-t-2 border-line pb-10 pt-12">
       {/* Obligatory health and legal warning for nicotine products */}
-      <div className="mx-auto max-w-vp px-4 sm:px-6 xl:px-10">
+      <div className="mx-auto max-w-vp px-inline">
         <div className="border-2 border-accent bg-surface p-5 rounded-vp sm:p-6">
           <PixelLabel variant="violet">[ +18 ]</PixelLabel>
 
@@ -39,7 +39,7 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="mx-auto mt-12 grid max-w-vp grid-cols-1 gap-10 border-b-2 border-muted px-4 pb-10 sm:px-6 md:grid-cols-4 xl:px-10">
+      <div className="mx-auto mt-12 grid max-w-vp grid-cols-1 gap-block border-b-2 border-muted px-inline pb-10 md:grid-cols-4">
         {/* Col 1: Brand Info — destino del enlace "Nosotros" del navbar */}
         <div id="nosotros" className="scroll-mt-24">
           <Image
@@ -95,7 +95,7 @@ export function Footer() {
         </div>
       </div>
 
-      <div className="mx-auto mt-6 flex max-w-vp flex-col items-center justify-between gap-3 px-4 text-sm text-muted sm:flex-row sm:px-6 xl:px-10">
+      <div className="mx-auto mt-6 flex max-w-vp flex-col items-center justify-between gap-3 px-inline text-sm text-muted sm:flex-row">
         <p>© {currentYear} Vapeupar. Todos los derechos reservados. Valledupar, Colombia.</p>
         <p>Solo para mayores de 18 años (+18). Consume con responsabilidad.</p>
       </div>

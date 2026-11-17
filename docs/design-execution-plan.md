@@ -584,7 +584,7 @@ viewport y lo único que queda es el gutter. Es el precio de que el texto no toq
 | 3 | Fotografía real y renders 3D de producto | Assets del negocio |
 | 4 | ~~Imagen de OpenGraph propia~~ | ✅ **Resuelto** (2026-10-26): `app/opengraph-image.png`, compuesta con el logo vectorial |
 | 5 | Set de iconografía definitivo (§4.5): quedan 6 iconos de Lucide, todos funcionales | Decisión de diseño |
-| 6 | Escala de espaciado en tokens (§3.7): los `py-16`, `p-5`, `gap-6` siguen siendo ad-hoc | Decisión de diseño |
+| 6 | ~~Escala de espaciado en tokens (§3.7)~~ | ✅ **Resuelto** (2026-11-16): base de 4 px (la de Tailwind) y cuatro tokens semánticos, `--space-section` / `-block` / `-stack` / `-inline`, en `globals.css`. Margen lateral y ritmo vertical de las secciones públicas migrados sin cambio visual; ver `docs/frontend.md`, «Espaciado» |
 | 7 | Teléfono, WhatsApp y horarios reales | Confirmación del negocio |
 | 8 | Rutas `/producto/[slug]`, `/coleccion/[categoria]`, `/nosotros` | Fase V8 |
 | 9 | ~~Error de lint `set-state-in-effect`~~ | ✅ **Resuelto** (2026-10-26): `useSyncExternalStore`; ESLint queda en 0 problemas |

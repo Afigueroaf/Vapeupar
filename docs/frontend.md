@@ -46,6 +46,32 @@ El frontend de Vapeupar es la interfaz web del cliente y catálogo interactivo c
 6. **SEO y Metadatos de Redes Sociales (OpenGraph & Twitter)**:
    - Configuración completa en `layout.tsx` para generar vistas previas atractivas al compartir enlaces por WhatsApp o redes sociales.
 
+## Espaciado
+
+Decisión §3.7 (2026-11-16): **base de 4 px**. Todo espacio es un múltiplo de 4,
+que es justo la escala por defecto de Tailwind (`gap-3` = 12 px, `mt-4` = 16 px);
+no se usan valores arbitrarios (`mt-[18px]`) para espaciar.
+
+Encima de la escala, cuatro **tokens semánticos** para los espacios que se
+repiten con el mismo papel. Se declaran en `frontend/src/app/globals.css`
+(`--space-*` en `:root`, expuestos a Tailwind como `--spacing-*` en `@theme`):
+
+| Token | Valor | Utilidades | Para qué |
+|---|---|---|---|
+| `--space-section` | 64 px | `py-section`, `pb-section` | Relleno vertical de una sección de la tienda (catálogo, FAQ, hero en móvil, ficha) |
+| `--space-block` | 40 px | `mt-block`, `gap-block` | Entre bloques de una sección: cabecera → filtros → rejilla, columnas del footer |
+| `--space-stack` | 16 px | `space-y-stack`, `mt-stack` | Entre piezas de un bloque (etiqueta → título → texto) |
+| `--space-inline` | 16 / 24 / 40 px (móvil / `sm` / `xl`) | `px-inline` | Margen lateral de página. Sustituye a `px-4 sm:px-6 xl:px-10` |
+
+`--space-inline` es el único que cambia con el ancho, y por eso la escala vive
+en `:root` con media queries: `@theme` no las admite.
+
+Reglas:
+- Un contenedor de página es `mx-auto max-w-vp px-inline`.
+- Si un espacio tiene uno de estos papeles, usa el token; si no, la escala de 4 px.
+- Cambiar el ritmo de toda la tienda es cambiar el token, no buscar `py-16`.
+- La consola `/admin` no los usa todavía: es densa a propósito y tiene su propio ritmo.
+
 ## Estructura de Componentes
 ```
 frontend/src/

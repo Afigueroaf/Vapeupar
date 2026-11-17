@@ -306,7 +306,7 @@ interface StageHeaderProps {
  * Cabecera de una escena.
  *
  * Etiqueta pixel y título, con los mismos tamaños y separaciones que el
- * catálogo y las preguntas frecuentes (`py-16` repartido entre la cabecera y
+ * catálogo y las preguntas frecuentes (`py-section`, 64 px, repartido entre la cabecera y
  * el pie del cuerpo, `mt-4` entre etiqueta y título).
  *
  * El alto mínimo es el del tirador (`min-h-28`) y el bloque va centrado en él.
@@ -320,7 +320,7 @@ function StageHeader({ id, tag, title, side, tab }: StageHeaderProps) {
       <div className="relative flex min-h-28 items-center">
         <div
           className={cn(
-            "mx-auto w-full max-w-vp px-4 sm:px-6 xl:px-10",
+            "mx-auto w-full max-w-vp px-inline",
             side === "right" ? "portrait:pr-16" : "portrait:pl-16",
           )}
         >
