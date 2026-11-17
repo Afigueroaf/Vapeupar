@@ -11,9 +11,9 @@
     }
   ],
   "source": "docs/aws-full-deployment-plan.md (F4 — Dominio, TLS y CORS)",
-  "evidence": "Rama chore/tls-noip; infra/deploy/nginx/, infra/deploy/activate.sh",
+  "evidence": "Run 44149941854; curl externo del 2026-11-17",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T16:17:57.879Z",
-  "claudeNote": "2026-11-17. Origen http://vapeupar.ddns.net desplegado (Storage + App) y backend reiniciado: CORS verificado desde fuera. Certificado Let's Encrypt emitido (CN=vapeupar.ddns.net, vence 2027-02-15) con renovación automática probada. Rama chore/tls-noip: sitio nginx en dos variantes (HTTP / TLS) con fragmento común; activate.sh instala la de TLS cuando existe el certificado y verifica por https; certbot no edita nginx. Ambas variantes pasan nginx -t en la instancia. Falta: orígenes a https (config + SSM) justo antes de la release dev → produccion, que es la que activa el TLS; luego comprobar login de /admin con MFA y, días después, HSTS. Procedimiento en aws-full-deployment-plan.md F4."
+  "updatedAt": "2026-11-17T18:47:35.632Z",
+  "claudeNote": "En producción desde el 2026-11-17 (release 20261117-184256-b09f013): http → 301 → https, certificado Let's Encrypt válido (vence 2027-02-15, renovación automática), CORS solo para https://vapeupar.ddns.net, og:url en https. El job de GitHub salió en rojo por la comprobación final de deploy-app.mjs, que pedía la portada por IP (certificado del nombre, no de la IP); la release ya estaba activa y verificada por activate.sh. Arreglado en fix/comprobacion-despliegue (usa NEXT_PUBLIC_SITE_URL). Queda: HSTS en vapeupar-tls.conf tras unos días sin problemas."
 }
