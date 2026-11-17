@@ -21,7 +21,7 @@ function row(overrides: Partial<ProductRow> = {}): ProductRow {
     tags: [],
     createdAt: new Date(),
     updatedAt: new Date(),
-    brand: { name: 'LifePod' },
+    brand: { name: 'LifePod', slug: 'lifepod' },
     variants: [],
     ...overrides
   };
@@ -33,6 +33,10 @@ function variant(overrides: Partial<ProductRow['variants'][number]> = {}): Produ
 
 describe('toProduct', () => {
   afterEach(() => vi.unstubAllEnvs());
+
+  it('expone el slug de la marca como identificador estable', () => {
+    expect(toProduct(row())).toMatchObject({ brand: 'LifePod', brandSlug: 'lifepod' });
+  });
 
   it('traduce la categoría del enum de Prisma al contrato de la API', () => {
     expect(toProduct(row()).category).toBe('pod-systems');

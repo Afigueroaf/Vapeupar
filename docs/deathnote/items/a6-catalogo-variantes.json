@@ -11,8 +11,9 @@
     }
   ],
   "source": "docs/admin-console-execution-plan.md (Fase A6)",
-  "evidence": "Commit 052304a añadió variants; frontend/src/components/product-catalog.tsx:105-113 sigue filtrando por product.brand y specs.flavorProfile",
+  "evidence": "docs/admin-console-execution-plan.md «Registro A6»",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-16T21:41:14.151Z"
+  "updatedAt": "2026-11-17T20:54:58.419Z",
+  "claudeNote": "Rama feat/catalogo-variantes (2026-11-17), sin fusionar. Contrato con brandSlug (back, front y fallback); búsqueda del catálogo sobre nombres de variante y sin tildes; filtro de marca por slug (la API acepta slug o nombre); «Más caladas» manda al final las líneas sin puffCount. A6.2 se cierra con «Ver N sabores» en la tarjeta y la elección en la ficha, sin selector en la tarjeta (registrado en el plan). Tests backend 175/175, lint y build OK."
 }

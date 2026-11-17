@@ -35,6 +35,11 @@ export interface Product {
   name: string;
   slug: string;
   brand: string;
+  /**
+   * Slug de la marca: identificador estable para filtrar. El nombre puede
+   * cambiar desde la consola (o repetirse con otra grafía); el slug es único.
+   */
+  brandSlug: string;
   category: ProductCategory;
   description: string;
   shortDescription: string;

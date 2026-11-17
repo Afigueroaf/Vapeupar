@@ -256,7 +256,8 @@ Verifica el estado del servicio y el timestamp del servidor.
 Obtiene la lista de productos filtrables y paginados.
 - **Parámetros de consulta validados con Zod:**
   - `category`: `disposables` | `pod-systems` | `mods-tanks` | `salt-nic` | `freebase-liquids` | `coils-accessories`
-  - `brand`: nombre de la marca (ej: `Lost Mary`, `Geekvape`, `OXVA`)
+  - `brand`: slug de la marca (`lifepod`), que es lo que usa el sitio; también acepta el nombre sin distinguir mayúsculas (`LifePod`)
+  - Cada producto trae `brand` (nombre visible) y `brandSlug` (identificador estable)
   - `search`: búsqueda libre por nombre, descripción, sabor o etiquetas (máx. 100 caracteres)
   - `nicotine`: filtro por concentración de nicotina (ej: `50mg`, `35mg`, `0mg`)
   - `minPrice`: precio mínimo en COP (entero positivo)
