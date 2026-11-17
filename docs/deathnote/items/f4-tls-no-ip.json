@@ -11,9 +11,9 @@
     }
   ],
   "source": "docs/aws-full-deployment-plan.md (F4 — Dominio, TLS y CORS)",
-  "evidence": "Run 44149941854; curl externo del 2026-11-17",
+  "evidence": "Runs 44149941854 y 44153613004",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T18:47:35.632Z",
-  "claudeNote": "En producción desde el 2026-11-17 (release 20261117-184256-b09f013): http → 301 → https, certificado Let's Encrypt válido (vence 2027-02-15, renovación automática), CORS solo para https://vapeupar.ddns.net, og:url en https. El job de GitHub salió en rojo por la comprobación final de deploy-app.mjs, que pedía la portada por IP (certificado del nombre, no de la IP); la release ya estaba activa y verificada por activate.sh. Arreglado en fix/comprobacion-despliegue (usa NEXT_PUBLIC_SITE_URL). Queda: HSTS en vapeupar-tls.conf tras unos días sin problemas."
+  "updatedAt": "2026-11-17T19:26:30.191Z",
+  "claudeNote": "En producción desde el 2026-11-17: http → 301 → https, certificado Let's Encrypt válido (vence 2027-02-15, renovación automática), CORS solo para https://vapeupar.ddns.net. La comprobación final del despliegue se corrigió (PR #15) y la release a305f89 salió en verde verificando https://vapeupar.ddns.net. Queda: activar HSTS en infra/deploy/nginx/vapeupar-tls.conf tras unos días sin problemas (a partir del 2026-11-24)."
 }
