@@ -733,17 +733,48 @@ que falta no es código de infraestructura nuevo, sino estas decisiones y tareas
 
 ### 8.2 Diferencias dev → prod ya codificadas
 
-| Ajuste | dev | prod |
+`dev` ES EL ENTORNO DE PRODUCCIÓN (decisión D1, 2026-11-06) y se ha ido
+endureciendo en su sitio; la columna `prod` es la de un entorno nuevo que no
+existe todavía.
+
+| Ajuste | dev (vivo) | prod |
 |---|---|---|
 | RDS Multi-AZ | No | Sí |
-| Protección contra borrado de RDS | No | Sí |
-| Retención de backups | 1 día | 7 días |
-| Al destruir el stack | Snapshot (RDS), borrado (S3, Cognito) | Se conserva todo |
-| Versionado del bucket | No | Sí |
-| Clase de precio de CloudFront | 100 (sin Sudamérica) | All (incluye Sudamérica) |
-| MFA en la consola | Opcional | Obligatorio |
-| Orígenes de subida (CORS) | `http://localhost:3000` | **Vacío: completar con el dominio de la consola** |
+| Protección contra borrado de RDS | Sí | Sí |
+| Retención de backups | 1 día (máximo del plan gratuito) | 7 días |
+| Al destruir el stack | Se conserva todo (RDS, Cognito y, desde el 2026-11-17, S3) | Se conserva todo |
+| Versionado del bucket | Sí, con versiones antiguas borradas a los 30 días (2026-11-17) | Sí, ídem |
+| Clase de precio de CloudFront | All (incluye Sudamérica) | All (incluye Sudamérica) |
+| MFA en la consola | Opcional en el pool; la aplicación la exige | Obligatorio |
+| Orígenes de subida (CORS) | `https://vapeupar.ddns.net`, `http://localhost:3000` | **Vacío: completar con el dominio de la consola** |
 | Presupuesto | 30 USD | 80 USD (revisar) |
+
+#### Bucket de catálogo a RETAIN y versionado (procedimiento)
+
+El cambio (`infra/lib/config.ts`, `storage` de `dev`) retira el recurso
+`Custom::S3AutoDeleteObjects`, que es el que VACÍA el bucket cuando se borra.
+CDK 2.275 lo protege: el manejador solo vacía si el bucket conserva la etiqueta
+`aws-cdk:auto-delete-objects=true`, y CloudFormation actualiza el bucket (quitando
+la etiqueta) antes de borrar el recurso en la fase de limpieza. Aun así se hace con
+copia previa:
+
+```bash
+# 1. Copia local del bucket (fuera del repositorio)
+aws s3 sync s3://vapeupar-dev-catalog-342284838697 ../vapeupar-backup-catalogo-AAAAMMDD
+# 2. Diff: solo Vapeupar-dev-Storage. Esperado: se van el recurso de vaciado, su
+#    rol y su Lambda; el bucket gana VersioningConfiguration y LifecycleConfiguration,
+#    pierde la etiqueta y pasa a DeletionPolicy/UpdateReplacePolicy Retain.
+#    NINGÚN reemplazo del bucket.
+VAPEUPAR_ALERT_EMAIL=… npx cdk diff -c env=dev -e Vapeupar-dev-Storage
+# 3. Despliegue de ese stack solo
+VAPEUPAR_ALERT_EMAIL=… npx cdk deploy -c env=dev -e Vapeupar-dev-Storage --require-approval never
+# 4. Comprobación: versionado activo y mismo número de objetos que en la copia
+aws s3api get-bucket-versioning --bucket vapeupar-dev-catalog-342284838697
+aws s3 ls s3://vapeupar-dev-catalog-342284838697 --recursive | wc -l
+```
+
+El diff del 2026-11-17 dio exactamente lo esperado en el paso 2 y ninguna
+diferencia en `Vapeupar-dev-App`.
 
 ### 8.3 Lo que falta construir
 
