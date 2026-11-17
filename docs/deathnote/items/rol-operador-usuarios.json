@@ -1,6 +1,6 @@
 {
   "title": "Usuarios de la consola: ¿habrá operadores?",
-  "status": "en_curso",
+  "status": "hecho",
   "priority": "media",
   "area": "admin",
   "summary": "Los roles owner/operator existen y el operator solo opera inventario e imágenes, pero no hay pantalla para invitar ni desactivar usuarios; la decisión #6 sigue abierta.",
@@ -27,11 +27,12 @@
   "evidence": "Rama feat/admin-usuarios; routes/admin/users.routes.ts, app/(admin)/admin/(panel)/users/page.tsx",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T02:22:12.162Z",
+  "updatedAt": "2026-11-17T18:47:30.481Z",
   "choice": {
     "kind": "option",
     "index": 0
   },
   "queued": false,
-  "claudeNote": "Implementado en la rama feat/admin-usuarios (sin push): GET /api/admin/users, pantalla /admin/users solo para owner (invitar con rol, desactivar con confirmación) y entrada «Usuarios» en el menú solo para owner. Se mantiene el reparto de permisos del operador. 156 tests de backend, lint y build en verde. Reactivar una cuenta no está en la consola: se vuelve a invitar o se reactiva a mano en Cognito."
+  "claudeNote": "Implementado en la rama feat/admin-usuarios (sin push): GET /api/admin/users, pantalla /admin/users solo para owner (invitar con rol, desactivar con confirmación) y entrada «Usuarios» en el menú solo para owner. Se mantiene el reparto de permisos del operador. 156 tests de backend, lint y build en verde. Reactivar una cuenta no está en la consola: se vuelve a invitar o se reactiva a mano en Cognito.",
+  "completedAt": "2026-11-17T18:47:30.480Z"
 }

@@ -49,6 +49,20 @@ export function getSecretString(arn) {
   return aws(['secretsmanager', 'get-secret-value', '--secret-id', arn, '--query', 'SecretString']);
 }
 
+/**
+ * URL pública con la que se comprueba un despliegue «desde fuera»: la que ve el
+ * cliente, `NEXT_PUBLIC_SITE_URL` (SSM `web/`, que el rol de despliegue ya puede
+ * leer). Sin ella, `http://<IP elástica>`.
+ *
+ * Por la IP ya no vale en cuanto hay TLS (F4): http redirige a https://<IP> y
+ * el certificado es del nombre, no de la IP. Así falló la release del
+ * 2026-11-17, ya activa y sana, en este último paso.
+ */
+export function publicSiteUrl(publicIp) {
+  const site = getParamsByPath('web').NEXT_PUBLIC_SITE_URL?.trim();
+  return (site || `http://${publicIp}`).replace(/\/+$/, '');
+}
+
 export const REGION = process.env.AWS_REGION ?? process.env.AWS_DEFAULT_REGION ?? 'us-east-1';
 
 function awsJson(args) {

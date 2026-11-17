@@ -14,7 +14,7 @@
 // anterior. Para releases más antiguas, ver docs/infrastructure-aws.md,
 // «Volver atrás».
 import { execFileSync } from 'node:child_process';
-import { envName, getParam, REGION, runActivate } from './aws.mjs';
+import { envName, getParam, publicSiteUrl, REGION, runActivate } from './aws.mjs';
 
 const release = process.argv.slice(2).filter((a) => !a.startsWith('--'))[1];
 const instanceId = getParam('APP_INSTANCE_ID');
@@ -53,6 +53,7 @@ console.log(`[rollback] entorno ${envName}: activando ${release}`);
 await runActivate(instanceId, ['-', '-', '-', release, envName, REGION], `vapeupar rollback ${release}`);
 
 const publicIp = getParam('APP_PUBLIC_IP');
-const res = await fetch(`http://${publicIp}/`, { signal: AbortSignal.timeout(20000) });
-if (!res.ok) throw new Error(`http://${publicIp}/ respondió ${res.status}`);
-console.log(`[rollback] OK: http://${publicIp}/ responde ${res.status}. Release ${release} activa.`);
+const site = publicSiteUrl(publicIp);
+const res = await fetch(`${site}/`, { signal: AbortSignal.timeout(20000) });
+if (!res.ok) throw new Error(`${site}/ respondió ${res.status}`);
+console.log(`[rollback] OK: ${site}/ responde ${res.status}. Release ${release} activa.`);

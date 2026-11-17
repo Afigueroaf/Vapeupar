@@ -89,5 +89,12 @@
     "title": "HTTPS preparado en vapeupar.ddns.net",
     "detail": "Origen público desplegado con el nombre de No-IP, certificado de Let's Encrypt emitido (vence 2027-02-15, renovación automática), nginx en variantes HTTP/TLS que activate.sh elige solo, MFA probado contra el pool real y PR #14 de release abierto. Falta fusionar, desplegar los orígenes https y aprobar la release.",
     "ref": "chore/origen-noip · chore/tls-noip · 2be59ad · PR #14 (abierto)"
+  },
+  {
+    "id": "h20261117-14",
+    "date": "2026-11-17",
+    "title": "Producción en HTTPS con la cola del Deathnote",
+    "detail": "Release b09f013 en https://vapeupar.ddns.net: TLS de Let's Encrypt, MFA de la consola, usuarios, umbral de stock, iconos pixel, tokens de espaciado y nube 3D aligerada. La comprobación final de deploy-app.mjs falló por pedir la portada por IP; la release estaba sana y el script se corrige para usar la URL pública.",
+    "ref": "PR #14 · b09f013 · run 44149941854"
   }
 ]

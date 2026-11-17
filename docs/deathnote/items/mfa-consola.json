@@ -24,14 +24,14 @@
     }
   ],
   "source": "docs/security.md (§2.1 Pendiente) + infra/lib/config.ts (comentario MFA) + docs/decisions/002-consola-de-administracion-y-persistencia.md (Decisión 6)",
-  "evidence": "Prueba manual del dueño, localhost contra el pool vapeupar-dev",
+  "evidence": "Release 20261117-184256-b09f013",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T18:23:50.877Z",
+  "updatedAt": "2026-11-17T18:47:35.724Z",
   "choice": {
     "kind": "option",
     "index": 0
   },
   "queued": false,
-  "claudeNote": "MFA TOTP probado por el dueño el 2026-11-17 contra el pool real de Cognito desde localhost (ADMIN_MFA_REQUIRED=true): asociación con QR y login con código correctos. En dev. Pasa a producción con la release dev → produccion, que además activa HTTPS (necesario: las cookies de la consola son secure)."
+  "claudeNote": "En producción desde el 2026-11-17 con HTTPS (las cookies secure ya funcionan). Probado por el dueño contra el pool real desde localhost. Falta: primer login del dueño en https://vapeupar.ddns.net/admin/login; producción exige TOTP (NODE_ENV=production)."
 }

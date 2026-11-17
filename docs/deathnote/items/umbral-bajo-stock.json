@@ -1,6 +1,6 @@
 {
   "title": "Umbral de bajo stock: global o por variante",
-  "status": "en_curso",
+  "status": "hecho",
   "priority": "baja",
   "area": "admin",
   "summary": "La alerta usa un 5 fijo repetido en frontend y backend; la decisión #5 sigue abierta.",
@@ -27,11 +27,12 @@
   "evidence": "Rama feat/umbral-stock; services/settings.service.ts, routes/admin/stock.routes.ts",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T02:26:53.636Z",
+  "updatedAt": "2026-11-17T18:47:31.746Z",
   "choice": {
     "kind": "option",
     "index": 0
   },
   "queued": false,
-  "claudeNote": "Implementado en la rama feat/umbral-stock (sin push): umbral global guardado en site_content (clave setting.low-stock-threshold, versionado y auditado, sin migración), GET/PUT /api/admin/stock/threshold (PUT solo owner), el filtro de bajo stock usa el configurado y el dueño lo edita en /admin/stock. 158 tests de backend, lint y build en verde."
+  "claudeNote": "Implementado en la rama feat/umbral-stock (sin push): umbral global guardado en site_content (clave setting.low-stock-threshold, versionado y auditado, sin migración), GET/PUT /api/admin/stock/threshold (PUT solo owner), el filtro de bajo stock usa el configurado y el dueño lo edita en /admin/stock. 158 tests de backend, lint y build en verde.",
+  "completedAt": "2026-11-17T18:47:31.744Z"
 }

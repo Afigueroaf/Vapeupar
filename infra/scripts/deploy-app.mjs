@@ -28,7 +28,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { envName, getParam, getParamsByPath, REGION, runActivate } from './aws.mjs';
+import { envName, getParam, getParamsByPath, publicSiteUrl, REGION, runActivate } from './aws.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const skipBuild = process.argv.includes('--skip-build');
@@ -217,9 +217,10 @@ try {
   await runActivate(instanceId, [bucket, KEY, put.VersionId, releaseId, envName, REGION], `vapeupar deploy ${releaseId}`);
 
   // --- 5. Desde fuera -----------------------------------------------------------
-  const res = await fetch(`http://${publicIp}/`, { signal: AbortSignal.timeout(20000) });
-  if (!res.ok) throw new Error(`http://${publicIp}/ respondió ${res.status}`);
-  log(`OK: http://${publicIp}/ responde ${res.status}. Release ${releaseId} activa.`);
+  const site = publicSiteUrl(publicIp);
+  const res = await fetch(`${site}/`, { signal: AbortSignal.timeout(20000) });
+  if (!res.ok) throw new Error(`${site}/ respondió ${res.status}`);
+  log(`OK: ${site}/ responde ${res.status}. Release ${releaseId} activa.`);
 } finally {
   fs.rmSync(work, { recursive: true, force: true });
 }
