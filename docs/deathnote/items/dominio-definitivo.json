@@ -24,14 +24,14 @@
     }
   ],
   "source": "docs/aws-full-deployment-plan.md (§3 D2 y F4)",
-  "evidence": "Rama chore/no-ip; frontend/src/lib/site-url.ts, docs/aws-full-deployment-plan.md (D2, F4)",
+  "evidence": "Rama chore/origen-noip; infra/lib/config.ts",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T02:29:42.146Z",
+  "updatedAt": "2026-11-17T15:51:46.424Z",
   "choice": {
     "kind": "option",
     "index": 2
   },
   "queued": false,
-  "claudeNote": "Rama chore/no-ip (sin push). D2 confirmada en el plan: se sigue con No-IP. metadataBase y og:url salen de NEXT_PUBLIC_SITE_URL (lib/site-url.ts), que va en SSM /vapeupar/dev/web/; deploy-app.mjs avisa si falta. Comprobado: todos los dominios base gratuitos de No-IP están en la Public Suffix List. Recordatorio de confirmación cada 30 días documentado en F4. Pendiente tuyo: elegir el nombre en No-IP, crear el parámetro SSM con https://<nombre> y poner el evento de calendario cada 25 días. El TLS sigue en el item f4-tls-no-ip."
+  "claudeNote": "Nombre de No-IP: vapeupar.ddns.net. SSM /vapeupar/dev/web/NEXT_PUBLIC_SITE_URL = http://vapeupar.ddns.net creado el 2026-11-17 (aplica en el próximo despliegue de la app). Rama chore/origen-noip (sin desplegar): publicOrigin y uploadOrigins con http://vapeupar.ddns.net; diff = CORS del bucket + parámetro PUBLIC_ORIGIN, sin reemplazos. Tras desplegarlo, la consola se usa por el nombre y no por la IP. Todo en http hasta F4 (TLS): entonces se cambia a https en los tres sitios."
 }
