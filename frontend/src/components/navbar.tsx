@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, ShoppingBag, X } from "lucide-react";
+import { BagIcon, CloseIcon, MenuIcon } from "@/components/ui/icons";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 import { PixelLabel } from "@/components/ui/pixel-label";
 import { setCartOpen, useCart, useCartOpen } from "@/lib/cart";
@@ -91,7 +91,7 @@ export function Navbar() {
                 : `Carrito de compras, ${cartCount} ${cartCount === 1 ? "unidad" : "unidades"}`
             }
           >
-            <ShoppingBag className="size-5" aria-hidden="true" />
+            <BagIcon className="size-5" aria-hidden="true" />
             {cartCount > 0 && (
               <span className="vp-label absolute -right-2 -top-2 flex size-5 items-center justify-center rounded-vp bg-action text-action-ink">
                 {/* Dos cifras no caben en la chapa de 20px en Press Start 2P. */}
@@ -108,9 +108,9 @@ export function Navbar() {
             aria-expanded={mobileMenuOpen}
           >
             {mobileMenuOpen ? (
-              <X className="size-5" aria-hidden="true" />
+              <CloseIcon className="size-5" aria-hidden="true" />
             ) : (
-              <Menu className="size-5" aria-hidden="true" />
+              <MenuIcon className="size-5" aria-hidden="true" />
             )}
           </button>
         </div>

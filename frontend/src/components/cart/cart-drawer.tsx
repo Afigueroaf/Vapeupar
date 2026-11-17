@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Trash2, X } from "lucide-react";
+import { CloseIcon, TrashIcon } from "@/components/ui/icons";
 import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { Button, buttonStyles } from "@/components/ui/button";
@@ -175,7 +175,7 @@ export function CartDrawer() {
             aria-label="Cerrar carrito"
             className="flex size-11 shrink-0 items-center justify-center rounded-vp border-2 border-muted transition-colors hover:border-line"
           >
-            <X className="size-5" aria-hidden="true" />
+            <CloseIcon className="size-5" aria-hidden="true" />
           </button>
         </div>
 
@@ -301,7 +301,7 @@ function CartLineItem({ line, onNavigate }: { line: CartLine; onNavigate: () => 
             aria-label={`Quitar ${line.name}${line.variantName ? `, ${line.variantName}` : ""}`}
             className="-mr-2 -mt-2 flex size-11 shrink-0 items-center justify-center text-muted transition-colors hover:text-foreground"
           >
-            <Trash2 className="size-4" aria-hidden="true" />
+            <TrashIcon className="size-4" aria-hidden="true" />
           </button>
         </div>
 

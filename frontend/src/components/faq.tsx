@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDownIcon } from "@/components/ui/icons";
 import { PixelLabel } from "@/components/ui/pixel-label";
 import { Surface } from "@/components/ui/surface";
 import { cn } from "@/lib/utils";
@@ -105,7 +105,7 @@ export function FAQ() {
                     className="flex w-full items-center justify-between gap-4 p-5 text-left font-display text-base font-bold transition-colors duration-150 ease-vp hover:text-action sm:text-[1.0625rem]"
                   >
                     <span>{item.question}</span>
-                    <ChevronDown
+                    <ChevronDownIcon
                       className={cn(
                         "size-5 shrink-0 text-action transition-transform duration-200 ease-vp",
                         isOpen && "rotate-180"

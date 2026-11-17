@@ -1,4 +1,4 @@
-import { Minus, Plus } from "lucide-react";
+import { MinusIcon, PlusIcon } from "@/components/ui/icons";
 import { cn } from "@/lib/utils";
 
 interface QuantityStepperProps {
@@ -31,7 +31,7 @@ export function QuantityStepper({ value, max, onChange, label, min = 1, compact 
         disabled={value <= min}
         aria-label={`Quitar una unidad de ${label}`}
       >
-        <Minus className="size-4" aria-hidden="true" />
+        <MinusIcon className="size-4" aria-hidden="true" />
       </button>
       <span
         className={cn("text-center font-bold tabular-nums", compact ? "w-8" : "w-12 text-lg")}
@@ -46,7 +46,7 @@ export function QuantityStepper({ value, max, onChange, label, min = 1, compact 
         disabled={value >= max}
         aria-label={`Añadir una unidad de ${label}`}
       >
-        <Plus className="size-4" aria-hidden="true" />
+        <PlusIcon className="size-4" aria-hidden="true" />
       </button>
     </div>
   );
