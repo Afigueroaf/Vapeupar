@@ -1,6 +1,6 @@
 {
   "title": "Rutas nuevas del sitio: colecciones y nosotros (V8)",
-  "status": "en_curso",
+  "status": "hecho",
   "priority": "media",
   "area": "frontend",
   "summary": "Existe /producto/[slug], pero faltan /coleccion/[categoria] y /nosotros, y la navegación sigue usando anclas.",
@@ -18,6 +18,8 @@
   "evidence": "PR #18 · 00e31b1",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T22:21:52.984Z",
-  "claudeNote": "Rama feat/rutas-coleccion-nosotros, fusionada en main con el PR #18 (00e31b1) el 2026-11-17; la release espera aprobación (run 44183642513). /coleccion/[categoria] con las 6 categorías (slugs en español en lib/collections.ts), ISR 60 s, 404 para slugs desconocidos y estado vacío «próximamente»; /nosotros con COPY PROVISIONAL (autenticidad, entrega, +18) pendiente de aprobar; armazón público compartido (public-shell.tsx). La barra enlaza Nosotros a /nosotros; menú móvil y pie, a las colecciones; la ficha vuelve a su colección. Lint y build OK. Falta: aprobar el texto de /nosotros."
+  "updatedAt": "2026-11-17T22:29:26.652Z",
+  "claudeNote": "En producción desde el 2026-11-17 (release 00e31b1, run 44183642513 en verde). /coleccion/desechables (3 líneas), /pods (1), /freebase (vacía, próximamente), /coleccion/inventada 404, /nosotros 200 con canonical https. El texto de /nosotros sigue PROVISIONAL. /coleccion/[categoria] con las 6 categorías (slugs en español en lib/collections.ts), ISR 60 s, 404 para slugs desconocidos y estado vacío «próximamente»; /nosotros con COPY PROVISIONAL (autenticidad, entrega, +18) pendiente de aprobar; armazón público compartido (public-shell.tsx). La barra enlaza Nosotros a /nosotros; menú móvil y pie, a las colecciones; la ficha vuelve a su colección. Lint y build OK. Falta: aprobar el texto de /nosotros.",
+  "completedAt": "2026-11-17T22:29:26.547Z",
+  "queued": false
 }

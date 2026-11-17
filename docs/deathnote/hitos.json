@@ -117,5 +117,12 @@
     "title": "Cola en curso fusionada en main",
     "detail": "A6 (filtros sobre variantes y brandSlug), V8 (/coleccion/[categoria] y /nosotros), WebGL fase 2, script de carga de imágenes y bucket con RETAIN y versionado. Release pendiente de aprobación; el bucket se aplica aparte con cdk deploy.",
     "ref": "PR #18 · 00e31b1"
+  },
+  {
+    "id": "h20261117-18",
+    "date": "2026-11-17",
+    "title": "Colecciones, nosotros y catálogo por variantes en producción",
+    "detail": "Release 00e31b1: /coleccion/[categoria], /nosotros, búsqueda sobre variantes, brandSlug y WebGL fase 2. Dry-run de imágenes: 75 por subir al bucket.",
+    "ref": "PR #18 · 00e31b1 · run 44183642513"
   }
 ]

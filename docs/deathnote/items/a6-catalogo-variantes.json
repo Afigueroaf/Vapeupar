@@ -1,6 +1,6 @@
 {
   "title": "Catálogo público con variantes (A6)",
-  "status": "en_curso",
+  "status": "hecho",
   "priority": "alta",
   "area": "frontend",
   "summary": "La API ya devuelve variants y la tarjeta dice «Ver N sabores», pero el filtro de marca compara strings, la búsqueda del cliente no mira los nombres de variante y el plan aún figura como pendiente.",
@@ -14,6 +14,8 @@
   "evidence": "PR #18 · 00e31b1",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T22:21:52.911Z",
-  "claudeNote": "Rama feat/catalogo-variantes, fusionada en main con el PR #18 (00e31b1) el 2026-11-17; la release espera aprobación (run 44183642513). Contrato con brandSlug (back, front y fallback); búsqueda del catálogo sobre nombres de variante y sin tildes; filtro de marca por slug (la API acepta slug o nombre); «Más caladas» manda al final las líneas sin puffCount. A6.2 se cierra con «Ver N sabores» en la tarjeta y la elección en la ficha, sin selector en la tarjeta (registrado en el plan). Tests backend 175/175, lint y build OK."
+  "updatedAt": "2026-11-17T22:29:26.649Z",
+  "claudeNote": "En producción desde el 2026-11-17 (release 00e31b1, run 44183642513 en verde). API con brandSlug=lifepod; ?search=watermelon devuelve ECO 3 y ECO PRO. Contrato con brandSlug (back, front y fallback); búsqueda del catálogo sobre nombres de variante y sin tildes; filtro de marca por slug (la API acepta slug o nombre); «Más caladas» manda al final las líneas sin puffCount. A6.2 se cierra con «Ver N sabores» en la tarjeta y la elección en la ficha, sin selector en la tarjeta (registrado en el plan). Tests backend 175/175, lint y build OK.",
+  "completedAt": "2026-11-17T22:29:25.464Z",
+  "queued": false
 }
