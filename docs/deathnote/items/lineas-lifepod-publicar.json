@@ -1,6 +1,6 @@
 {
   "title": "Qué líneas LifePod se publican y con qué categoría",
-  "status": "en_curso",
+  "status": "hecho",
   "priority": "media",
   "area": "producto",
   "summary": "Hay 4 líneas y 2 publicadas; FIT no tiene variantes y las categorías se dedujeron de las fotos, sin confirmar con el proveedor.",
@@ -24,14 +24,15 @@
     }
   ],
   "source": "docs/admin-console-execution-plan.md (A0.1 decisión #4 y registro A1)",
-  "evidence": "Consulta de solo lectura sobre products/variants de la marca LifePod",
+  "evidence": "audit_logs: product.unpublish de lifepod-fit",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T04:12:36.942Z",
+  "updatedAt": "2026-11-17T04:17:21.786Z",
   "choice": {
     "kind": "option",
     "index": 0
   },
   "queued": false,
-  "claudeNote": "Decisión #4 escrita en A0.1 (commit 9b8201c en dev). Lectura de producción del 2026-11-16 (túnel, transacción READ ONLY): ONE está lista (published, pod-systems, 100 000, imagen de línea, 7 variantes activas) pero con stock 0, así que la tienda la muestra agotada. Categorías correctas: ECO 3, ECO PRO y FIT en disposables. DISCREPANCIA: FIT está published (1 variante activa, stock 0) y la decisión dice borrador. Cambio propuesto, NO ejecutado: PATCH /api/admin/products/<id de lifepod-fit> con {\"status\":\"draft\"}, como dueño desde la consola (Líneas → LifePod FIT → Estado: borrador). Queda auditado. Espera tu visto bueno."
+  "claudeNote": "Hecho el 2026-11-16. Decisión #4 en A0.1. Producción revisada en solo lectura: ONE lista (published, pod-systems, 100 000, imagen, 7 variantes activas) pero con stock 0, la tienda la muestra agotada hasta que entre inventario. Categorías correctas (ECO 3, ECO PRO y FIT en disposables). FIT pasada a borrador con autorización del dueño, por catalogService.updateProduct (mismo camino que PATCH /api/admin/products/:id); auditoría product.unpublish a las 04:17 UTC del 2026-11-17.",
+  "completedAt": "2026-11-17T04:17:21.785Z"
 }
