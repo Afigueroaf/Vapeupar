@@ -1,6 +1,6 @@
 {
   "title": "Qué líneas LifePod se publican y con qué categoría",
-  "status": "pendiente",
+  "status": "hecho",
   "priority": "media",
   "area": "producto",
   "summary": "Hay 4 líneas y 2 publicadas; FIT no tiene variantes y las categorías se dedujeron de las fotos, sin confirmar con el proveedor.",
@@ -24,14 +24,15 @@
     }
   ],
   "source": "docs/admin-console-execution-plan.md (A0.1 decisión #4 y registro A1)",
-  "evidence": "docs/session-handoff-2026-10-27-inventory-images.md §4.3: 4 líneas (2 publicadas)",
+  "evidence": "audit_logs: product.unpublish de lifepod-fit",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T01:44:00.929Z",
+  "updatedAt": "2026-11-17T04:17:21.786Z",
   "choice": {
     "kind": "option",
     "index": 0
   },
-  "queued": true,
-  "queuedAt": "2026-11-17T01:44:00.928Z"
+  "queued": false,
+  "claudeNote": "Hecho el 2026-11-16. Decisión #4 en A0.1. Producción revisada en solo lectura: ONE lista (published, pod-systems, 100 000, imagen, 7 variantes activas) pero con stock 0, la tienda la muestra agotada hasta que entre inventario. Categorías correctas (ECO 3, ECO PRO y FIT en disposables). FIT pasada a borrador con autorización del dueño, por catalogService.updateProduct (mismo camino que PATCH /api/admin/products/:id); auditoría product.unpublish a las 04:17 UTC del 2026-11-17.",
+  "completedAt": "2026-11-17T04:17:21.785Z"
 }
