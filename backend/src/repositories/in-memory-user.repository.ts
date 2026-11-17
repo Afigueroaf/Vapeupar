@@ -18,6 +18,12 @@ export class InMemoryUserRepository implements UserRepository {
     return row ? { ...row } : undefined;
   }
 
+  public async list(): Promise<AdminUser[]> {
+    return [...this.rows.values()]
+      .map(row => ({ ...row }))
+      .sort((a, b) => a.email.localeCompare(b.email));
+  }
+
   public async create(user: AdminUser): Promise<AdminUser> {
     if (this.rows.has(user.id) || await this.findByEmail(user.email)) {
       throw new DuplicateUserError(user.email);

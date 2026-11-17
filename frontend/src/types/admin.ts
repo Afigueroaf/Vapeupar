@@ -13,6 +13,15 @@ export type AdminRole = "owner" | "operator";
 /** El estado de publicacion de una linea, que la consola escribe explicito. */
 export type ProductStatus = "draft" | "published";
 
+/** Cuenta de la consola (`GET /api/admin/users`, solo owner). */
+export interface AdminUserRow {
+  /** `sub` de Cognito. */
+  id: string;
+  email: string;
+  role: AdminRole;
+  active: boolean;
+}
+
 export interface AdminIdentity {
   userId: string;
   email: string;
