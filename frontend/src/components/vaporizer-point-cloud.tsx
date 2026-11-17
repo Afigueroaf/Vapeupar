@@ -50,7 +50,11 @@ export interface VaporizerPointCloudProps {
    * equipo. El valor por defecto está calibrado para el box-mod del hero: sus
    * caras planas son grandes y con menos puntos el cuerpo se vacía y el objeto
    * se lee como un alambrado en lugar de como un volumen.
-   * @default 55000
+   *
+   * Bajado de 55 000 a 30 000 el 2026-11-16 (Deathnote `arranque-3d`) para
+   * abaratar el arranque; lo compensa un techo de tamaño de punto mayor
+   * (`sampling.ts`). En táctil el factor de `device.ts` lo deja en ~15 000.
+   * @default 30000
    */
   particleCount?: number;
   /**
@@ -91,7 +95,7 @@ export interface VaporizerPointCloudProps {
   opacity?: number;
   /**
    * Velocidad de giro en radianes por segundo. Negativa invierte el sentido.
-   * @default 0.3
+   * @default 0.18
    */
   rotationSpeed?: number;
   /**
@@ -204,7 +208,7 @@ interface Layout {
 
 export function VaporizerPointCloud({
   modelPath = DEFAULT_MODEL_PATH,
-  particleCount = 55000,
+  particleCount = 30000,
   ambientParticles = true,
   ambientParticleCount = 1400,
   color,
@@ -212,7 +216,7 @@ export function VaporizerPointCloud({
   pointSize = 2.4,
   glow = 0.8,
   opacity = 1,
-  rotationSpeed = 0.3,
+  rotationSpeed = 0.18,
   wave = 0.012,
   tilt = -0.1,
   initialRotation = [0, 0.6, 0],
