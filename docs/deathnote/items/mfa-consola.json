@@ -1,6 +1,6 @@
 {
   "title": "MFA de la consola en producción",
-  "status": "en_curso",
+  "status": "hecho",
   "priority": "alta",
   "area": "seguridad",
   "summary": "El backend responde 501 al reto SOFTWARE_TOKEN_MFA y el pool vivo tiene MFA opcional, que Cognito no permite pasar a obligatorio sin recrear el pool.",
@@ -24,14 +24,15 @@
     }
   ],
   "source": "docs/security.md (§2.1 Pendiente) + infra/lib/config.ts (comentario MFA) + docs/decisions/002-consola-de-administracion-y-persistencia.md (Decisión 6)",
-  "evidence": "nginx error.log 19:28 y 19:30 UTC",
+  "evidence": "nginx access.log 20:03:08 login 200 · 20:03:17 mfa 200; release 20261117-195217-547bc97",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T19:32:05.265Z",
+  "updatedAt": "2026-11-17T20:05:08.724Z",
   "choice": {
     "kind": "option",
     "index": 0
   },
   "queued": false,
-  "claudeNote": "2026-11-17: el primer login del dueño en producción dio 502. nginx: «upstream sent too big header» en POST /api/admin/auth/mfa, porque las cookies con los tokens de Cognito superan el búfer de 4 KB. Cognito sí validó el código (el TOTP queda asociado). Arreglo en fix/nginx-buffer-cabeceras: proxy_buffer_size 16k en /api/ (vapeupar-site.inc). Falta aplicarlo en la instancia (hotfix con nginx -t o próxima release) y repetir el login."
+  "claudeNote": "Hecho el 2026-11-17. MFA TOTP obligatoria en producción: el dueño inició sesión en https://vapeupar.ddns.net/admin a las 20:03 UTC (login 200 → mfa 200). El primer intento dio 502 por el búfer de cabeceras de nginx (cookies con tokens de Cognito > 4 KB); resuelto en PR #16 (proxy_buffer_size 16k en /api/).",
+  "completedAt": "2026-11-17T20:05:08.724Z"
 }

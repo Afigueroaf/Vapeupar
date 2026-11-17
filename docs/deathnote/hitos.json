@@ -103,5 +103,12 @@
     "title": "Despliegue verificado desde fuera por https",
     "detail": "deploy-app.mjs y rollback-app.mjs comprueban la URL pública (NEXT_PUBLIC_SITE_URL) en vez de la IP. Primera release en verde con TLS: «OK: https://vapeupar.ddns.net/».",
     "ref": "PR #15 · a305f89 · run 44153613004"
+  },
+  {
+    "id": "h20261117-16",
+    "date": "2026-11-17",
+    "title": "Consola en producción con MFA",
+    "detail": "Primer login del dueño en https://vapeupar.ddns.net/admin con TOTP. El 502 inicial venía del búfer de cabeceras de nginx (cookies con tokens de Cognito); /api/ pasa a 16 KB.",
+    "ref": "PR #16 · 547bc97 · run 44162588030"
   }
 ]
