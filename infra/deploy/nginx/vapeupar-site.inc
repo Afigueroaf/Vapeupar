@@ -32,6 +32,16 @@ proxy_set_header X-Real-IP $remote_addr;
 
 location /api/ {
     proxy_pass http://vapeupar_api;
+
+    # Cabeceras de respuesta grandes: al iniciar sesión (o completar la MFA) el
+    # backend fija las cookies con los tokens de Cognito —acceso, identidad y
+    # renovación—, varios KB en total. El búfer por defecto es de una página
+    # (4 KB) y nginx respondía 502 «upstream sent too big header» justo en
+    # POST /api/admin/auth/mfa (2026-11-17). En local no se veía: allí no hay
+    # nginx delante.
+    proxy_buffer_size 16k;
+    proxy_buffers 8 16k;
+    proxy_busy_buffers_size 32k;
 }
 
 # Recursos con hash en el nombre: inmutables por definición. Se sirven
