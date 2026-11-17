@@ -187,6 +187,8 @@ interface Environment {
   budgetFactor: number;
   dpr: [number, number];
   finePointer: boolean;
+  /** Techo de píxeles del búfer, según el tipo de puntero: ver `MAX_DRAW_PIXELS`. */
+  maxDrawPixels: number;
 }
 
 /**
@@ -199,6 +201,23 @@ interface Environment {
  * de nitidez no se aprecia.
  */
 const MAX_DRAW_PIXELS = 2_600_000;
+
+/**
+ * El mismo techo en táctil (`pointer: coarse`), fase 2 de
+ * `docs/performance-optimization-plan.md`. Un teléfono de DPR 2,5 con el
+ * lienzo a lo ancho pedía los 2,6 M completos sobre una GPU de gama media; con
+ * puntos de halo en una pantalla de 6" la diferencia de nitidez no se ve.
+ */
+const MAX_DRAW_PIXELS_COARSE = 1_400_000;
+
+/**
+ * Escalón de la degradación adaptativa: si los primeros segundos de animación
+ * van lentos (`vaporizer/canvas.tsx`, `FrameBudget`), la resolución se
+ * multiplica por esto UNA sola vez. Nunca sube de nuevo: oscilar entre dos
+ * resoluciones se ve peor que quedarse en la baja (`vaporizer/device.ts`).
+ */
+const DEGRADED_DPR_FACTOR = 0.75;
+const MIN_DPR = 0.75;
 
 /** Lo que cambia con la maqueta: hueco del objeto y resolución del lienzo. */
 interface Layout {
@@ -239,6 +258,8 @@ export function VaporizerPointCloud({
   const [resolvedColor, setResolvedColor] = useState<string | null>(null);
   const [motionAllowed, setMotionAllowed] = useState(false);
   const [visible, setVisible] = useState(false);
+  /** Los primeros segundos fueron lentos: resolución un escalón abajo. */
+  const [degraded, setDegraded] = useState(false);
 
   // Medición del entorno y suscripción a la preferencia de movimiento. Nada de
   // esto existe en el servidor, así que se hace tras el montaje; hasta
@@ -253,6 +274,9 @@ export function VaporizerPointCloud({
         budgetFactor: deviceBudgetFactor(),
         dpr: canvasDpr(),
         finePointer: window.matchMedia("(hover: hover) and (pointer: fine)").matches,
+        maxDrawPixels: window.matchMedia("(pointer: coarse)").matches
+          ? MAX_DRAW_PIXELS_COARSE
+          : MAX_DRAW_PIXELS,
       });
 
     measure();
@@ -272,10 +296,11 @@ export function VaporizerPointCloud({
   // admite el lienzo a ese tamaño. Las dos cosas dependen de lo mismo —las
   // medidas reales en pantalla— y cambian a la vez, así que se miden juntas.
   const baseDpr = environment?.dpr;
+  const maxDrawPixels = environment?.maxDrawPixels;
 
   useEffect(() => {
     const node = container.current;
-    if (!node || !baseDpr) return;
+    if (!node || !baseDpr || !maxDrawPixels) return;
 
     const target = anchorSelector
       ? document.querySelector<HTMLElement>(anchorSelector)
@@ -285,10 +310,10 @@ export function VaporizerPointCloud({
       const box = node.getBoundingClientRect();
       if (box.width === 0 || box.height === 0) return;
 
-      const ceiling = Math.sqrt(MAX_DRAW_PIXELS / (box.width * box.height));
+      const ceiling = Math.sqrt(maxDrawPixels / (box.width * box.height));
       const dpr: [number, number] = [
-        Math.min(baseDpr[0], Math.max(0.75, ceiling)),
-        Math.min(baseDpr[1], Math.max(0.75, ceiling)),
+        Math.min(baseDpr[0], Math.max(MIN_DPR, ceiling)),
+        Math.min(baseDpr[1], Math.max(MIN_DPR, ceiling)),
       ];
 
       if (!target) {
@@ -317,7 +342,7 @@ export function VaporizerPointCloud({
     if (target) observer.observe(target);
 
     return () => observer.disconnect();
-  }, [anchorSelector, baseDpr]);
+  }, [anchorSelector, baseDpr, maxDrawPixels]);
 
   // Visibilidad real: fuera de pantalla o en una pestaña de fondo, el bucle de
   // render se para. Es la diferencia entre un adorno y una fuga de batería.
@@ -474,7 +499,15 @@ export function VaporizerPointCloud({
           modelPath={modelPath}
           particleCount={counts.particles}
           ambientCount={counts.ambient}
-          dpr={layout.dpr}
+          dpr={
+            degraded
+              ? [
+                  Math.max(MIN_DPR, layout.dpr[0] * DEGRADED_DPR_FACTOR),
+                  Math.max(MIN_DPR, layout.dpr[1] * DEGRADED_DPR_FACTOR),
+                ]
+              : layout.dpr
+          }
+          onSlowStart={() => setDegraded(true)}
           active={visible}
           pointer={pointer}
           anchor={layout.anchor}

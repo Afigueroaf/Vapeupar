@@ -744,6 +744,37 @@ grandes cubren más píxeles cada uno. Falta el A/B de la misma sesión (regla d
 arriba) y las capturas antes/después para validar que la silueta del box-mod
 se sigue leyendo como un volumen.
 
+### Fase 2 — lo que faltaba, sin medir aún (2026-11-17, Deathnote `perf-webgl-presupuesto`)
+
+Rama `perf/webgl-presupuesto`. Cierra los puntos 5, 6 y 7 de la fase 2; el 2, el 3
+y el 4 ya estaban (prisma sin MSAA en táctil, nube a 30 000/15 000 partículas,
+GPGPU parada en reposo). **El número de partículas no se ha tocado.**
+
+- **Punto 7 — tope de píxeles en táctil.** `MAX_DRAW_PIXELS_COARSE = 1,4 M` con
+  `pointer: coarse`; escritorio sigue en 2,6 M (`vaporizer-point-cloud.tsx`).
+- **Punto 6 — degradación adaptativa.** `FrameBudget` (`vaporizer/canvas.tsx`)
+  descarta 0,5 s de calentamiento, mide 2 s de animación y, si el fotograma medio
+  pasa de 22 ms, la resolución baja ×0,75 (mínimo 0,75) **una sola vez**. Los
+  saltos de más de 250 ms (pestaña oculta, bucle parado) no cuentan.
+- **Punto 5 — raycast del prisma.** Ya no se hace en cada fotograma: al instante
+  tras un `pointermove`/`pointerenter`, y con el puntero quieto cada 0,1 s
+  (`PICK_IDLE_INTERVAL` en `prism/scene.ts`). No se suprime del todo con el
+  puntero quieto porque el prisma sigue girando debajo y la cara señalada
+  cambia; a 15°/s son 1,5° entre comprobaciones.
+- El punto 1 (un solo bucle activo a la vez) no entra en este cambio.
+
+**Qué falta medir en el teléfono** (Moto G15, en caliente y alternando A/B, ver
+«AVISO DE MÉTODO»):
+
+1. Que el tope de 1,4 M no se note: comparar nitidez de la nube a DPR 2,5 contra
+   la release anterior.
+2. Si `FrameBudget` se dispara en el Moto G15 en caliente (no debería: va a
+   ~58 fps) y en frío (puede: la primera pasada va a 40-48 fps). Si salta en
+   frío casi siempre, el umbral o el calentamiento son demasiado estrictos.
+   Para verlo, un `console.log` temporal en `onSlow`.
+3. Fotograma medio y p95 con el cursor quieto sobre el prisma, antes y después
+   del raycast espaciado.
+
 ## 4. Orden recomendado y estimación
 
 | Fase | Esfuerzo | Impacto esperado |
