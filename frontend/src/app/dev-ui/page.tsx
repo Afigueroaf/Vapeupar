@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { Search } from "lucide-react";
+import { SearchIcon } from "@/components/ui/icons";
 import { Button } from "@/components/ui/button";
 import { PixelLabel } from "@/components/ui/pixel-label";
 import { Surface } from "@/components/ui/surface";
@@ -77,7 +77,7 @@ export default function DevUiPage() {
               id="dev-search"
               type="search"
               placeholder="Buscar por sabor, marca..."
-              icon={<Search className="size-4" aria-hidden="true" />}
+              icon={<SearchIcon className="size-4" aria-hidden="true" />}
             />
           </div>
           <div>

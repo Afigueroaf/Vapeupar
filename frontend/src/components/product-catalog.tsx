@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
-import { Search } from "lucide-react";
+import { SearchIcon } from "@/components/ui/icons";
 import { Product, ProductCategory } from "@/types/product";
 import { ProductCard } from "./product-card";
 import { Button } from "./ui/button";
@@ -166,7 +166,7 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
             placeholder="Buscar sabor, marca, puffs..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            icon={<Search className="size-4" aria-hidden="true" />}
+            icon={<SearchIcon className="size-4" aria-hidden="true" />}
           />
         </div>
       </div>

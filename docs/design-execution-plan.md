@@ -583,7 +583,7 @@ viewport y lo único que queda es el gutter. Es el precio de que el texto no toq
 | 2 | ~~`logo-detalle.png` pesa **355 KB**~~ | ✅ **Resuelto** (2026-10-26): `logo-detalle.svg`, 3,2 KB |
 | 3 | Fotografía real y renders 3D de producto | Assets del negocio |
 | 4 | ~~Imagen de OpenGraph propia~~ | ✅ **Resuelto** (2026-10-26): `app/opengraph-image.png`, compuesta con el logo vectorial |
-| 5 | Set de iconografía definitivo (§4.5): quedan 6 iconos de Lucide, todos funcionales | Decisión de diseño |
+| 5 | ~~Set de iconografía definitivo (§4.5)~~ | ✅ **Resuelto** (2026-11-16): iconos pixel propios en `components/ui/icons.tsx` (11 iconos, rejilla de 16 × 16, trazo de 2 celdas). Lucide sale de la tienda; solo lo usa la consola `/admin` |
 | 6 | ~~Escala de espaciado en tokens (§3.7)~~ | ✅ **Resuelto** (2026-11-16): base de 4 px (la de Tailwind) y cuatro tokens semánticos, `--space-section` / `-block` / `-stack` / `-inline`, en `globals.css`. Margen lateral y ritmo vertical de las secciones públicas migrados sin cambio visual; ver `docs/frontend.md`, «Espaciado» |
 | 7 | Teléfono, WhatsApp y horarios reales | Confirmación del negocio |
 | 8 | Rutas `/producto/[slug]`, `/coleccion/[categoria]`, `/nosotros` | Fase V8 |
@@ -752,3 +752,4 @@ Todo se rasteriza a 4x y se reduce, para que las diagonales no queden dentadas.
 - Queda fuera, y sigue siendo decisión de diseño, el set de **iconografía de
   interfaz** (§4.5, pendiente #5): son los 6 iconos de Lucide que quedan dentro
   de los componentes, un asunto distinto del icono de la aplicación.
+  *(Resuelto el 2026-11-16 con iconos pixel propios, ver la tabla de pendientes.)*

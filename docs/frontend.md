@@ -72,6 +72,22 @@ Reglas:
 - Cambiar el ritmo de toda la tienda es cambiar el token, no buscar `py-16`.
 - La consola `/admin` no los usa todavía: es densa a propósito y tiene su propio ritmo.
 
+## Iconos
+
+Decisión §4.5 (2026-11-16): **iconos pixel propios** en
+`frontend/src/components/ui/icons.tsx`. Cada uno es un mapa de 16 × 16 celdas
+escrito en el código (`#` lleno, `.` vacío) con trazo de 2 celdas, como los
+bordes del sistema; se convierte en un `path` con `shape-rendering: crispEdges`.
+
+- Disponibles: `ChevronDownIcon`, `ChevronRightIcon`, `ChevronLeftIcon`,
+  `CloseIcon`, `MenuIcon`, `PlusIcon`, `MinusIcon`, `SearchIcon`, `BagIcon`,
+  `TrashIcon`, `ChatIcon`.
+- Tamaño por clase (`size-4` = 16 px, píxel exacto; `size-5` también vale) y color
+  por `currentColor`. Llevan `aria-hidden` por defecto.
+- Un icono nuevo es un mapa nuevo y una línea `pixelIcon(...)`; los chevrons
+  izquierda y derecha salen de girar el de abajo, no se dibujan aparte.
+- La tienda ya no importa `lucide-react`; solo la consola `/admin` lo usa.
+
 ## Estructura de Componentes
 ```
 frontend/src/

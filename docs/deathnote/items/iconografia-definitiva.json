@@ -1,6 +1,6 @@
 {
   "title": "Set de iconografía definitivo",
-  "status": "pendiente",
+  "status": "en_curso",
   "priority": "baja",
   "area": "diseño",
   "summary": "Siguen 6 iconos funcionales de Lucide, estilo lineal redondeado ajeno a la identidad VP.",
@@ -19,14 +19,14 @@
     }
   ],
   "source": "docs/design-execution-plan.md (Pendientes abiertos #5) + docs/design-reset-inventory.md (§4.5)",
-  "evidence": "16 archivos de frontend/src importan lucide-react (incluida la consola)",
+  "evidence": "Rama feat/iconos-pixel; frontend/src/components/ui/icons.tsx",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T01:44:12.831Z",
+  "updatedAt": "2026-11-17T04:10:31.796Z",
   "choice": {
     "kind": "option",
     "index": 0
   },
-  "queued": true,
-  "queuedAt": "2026-11-17T01:44:12.830Z"
+  "queued": false,
+  "claudeNote": "Rama feat/iconos-pixel (sin push). components/ui/icons.tsx con 11 iconos pixel (mapas de 16×16 en el código, trazo de 2 celdas, crispEdges, currentColor) que sustituyen a Lucide en toda la tienda, la ficha, el carrito, los campos de ui/ y dev-ui. Lucide queda solo en /admin. Pendiente #5 del plan de diseño cerrado y documentado en docs/frontend.md («Iconos»). Lint y build en verde. Pendiente tuyo: revisarlos en el navegador (sobre todo la lupa, la bolsa y el globo de chat) y decir si alguno se retoca."
 }
