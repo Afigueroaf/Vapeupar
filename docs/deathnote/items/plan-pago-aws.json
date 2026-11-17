@@ -27,11 +27,12 @@
   "evidence": "Crédito 137,34 USD al 2026-11-06 con ~36–37,5 USD/mes; plazo interno «antes de enero de 2027»",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T01:43:57.877Z",
+  "updatedAt": "2026-11-17T02:03:14.058Z",
   "choice": {
     "kind": "option",
     "index": 0
   },
   "queued": true,
-  "queuedAt": "2026-11-17T01:43:57.875Z"
+  "queuedAt": "2026-11-17T01:43:57.875Z",
+  "userPrompt": "El cambio a plan de pago lo hace el dueño en la consola de AWS en diciembre de 2026, cuando se agoten los créditos gratuitos; no antes. Ahora solo deja preparado en una rama el cambio de infra (backupRetentionDays 7, presupuesto y alarmas de coste) y documentado el procedimiento, sin desplegar: se aplica después de que el dueño confirme que la cuenta ya está en plan de pago."
 }
