@@ -1,6 +1,6 @@
 {
   "title": "Pasar la cuenta AWS a plan de pago (y separarla de DeliPan)",
-  "status": "pendiente",
+  "status": "en_curso",
   "priority": "alta",
   "area": "infra",
   "summary": "El plan gratuito vence el 2027-03-12 y el crédito compartido con DeliPan podría agotarse antes; si no se pasa a pago, AWS cierra la cuenta con ambos proyectos. Además limita backups a 1 día.",
@@ -24,15 +24,15 @@
     }
   ],
   "source": "docs/infrastructure-aws.md (§6.1) + docs/aws-full-deployment-plan.md (§7.1, D3) + docs/decisions/002-consola-de-administracion-y-persistencia.md (Alternativas: cuenta separada)",
-  "evidence": "Crédito 137,34 USD al 2026-11-06 con ~36–37,5 USD/mes; plazo interno «antes de enero de 2027»",
+  "evidence": "Rama chore/aws-plan-pago (0c66dff)",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T02:03:14.058Z",
+  "updatedAt": "2026-11-17T18:28:10.426Z",
   "choice": {
     "kind": "option",
     "index": 0
   },
-  "queued": true,
-  "queuedAt": "2026-11-17T01:43:57.875Z",
-  "userPrompt": "El cambio a plan de pago lo hace el dueño en la consola de AWS en diciembre de 2026, cuando se agoten los créditos gratuitos; no antes. Ahora solo deja preparado en una rama el cambio de infra (backupRetentionDays 7, presupuesto y alarmas de coste) y documentado el procedimiento, sin desplegar: se aplica después de que el dueño confirme que la cuenta ya está en plan de pago."
+  "queued": false,
+  "userPrompt": "El cambio a plan de pago lo hace el dueño en la consola de AWS en diciembre de 2026, cuando se agoten los créditos gratuitos; no antes. Ahora solo deja preparado en una rama el cambio de infra (backupRetentionDays 7, presupuesto y alarmas de coste) y documentado el procedimiento, sin desplegar: se aplica después de que el dueño confirme que la cuenta ya está en plan de pago.",
+  "claudeNote": "Preparado en la rama chore/aws-plan-pago (empujable, NO fusionada en dev a propósito): backupRetentionDays 7, presupuesto 45 USD (vapeupar-dev-monthly-costs) con avisos al 50/80/100 % y anomalías de costo desde 5 USD. Se fusiona y despliega en diciembre de 2026, cuando la cuenta pase a plan de pago; procedimiento en esa rama, infrastructure-aws.md §6.2."
 }
