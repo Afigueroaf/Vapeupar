@@ -124,5 +124,12 @@
     "title": "Colecciones, nosotros y catálogo por variantes en producción",
     "detail": "Release 00e31b1: /coleccion/[categoria], /nosotros, búsqueda sobre variantes, brandSlug y WebGL fase 2. Dry-run de imágenes: 75 por subir al bucket.",
     "ref": "PR #18 · 00e31b1 · run 44183642513"
+  },
+  {
+    "id": "h20261117-19",
+    "date": "2026-11-17",
+    "title": "Imágenes del catálogo en el bucket",
+    "detail": "75 imágenes subidas con db:upload-images; las 82 URLs de imagen de la API responden 200.",
+    "ref": "db:upload-images · bucket 13 → 88 objetos"
   }
 ]
