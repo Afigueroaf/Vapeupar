@@ -227,7 +227,20 @@ npm run infra:db-tunnel     # en otra terminal; dejarla abierta
 npm run db:migrate          # aplica migraciones pendientes (usuario maestro)
 npm run db:sync-app-role    # habilita el login de vapeupar_app
 npm run db:seed             # catálogo inicial desde assets/brands/
+npm run db:upload-images --workspace=backend -- --dry-run   # qué imágenes faltan en el bucket
+npm run db:upload-images --workspace=backend                # subirlas y rellenar imageKey
 ```
+
+- **Imágenes del catálogo de partida** (`scripts/upload-catalog-images.ts`). Lee
+  `assets/brands/` con el mismo mapa que la semilla
+  (`src/catalog/catalog-assets.ts`), compara con el bucket
+  (`S3_CATALOG_BUCKET`) y sube **solo lo que falta**, con su `ContentType`. Luego
+  rellena la imagen de las marcas, líneas y variantes que **no tienen ninguna**, con
+  la clave canónica y una entrada `image.backfill` en `AuditLog` sin usuario.
+  Nunca sobrescribe un objeto ni una clave existente (las subidas de la consola
+  llevan versión en el nombre). Lista además las filas cuya clave no está en el
+  bucket y que esta carga no arregla. Necesita el túnel y credenciales con
+  `s3:ListBucket` y `s3:PutObject`. Empezar siempre por `--dry-run`.
 
 - **El catálogo público sale de la base.** Solo se sirven productos `published`
   con precio; tras la semilla todos están en borrador, así que `/api/products`
