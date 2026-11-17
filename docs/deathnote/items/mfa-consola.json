@@ -24,14 +24,14 @@
     }
   ],
   "source": "docs/security.md (§2.1 Pendiente) + infra/lib/config.ts (comentario MFA) + docs/decisions/002-consola-de-administracion-y-persistencia.md (Decisión 6)",
-  "evidence": "Release 20261117-184256-b09f013",
+  "evidence": "nginx error.log 19:28 y 19:30 UTC",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T18:47:35.724Z",
+  "updatedAt": "2026-11-17T19:32:05.265Z",
   "choice": {
     "kind": "option",
     "index": 0
   },
   "queued": false,
-  "claudeNote": "En producción desde el 2026-11-17 con HTTPS (las cookies secure ya funcionan). Probado por el dueño contra el pool real desde localhost. Falta: primer login del dueño en https://vapeupar.ddns.net/admin/login; producción exige TOTP (NODE_ENV=production)."
+  "claudeNote": "2026-11-17: el primer login del dueño en producción dio 502. nginx: «upstream sent too big header» en POST /api/admin/auth/mfa, porque las cookies con los tokens de Cognito superan el búfer de 4 KB. Cognito sí validó el código (el TOTP queda asociado). Arreglo en fix/nginx-buffer-cabeceras: proxy_buffer_size 16k en /api/ (vapeupar-site.inc). Falta aplicarlo en la instancia (hotfix con nginx -t o próxima release) y repetir el login."
 }
