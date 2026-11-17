@@ -1,0 +1,13 @@
+{
+  "title": "Consola /admin: stock, marcas, proveedores, líneas y variantes (A5.1–A5.3)",
+  "status": "hecho",
+  "priority": "alta",
+  "area": "admin",
+  "summary": "Pantalla de inventario con alertas, movimientos y kardex, y pantallas de catálogo con edición de precio por línea y aviso de qué falta para publicar.",
+  "source": "docs/admin-console-execution-plan.md (Fase A5, registros A5.1, A5.2 y A5.3)",
+  "evidence": "Commits 3f5780b y 1fb63b5; frontend/src/app/(admin)/admin/(panel)/{stock,brands,suppliers,products}",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z",
+  "completedAt": "2026-11-16T21:41:14.151Z"
+}

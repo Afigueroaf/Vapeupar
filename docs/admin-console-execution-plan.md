@@ -47,13 +47,13 @@ o el despliegue.
 | 2 | Precio: ¿por línea o por variante? | **Por línea** (`Product.precio`, con `precioAnterior` opcional para ofertas) | `Variant` no lleva precio; la consola edita el precio una vez por línea (A5.3) |
 | 3 | Taxonomía de categorías | **Se mantienen las 6 actuales** (`disposables`, `pod-systems`, `mods-tanks`, `salt-nic`, `freebase-liquids`, `coils-accessories`) | `Product.categoria` es un enum de Prisma con esos 6 valores; los identificadores del contrato de API no cambian y A2.3 solo consolida las etiquetas, no la taxonomía |
 
-**Abiertas**
+**Cerradas (2026-11-16)**
 
-| # | Decisión | Opciones | Impacto si se elige mal |
+| # | Decisión | Resultado | Consecuencia en el plan |
 |---|---|---|---|
-| 4 | ¿Qué líneas LifePod se publican ya? | `eco-3`, `eco.pro`, `ONE`, `fit` | `fit/` solo tiene imagen de línea y ninguna variante: o se publica sin variantes o queda en `borrador` |
-| 5 | Umbral de «bajo stock» | Global (ej. 5 unidades) vs por variante | Define la alerta de la pantalla de stock (A5.1) |
-| 6 | Usuarios de la consola | Solo `owner` hoy; ¿habrá `operador`? | El rol se modela desde A1 en cualquier caso, pero define si A4 necesita pantalla de invitación |
+| 4 | ¿Qué líneas LifePod se publican ya? | **ONE se publica ya; FIT queda en `borrador`** hasta tener variantes. Categorías: ONE en `pod-systems`; ECO 3, ECO PRO y FIT en `disposables` | La regla de publicación no cambia: una línea sin variante activa no se publica |
+| 5 | Umbral de «bajo stock» | **Global y configurable** por el dueño desde la consola | Un solo valor guardado en la base; `GET /api/admin/stock` lo devuelve en `meta.threshold` |
+| 6 | Usuarios de la consola | **Habrá operadores**, con pantalla de usuarios para el dueño | `/admin/users` (solo `owner`): invitar y desactivar. El reparto de permisos de A4 se mantiene: el operador opera inventario e imágenes |
 
 ### A0.2 — Entorno AWS dev ✅
 
@@ -598,8 +598,10 @@ falta de A4* al final de este registro.
   bloqueado por la **dependencia #2 del plan** (falta el correo del owner
   inicial), así que ni el login ni `npm run admin:invite` se han ejecutado
   contra el pool.
-- **MFA.** Es opcional en dev y obligatoria en prod. El backend responde `501`
-  al reto `SOFTWARE_TOKEN_MFA`; hay que resolverlo antes de exponer la consola.
+- **MFA.** ~~El backend responde `501` al reto `SOFTWARE_TOKEN_MFA`.~~ Resuelto
+  el 2026-11-16: TOTP con los retos `SOFTWARE_TOKEN_MFA` y `MFA_SETUP`, y
+  obligatoria en producción por aplicación (el pool sigue opcional). Ver
+  `docs/security.md` §2.1.
 - **Permisos IAM del backend.** En dev las llamadas salen con las credenciales
   locales, como anticipaba A4.1. El rol acotado al ARN del pool
   (`AdminCreateUser`, `AdminDisableUser`, `AdminUserGlobalSignOut`) va con el
@@ -649,8 +651,8 @@ tests las de memoria.
 
 **Decisiones que hubo que tomar**
 
-- **Escribir es de `owner`; leer, de cualquier sesión.** La decisión #6 sigue
-  abierta, así que se tomó la lectura conservadora de «solo `owner` hoy»: el
+- **Escribir es de `owner`; leer, de cualquier sesión.** La decisión #6 seguía
+  abierta (se cerró el 2026-11-16 manteniendo este reparto), así que se tomó la lectura conservadora de «solo `owner` hoy»: el
   `operator` conserva el inventario diario (que A4 ya le dio explícitamente) y
   el catálogo, el contenido y la auditoría quedan para `owner`. Relajarlo es
   quitar un `requireRole` por ruta.
@@ -852,9 +854,11 @@ mecanismo de sesión.
   Cada fila lleva la etiqueta de cada dato, visible solo donde no hay cabecera.
 - **Búsqueda con freno de 500 ms.** El límite de la consola son 30 peticiones por
   minuto (A4.3): buscar en cada tecla se lo comería escribiendo «mango».
-- **Umbral repetido en el frontend** (`LOW_STOCK_THRESHOLD = 5`) porque la
-  pantalla tiene que poder enseñarlo antes de pedir nada. Sigue siendo el valor
-  por defecto del backend y la decisión #5 sigue abierta.
+- **Umbral global y configurable** (decisión #5, cerrada el 2026-11-16). El
+  dueño lo cambia desde la pantalla de inventario; el backend lo guarda en
+  `site_content` (`setting.low-stock-threshold`, versionado y auditado) y lo
+  aplica cuando la consulta no trae `threshold`. El 5 de la consola es solo lo
+  que se ve el primer instante, antes de la respuesta.
 - **El glitch se apaga en `/admin`.** No hay `.vp-glitch` que filtrar ahí, así
   que su bucle de `requestAnimationFrame` solo gastaría batería.
 
@@ -904,9 +908,8 @@ formado).
   verdad hacen falta Cognito y la base, es decir la **dependencia #2** del plan
   (el correo del owner inicial) y el túnel. Hasta entonces el login solo se ha
   ejercitado contra el backend con Cognito sustituido.
-- **MFA.** Si el pool exige `SOFTWARE_TOKEN_MFA`, el backend responde `501` y la
-  pantalla mostrará ese mensaje. Resolverlo sigue siendo requisito antes de
-  exponer la consola.
+- **MFA.** Resuelto el 2026-11-16: la pantalla de acceso pide el código TOTP y,
+  la primera vez en producción, enseña el QR para enrolarlo.
 - **Sin pruebas automáticas de frontend.** El workspace no tiene runner y A5 no
   lo pedía; la red son el build, el lint y la comprobación de contrato de arriba.
 
@@ -975,7 +978,8 @@ de A5.2 queda completa: marcas que trae, variantes abastecidas y ultimo ingreso.
 - **Las escrituras son del dueno.** El `operator` ve las cuatro pantallas y la
   ficha del proveedor, pero no los botones de alta ni de edicion. El backend lo
   impone igual con 403, y ese 403 tiene su mensaje propio en la consola. Sigue
-  siendo la postura conservadora de A4 mientras la decision #6 no se cierre.
+  siendo la postura de A4, que la decision #6 confirmo el 2026-11-16 al abrir la
+  consola a operadores (pantalla `/admin/users`, solo `owner`).
 - **Sin borrado, en ninguna de las tres.** Las lineas referencian la marca y el
   libro de inventario referencia las variantes, las dos con `Restrict`. Retirar
   es `active: false` o `status: 'draft'`, y la pantalla lo dice donde toca: la

@@ -101,6 +101,9 @@ Tres, y los tres son de una línea en `infra/`:
 > - **D2** → todavía no hay dominio. Se usa **temporalmente un nombre de
 >   No-IP** apuntado a la IP elástica de F1; el dominio definitivo se cambia
 >   después sin tocar la infraestructura (F4).
+>   **Confirmada el 2026-11-16: se sigue con No-IP indefinidamente**, sin
+>   dominio propio. Consecuencias aceptadas: renovación manual cada 30 días
+>   (ver F4) y sin dominio para SES ni para la marca.
 > - **D3** → se sigue desplegando con `delipan_admin`, por decisión expresa.
 >   El riesgo descrito abajo se acepta tal cual; no se repite en el resto del
 >   documento.
@@ -115,7 +118,7 @@ RDS y una segunda base vacía**: ~+26 USD/mes y migrar los datos del catálogo.
 justifiquen. Con 137 USD de crédito compartido con DeliPan (§7.1), duplicar la base de
 datos es la decisión más cara que se puede tomar aquí.
 
-**D2 — Dominio.** ¿Está registrado `vapeupar.com` (que es lo que declara
+**D2 — Dominio.** *(Resuelta: No-IP, ver arriba.)* ¿Está registrado `vapeupar.com` (que es lo que declaraba
 `metadataBase` en `frontend/src/app/layout.tsx`) y en qué registrador? De la
 respuesta depende si Route 53 es la zona autoritativa (0,50 USD/mes) o solo se
 apuntan registros desde fuera. Sin dominio no hay certificado, y sin
@@ -399,15 +402,83 @@ dominio definitivo:
 - **Los nombres gratuitos de No-IP caducan si no se confirman cada 30 días**
   (correo de aviso). Si caduca, el sitio deja de resolver y el certificado no
   se puede renovar. Es lo primero que revisar si un día «la página no carga».
+  **Recordatorio fijo** (D2 confirmada, 2026-11-16):
+  - No-IP manda el correo de confirmación unos 7 días antes de que venza el
+    nombre; se confirma con el enlace del correo o desde el panel de No-IP
+    (*Dynamic DNS → Hostnames → Confirm*). Sin confirmar, el nombre se borra
+    y puede tomarlo otra persona.
+  - El correo llega a la cuenta con la que se registró el nombre: que sea un
+    buzón que alguien lea, y con un filtro que lo marque como importante.
+  - Además, un evento en el calendario **cada 25 días** («Confirmar nombre
+    No-IP de Vapeupar»), por si el correo cae en spam.
+  - Comprobación rápida si se duda: `nslookup <nombre>` debe devolver
+    `APP_PUBLIC_IP`.
 - Sin `www`: un solo nombre.
-- **Let's Encrypt** emite certificados para estos nombres, pero conviene
-  comprobar al elegirlo que el dominio base de No-IP esté en la *Public Suffix
-  List*: si no lo está, el límite semanal de certificados por dominio
-  registrado se comparte con todos los usuarios de ese dominio.
-- **`metadataBase`** del layout pasa temporalmente al nombre de No-IP, o las
-  imágenes de OpenGraph apuntarán a `vapeupar.com`, que no existe.
+- **Let's Encrypt** emite certificados para estos nombres. **Comprobado el
+  2026-11-16**: los dominios base gratuitos de No-IP (`ddns.net`, `hopto.org`,
+  `zapto.org`, `sytes.net`, `myftp.org`, `servebeer.com`, `serveftp.com`,
+  `redirectme.net`, `no-ip.org`, `no-ip.biz`…) están en la sección privada
+  de la *Public Suffix List* (bloque «No-IP.com»), así que el límite semanal
+  de certificados se cuenta por nombre (`<nombre>.ddns.net`) y no se comparte
+  con el resto de usuarios de No-IP. Si se elige otro dominio base, comprobarlo
+  en https://publicsuffix.org/list/public_suffix_list.dat antes.
+- **`metadataBase`** sale de `NEXT_PUBLIC_SITE_URL` (`frontend/src/lib/site-url.ts`),
+  que vive en SSM con el resto de variables públicas. Al tener el nombre:
+  ```bash
+  MSYS_NO_PATHCONV=1 aws ssm put-parameter --overwrite --type String     --name /vapeupar/dev/web/NEXT_PUBLIC_SITE_URL --value https://<nombre>
+  ```
+  y redesplegar. Sin ella, `deploy-app.mjs` avisa y el OpenGraph apunta a
+  `localhost`.
 - Al pasar al dominio definitivo se repiten los pasos 2 a 6 con el nuevo
   nombre; la infraestructura no cambia.
+
+#### F4 con `vapeupar.ddns.net` (2026-11-17)
+
+**Hecho:** nombre `vapeupar.ddns.net` → IP elástica; `publicOrigin` y
+`uploadOrigins` en `http://vapeupar.ddns.net`, desplegados (`Vapeupar-dev-Storage`
+y `-App`), y `vapeupar-env` + backend reiniciados por SSM: el CORS acepta el
+nombre. `NEXT_PUBLIC_SITE_URL` creado en SSM (entra con la próxima release).
+
+**Cómo encaja certbot sin que activate.sh lo pise.** certbot solo **obtiene** el
+certificado (`certonly --nginx --cert-name vapeupar`): no edita nginx. El repo
+trae el sitio en dos variantes que comparten las rutas
+(`infra/deploy/nginx/vapeupar-site.inc` → `/etc/nginx/vapeupar/site.inc`):
+
+| Archivo | Cuándo lo instala `activate.sh` |
+|---|---|
+| `vapeupar.conf` | Mientras NO exista `/etc/letsencrypt/live/vapeupar/fullchain.pem` |
+| `vapeupar-tls.conf` | En cuanto existe: 80 → 301 a https, 443 con el certificado |
+
+La verificación de `activate.sh` pasa a hacerse por https cuando el sitio lleva
+TLS (con `-k`: comprueba el reparto, no el certificado). Las dos variantes
+pasaron `nginx -t` en la instancia el 2026-11-17 (en `/tmp`, con certificado
+autofirmado). **Volver atrás** a una release anterior a este esquema reinstala
+su `vapeupar.conf` de una pieza: el sitio sigue funcionando, pero solo por http.
+
+**Orden de la puesta en marcha:**
+
+1. ✅ **Certificado — hecho el 2026-11-17**: `CN=vapeupar.ddns.net`, vence el
+   2027-02-15; `certbot-renew.timer` activo y `certbot renew --dry-run` correcto.
+   (No cambia lo que se sirve: la release activa no sabe de TLS.) Lo que se ejecutó
+   por SSM, como root,
+   ```bash
+   dnf install -y certbot python3-certbot-nginx
+   certbot certonly --nginx --cert-name vapeupar -d vapeupar.ddns.net      --non-interactive --agree-tos --register-unsafely-without-email      --deploy-hook "systemctl reload nginx"
+   systemctl enable --now certbot-renew.timer
+   certbot renew --dry-run
+   ```
+   Sin correo a propósito: Let's Encrypt ya no manda avisos de caducidad y la
+   renovación es automática; el riesgo real es que caduque el nombre de No-IP.
+2. **Orígenes a https**, justo antes del paso 3: `publicOrigin` y
+   `uploadOrigins` en `infra/lib/config.ts`, `npx cdk deploy -c env=dev -e
+   Vapeupar-dev-Storage Vapeupar-dev-App`, y
+   `/vapeupar/dev/web/NEXT_PUBLIC_SITE_URL` = `https://vapeupar.ddns.net`.
+3. **Release** (`dev` → `produccion`): `activate.sh` ve el certificado, instala
+   la variante TLS, regenera el `.env` con el origen https y verifica por https.
+4. **Comprobar**: `curl -I http://vapeupar.ddns.net` → 301; `https://` → 200;
+   login de `/admin` con MFA (las cookies son `secure` en producción: **por http
+   la consola no puede iniciar sesión**, por eso este paso es el que la desbloquea).
+5. **HSTS** (comentado en `vapeupar-tls.conf`) tras unos días sin problemas.
 
 Pasos (para el dominio definitivo, con las salvedades de arriba para No-IP):
 

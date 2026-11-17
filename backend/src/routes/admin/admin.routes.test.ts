@@ -11,6 +11,8 @@ import { AccessTokenClaims, TokenExpiredError, TokenInvalidError } from '../../s
 import { AuthError, CognitoSession, LoginResult } from '../../services/auth.service.js';
 import { StockError } from '../../services/stock.service.js';
 import { AdminUser } from '../../repositories/user.repository.js';
+import { InMemorySiteContentRepository } from '../../repositories/in-memory-site-content.repository.js';
+import { SettingsService } from '../../services/settings.service.js';
 
 /**
  * Verificación de A4: que la superficie autenticada responda 401 sin sesión,
@@ -62,12 +64,22 @@ interface Harness {
   login: ReturnType<typeof vi.fn>;
   inviteUser: ReturnType<typeof vi.fn>;
   disableUser: ReturnType<typeof vi.fn>;
+  mfa: {
+    respondMfa: ReturnType<typeof vi.fn>;
+    startMfaSetup: ReturnType<typeof vi.fn>;
+    verifyMfaSetup: ReturnType<typeof vi.fn>;
+    enableTotp: ReturnType<typeof vi.fn>;
+  };
   users: InMemoryUserRepository;
 }
 
 const servers: Server[] = [];
 
-async function start(options: { rateLimits?: AppOptions['rateLimits']; login?: () => Promise<LoginResult> } = {}): Promise<Harness> {
+async function start(options: {
+  rateLimits?: AppOptions['rateLimits'];
+  login?: () => Promise<LoginResult>;
+  requireMfa?: boolean;
+} = {}): Promise<Harness> {
   const users = new InMemoryUserRepository(SEED);
   const recordMovement = vi.fn(async (input: { variantId: string; userId: string }) => ({
     movement: { id: 'm1', variantId: input.variantId, userId: input.userId } as never,
@@ -79,12 +91,27 @@ async function start(options: { rateLimits?: AppOptions['rateLimits']; login?: (
   const inviteUser = vi.fn(async (email: string) => ({ sub: STRANGER, email, username: 'pool-new' }));
   const disableUser = vi.fn(async () => undefined);
 
+  const mfa = {
+    respondMfa: vi.fn(async (_email: string, code: string) => {
+      if (code !== '123456') throw new AuthError('INVALID_MFA_CODE', 'El código no es válido');
+      return session;
+    }),
+    startMfaSetup: vi.fn(async () => ({ secret: 'SECRETOTOTP' })),
+    verifyMfaSetup: vi.fn(async (_source: unknown, code: string) => {
+      if (code !== '123456') throw new AuthError('INVALID_MFA_CODE', 'El código no es válido');
+      return {};
+    }),
+    enableTotp: vi.fn(async () => undefined)
+  };
+
   const auth = {
     login,
-    completeNewPassword: vi.fn(async () => session),
+    completeNewPassword: vi.fn(async (): Promise<LoginResult> => ({ status: 'authenticated', session })),
     signOut: vi.fn(async () => undefined),
     inviteUser,
-    disableUser
+    disableUser,
+    ...mfa,
+    completeMfaSetup: vi.fn(async () => session)
   };
 
   const app = createApp({
@@ -93,6 +120,7 @@ async function start(options: { rateLimits?: AppOptions['rateLimits']; login?: (
       users,
       verify,
       auth,
+      requireMfa: options.requireMfa ?? false,
       guard: createRequireAuth({
         verify,
         users,
@@ -108,7 +136,8 @@ async function start(options: { rateLimits?: AppOptions['rateLimits']; login?: (
           return { variantId, openingBalance: 0, entries: [], closingBalance: 0 };
         }) as never
       },
-      stockView: new InMemoryStockViewRepository(STOCK_ROWS)
+      stockView: new InMemoryStockViewRepository(STOCK_ROWS),
+      settings: new SettingsService(new InMemorySiteContentRepository())
     })
   });
 
@@ -117,7 +146,7 @@ async function start(options: { rateLimits?: AppOptions['rateLimits']; login?: (
   });
   servers.push(server);
   const { port } = server.address() as AddressInfo;
-  return { url: `http://127.0.0.1:${port}`, recordMovement, login, inviteUser, disableUser, users };
+  return { url: `http://127.0.0.1:${port}`, recordMovement, login, inviteUser, disableUser, mfa, users };
 }
 
 afterEach(async () => {
@@ -241,6 +270,38 @@ describe('superficie /api/admin', () => {
       expect(await users.findByEmail('nuevo@vapeupar.com')).toMatchObject({ role: 'operator', active: true });
     });
 
+    it('el owner lista todas las cuentas, también las inactivas', async () => {
+      const { url } = await start();
+      const response = await call(url, '/api/admin/users', { cookies: asOwner });
+      expect(response.status).toBe(200);
+      expect(response.body?.meta).toEqual({ count: 3 });
+      expect((response.body?.data as AdminUser[]).map(u => [u.email, u.active])).toEqual([
+        ['baja@vapeupar.com', false],
+        ['operador@vapeupar.com', true],
+        ['owner@vapeupar.com', true]
+      ]);
+    });
+
+    it('un operador no ve la lista de cuentas', async () => {
+      const { url } = await start();
+      const response = await call(url, '/api/admin/users', { cookies: asOperator });
+      expect(response.status).toBe(403);
+    });
+
+    it('el owner desactiva a un operador: base primero, luego Cognito', async () => {
+      const { url, disableUser, users } = await start();
+      const response = await call(url, `/api/admin/users/${OPERATOR}/deactivate`, {
+        method: 'POST',
+        cookies: asOwner
+      });
+      expect(response.status).toBe(200);
+      expect(disableUser).toHaveBeenCalledWith(OPERATOR);
+      expect(await users.findById(OPERATOR)).toMatchObject({ active: false });
+      // Sin fila activa, su sesión ya no pasa.
+      const after = await call(url, '/api/admin/me', { cookies: asOperator });
+      expect(after.status).toBe(403);
+    });
+
     it('el owner no puede desactivarse a sí mismo', async () => {
       const { url, disableUser } = await start();
       const response = await call(url, `/api/admin/users/${OWNER}/deactivate`, {
@@ -304,6 +365,34 @@ describe('superficie /api/admin', () => {
 
       const bajo = await call(url, '/api/admin/stock?lowStock=true&threshold=5', { cookies: asOperator });
       expect((bajo.body?.data as StockRow[]).map(r => r.variantName)).toEqual(['Mango Ice']);
+    });
+
+    it('el umbral de bajo stock es global y lo cambia solo el dueño', async () => {
+      const { url } = await start();
+      const initial = await call(url, '/api/admin/stock/threshold', { cookies: asOperator });
+      expect(initial.body?.data).toEqual({ threshold: 5 });
+
+      const denied = await call(url, '/api/admin/stock/threshold', {
+        method: 'PUT', cookies: asOperator, body: { threshold: 1 }
+      });
+      expect(denied.status).toBe(403);
+
+      const invalid = await call(url, '/api/admin/stock/threshold', {
+        method: 'PUT', cookies: asOwner, body: { threshold: -1 }
+      });
+      expect(invalid.status).toBe(400);
+
+      const saved = await call(url, '/api/admin/stock/threshold', {
+        method: 'PUT', cookies: asOwner, body: { threshold: 1 }
+      });
+      expect(saved.status).toBe(200);
+      expect(saved.body?.data).toEqual({ threshold: 1 });
+
+      // Sin `threshold` en la consulta, el filtro usa el configurado: Mango Ice
+      // (2 unidades) ya no está en bajo stock con umbral 1.
+      const low = await call(url, '/api/admin/stock?lowStock=true', { cookies: asOperator });
+      expect(low.body?.meta).toEqual({ threshold: 1, configuredThreshold: 1 });
+      expect(low.body?.data).toEqual([]);
     });
 
     it('avisa sin bloquear sobre variantes publicadas con stock y sin imagen', async () => {
@@ -379,6 +468,132 @@ describe('superficie /api/admin', () => {
         body: { email: 'owner@vapeupar.com', password: 'equivocada-pero-larga' }
       });
       expect(response.status).toBe(401);
+    });
+  });
+
+  describe('verificación en dos pasos (TOTP)', () => {
+    const credentials = { email: 'owner@vapeupar.com', password: 'una-contrasena-larga' };
+
+    it('con TOTP activo pide el código y no abre sesión hasta resolverlo', async () => {
+      const { url } = await start({
+        login: async () => ({ status: 'mfa_required', challengeSession: 'sesion-mfa' })
+      });
+      const response = await call(url, '/api/admin/auth/login', { method: 'POST', body: credentials });
+      expect(response.status).toBe(200);
+      expect(response.body?.data).toEqual({ status: 'mfa_required' });
+      expect(JSON.stringify(response.body)).not.toContain('sesion-mfa');
+      const cookies = response.setCookies.join(';');
+      expect(cookies).toContain('vp_admin_mfa=c%3Asesion-mfa');
+      expect(cookies).not.toContain('vp_admin_at=');
+    });
+
+    it('el código correcto abre la sesión', async () => {
+      const { url, mfa } = await start();
+      const response = await call(url, '/api/admin/auth/mfa', {
+        method: 'POST',
+        body: { email: 'owner@vapeupar.com', code: '123 456' },
+        cookies: { vp_admin_mfa: 'c:sesion-mfa' }
+      });
+      expect(response.status).toBe(200);
+      expect(mfa.respondMfa).toHaveBeenCalledWith('owner@vapeupar.com', '123456', 'sesion-mfa');
+      expect(response.setCookies.join(';')).toContain(`vp_admin_at=${OWNER}`);
+    });
+
+    it('un código incorrecto responde 400 sin abrir sesión', async () => {
+      const { url } = await start();
+      const response = await call(url, '/api/admin/auth/mfa', {
+        method: 'POST',
+        body: { email: 'owner@vapeupar.com', code: '000000' },
+        cookies: { vp_admin_mfa: 'c:sesion-mfa' }
+      });
+      expect(response.status).toBe(400);
+      expect(response.body?.code).toBe('INVALID_MFA_CODE');
+      expect(response.setCookies.join(';')).not.toContain(`vp_admin_at=${OWNER}`);
+    });
+
+    it('sin un paso de MFA en curso no acepta códigos', async () => {
+      const { url } = await start();
+      const response = await call(url, '/api/admin/auth/mfa', {
+        method: 'POST',
+        body: { email: 'owner@vapeupar.com', code: '123456' }
+      });
+      expect(response.status).toBe(400);
+    });
+
+    it('rechaza códigos que no son 6 dígitos', async () => {
+      const { url, mfa } = await start();
+      const response = await call(url, '/api/admin/auth/mfa', {
+        method: 'POST',
+        body: { email: 'owner@vapeupar.com', code: '12ab56' },
+        cookies: { vp_admin_mfa: 'c:sesion-mfa' }
+      });
+      expect(response.status).toBe(400);
+      expect(mfa.respondMfa).not.toHaveBeenCalled();
+    });
+
+    it('si se exige MFA, una cuenta sin TOTP no entra: primero lo enrola', async () => {
+      const { url, mfa } = await start({ requireMfa: true });
+      const response = await call(url, '/api/admin/auth/login', { method: 'POST', body: credentials });
+      expect(response.status).toBe(200);
+      expect(response.body?.data).toMatchObject({ status: 'mfa_setup', secret: 'SECRETOTOTP' });
+      expect((response.body?.data as { otpauthUri: string }).otpauthUri)
+        .toBe('otpauth://totp/Vapeupar%3Aowner%40vapeupar.com?secret=SECRETOTOTP&issuer=Vapeupar');
+      expect(mfa.startMfaSetup).toHaveBeenCalledWith({ accessToken: OWNER });
+      const cookies = response.setCookies.join(';');
+      expect(cookies).not.toContain('vp_admin_at=');
+      expect(cookies).toContain(`vp_admin_mfa=t%3A${OWNER}`);
+      expect(cookies).toContain('vp_admin_mfa_rt=rt');
+    });
+
+    it('al verificar el primer código activa TOTP y abre la sesión', async () => {
+      const { url, mfa } = await start({ requireMfa: true });
+      const response = await call(url, '/api/admin/auth/mfa', {
+        method: 'POST',
+        body: { email: 'owner@vapeupar.com', code: '123456' },
+        cookies: { vp_admin_mfa: `t:${OWNER}`, vp_admin_mfa_rt: 'rt' }
+      });
+      expect(response.status).toBe(200);
+      expect(mfa.verifyMfaSetup).toHaveBeenCalledWith({ accessToken: OWNER }, '123456');
+      expect(mfa.enableTotp).toHaveBeenCalledWith(OWNER);
+      const cookies = response.setCookies.join(';');
+      expect(cookies).toContain(`vp_admin_at=${OWNER}`);
+      expect(cookies).toContain('vp_admin_rt=rt');
+    });
+
+    it('la cookie de enrolamiento no sirve como sesión', async () => {
+      const { url } = await start({ requireMfa: true });
+      const response = await call(url, '/api/admin/me', { cookies: { vp_admin_mfa: `t:${OWNER}` } });
+      expect(response.status).toBe(401);
+    });
+
+    it('no enrola TOTP a quien no tiene acceso a la consola', async () => {
+      const { url, mfa } = await start({
+        requireMfa: true,
+        login: async () => ({
+          status: 'authenticated',
+          session: { accessToken: STRANGER, refreshToken: 'rt', expiresIn: 3600 }
+        })
+      });
+      const response = await call(url, '/api/admin/auth/login', { method: 'POST', body: credentials });
+      expect(response.status).toBe(403);
+      expect(mfa.startMfaSetup).not.toHaveBeenCalled();
+    });
+
+    it('el enrolamiento que pide Cognito (MFA_SETUP) también se resuelve', async () => {
+      const { url, mfa } = await start({
+        requireMfa: true,
+        login: async () => ({ status: 'mfa_setup_required', challengeSession: 'sesion-setup' })
+      });
+      const login = await call(url, '/api/admin/auth/login', { method: 'POST', body: credentials });
+      expect(login.body?.data).toMatchObject({ status: 'mfa_setup' });
+      expect(mfa.startMfaSetup).toHaveBeenCalledWith({ session: 'sesion-setup' });
+      const done = await call(url, '/api/admin/auth/mfa', {
+        method: 'POST',
+        body: { email: 'owner@vapeupar.com', code: '123456' },
+        cookies: { vp_admin_mfa: 'e:sesion-setup' }
+      });
+      expect(done.status).toBe(200);
+      expect(done.setCookies.join(';')).toContain(`vp_admin_at=${OWNER}`);
     });
   });
 

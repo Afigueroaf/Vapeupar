@@ -3,12 +3,16 @@ import {
   AdminCreateUserCommand,
   AdminDisableUserCommand,
   AdminUserGlobalSignOutCommand,
+  AssociateSoftwareTokenCommand,
   AuthFlowType,
   ChallengeNameType,
   CognitoIdentityProviderClient,
   GlobalSignOutCommand,
   InitiateAuthCommand,
-  RespondToAuthChallengeCommand
+  RespondToAuthChallengeCommand,
+  SetUserMFAPreferenceCommand,
+  VerifySoftwareTokenCommand,
+  VerifySoftwareTokenResponseType
 } from '@aws-sdk/client-cognito-identity-provider';
 import { getCognitoConfig } from '../config/cognito.js';
 
@@ -23,6 +27,7 @@ export type AuthErrorCode =
   | 'PASSWORD_REJECTED'
   | 'SESSION_EXPIRED'
   | 'UNSUPPORTED_CHALLENGE'
+  | 'INVALID_MFA_CODE'
   | 'ALREADY_EXISTS'
   | 'THROTTLED'
   | 'UPSTREAM';
@@ -48,7 +53,15 @@ export type LoginResult =
    * Primer acceso: la contraseña de la invitación es temporal y Cognito exige
    * cambiarla. `challengeSession` es de un solo uso y no sirve para leer nada.
    */
-  | { status: 'new_password_required'; challengeSession: string };
+  | { status: 'new_password_required'; challengeSession: string }
+  /** La cuenta tiene TOTP: falta el código de 6 dígitos (`SOFTWARE_TOKEN_MFA`). */
+  | { status: 'mfa_required'; challengeSession: string }
+  /**
+   * Cognito exige enrolar TOTP antes de dar tokens (`MFA_SETUP`). Solo ocurre
+   * con un pool de MFA obligatoria; con el pool actual (opcional) la exigencia
+   * la pone el backend, ver `routes/admin/auth.routes.ts`.
+   */
+  | { status: 'mfa_setup_required'; challengeSession: string };
 
 let client: CognitoIdentityProviderClient | undefined;
 
@@ -105,6 +118,42 @@ function toSession(
   };
 }
 
+/** Respuesta de `InitiateAuth` o `RespondToAuthChallenge`: tokens o el siguiente reto. */
+function toLoginResult(response: {
+  ChallengeName?: string;
+  Session?: string;
+  AuthenticationResult?: { AccessToken?: string; RefreshToken?: string; ExpiresIn?: number };
+}): LoginResult {
+  if (!response.ChallengeName) {
+    return { status: 'authenticated', session: toSession(response.AuthenticationResult) };
+  }
+  if (!response.Session) throw new AuthError('UPSTREAM', 'Cognito no devolvió la sesión del reto');
+  switch (response.ChallengeName) {
+    case ChallengeNameType.NEW_PASSWORD_REQUIRED:
+      return { status: 'new_password_required', challengeSession: response.Session };
+    case ChallengeNameType.SOFTWARE_TOKEN_MFA:
+      return { status: 'mfa_required', challengeSession: response.Session };
+    case ChallengeNameType.MFA_SETUP:
+      return { status: 'mfa_setup_required', challengeSession: response.Session };
+    default:
+      // SMS, correo o selección de factor: el pool solo tiene TOTP habilitado.
+      throw new AuthError('UNSUPPORTED_CHALLENGE', `Reto no soportado: ${response.ChallengeName}`);
+  }
+}
+
+/** Errores de los pasos de MFA: un código malo no es una sesión vencida. */
+function translateMfa(error: unknown): AuthError {
+  if (error instanceof AuthError) return error;
+  const name = error instanceof Error ? error.name : '';
+  if (name === 'CodeMismatchException' || name === 'EnableSoftwareTokenMFAException') {
+    return new AuthError('INVALID_MFA_CODE', 'El código no es válido; revisa la hora del teléfono y prueba con el siguiente');
+  }
+  if (name === 'NotAuthorizedException' || name === 'ExpiredCodeException') {
+    return new AuthError('SESSION_EXPIRED', 'El paso de verificación venció; vuelve a iniciar sesión');
+  }
+  return translate(error);
+}
+
 export async function login(email: string, password: string): Promise<LoginResult> {
   const { clientId } = getCognitoConfig();
   try {
@@ -114,27 +163,21 @@ export async function login(email: string, password: string): Promise<LoginResul
       AuthParameters: { USERNAME: email, PASSWORD: password, SECRET_HASH: secretHash(email) }
     }));
 
-    if (response.ChallengeName === ChallengeNameType.NEW_PASSWORD_REQUIRED) {
-      if (!response.Session) throw new AuthError('UPSTREAM', 'Cognito no devolvió la sesión del reto');
-      return { status: 'new_password_required', challengeSession: response.Session };
-    }
-    if (response.ChallengeName) {
-      // MFA es opcional en dev y obligatoria en prod: cuando se active habrá que
-      // resolver SOFTWARE_TOKEN_MFA aquí antes de desplegar la consola.
-      throw new AuthError('UNSUPPORTED_CHALLENGE', `Reto no soportado todavía: ${response.ChallengeName}`);
-    }
-    return { status: 'authenticated', session: toSession(response.AuthenticationResult) };
+    return toLoginResult(response);
   } catch (error) {
     throw error instanceof AuthError ? error : translate(error);
   }
 }
 
-/** Resuelve NEW_PASSWORD_REQUIRED con la contraseña definitiva. */
+/**
+ * Resuelve NEW_PASSWORD_REQUIRED con la contraseña definitiva. Puede devolver
+ * otro reto (MFA) en lugar de los tokens.
+ */
 export async function completeNewPassword(
   email: string,
   newPassword: string,
   challengeSession: string
-): Promise<CognitoSession> {
+): Promise<LoginResult> {
   const { clientId } = getCognitoConfig();
   try {
     const response = await getClient().send(new RespondToAuthChallengeCommand({
@@ -143,9 +186,106 @@ export async function completeNewPassword(
       Session: challengeSession,
       ChallengeResponses: { USERNAME: email, NEW_PASSWORD: newPassword, SECRET_HASH: secretHash(email) }
     }));
-    return toSession(response.AuthenticationResult);
+    return toLoginResult(response);
   } catch (error) {
     throw error instanceof AuthError ? error : translate(error);
+  }
+}
+
+/** Resuelve SOFTWARE_TOKEN_MFA con el código de la app autenticadora. */
+export async function respondMfa(email: string, code: string, challengeSession: string): Promise<CognitoSession> {
+  const { clientId } = getCognitoConfig();
+  try {
+    const response = await getClient().send(new RespondToAuthChallengeCommand({
+      ClientId: clientId,
+      ChallengeName: ChallengeNameType.SOFTWARE_TOKEN_MFA,
+      Session: challengeSession,
+      ChallengeResponses: { USERNAME: email, SOFTWARE_TOKEN_MFA_CODE: code, SECRET_HASH: secretHash(email) }
+    }));
+    const result = toLoginResult(response);
+    if (result.status !== 'authenticated') {
+      throw new AuthError('UNSUPPORTED_CHALLENGE', `Reto inesperado tras el código: ${result.status}`);
+    }
+    return result.session;
+  } catch (error) {
+    throw translateMfa(error);
+  }
+}
+
+/**
+ * Con qué se enrola TOTP: la sesión del reto `MFA_SETUP` (pool de MFA
+ * obligatoria) o el access token de una sesión recién abierta sin MFA (pool
+ * opcional con la exigencia puesta por el backend).
+ */
+export type MfaSetupSource = { session: string } | { accessToken: string };
+
+function sourceParams(source: MfaSetupSource): { Session?: string; AccessToken?: string } {
+  return 'session' in source ? { Session: source.session } : { AccessToken: source.accessToken };
+}
+
+/**
+ * Pide a Cognito el secreto TOTP. Con una sesión de reto devuelve además la
+ * sesión nueva, que es la que vale para el paso siguiente.
+ */
+export async function startMfaSetup(source: MfaSetupSource): Promise<{ secret: string; session?: string }> {
+  try {
+    const response = await getClient().send(new AssociateSoftwareTokenCommand(sourceParams(source)));
+    if (!response.SecretCode) throw new AuthError('UPSTREAM', 'Cognito no devolvió el secreto TOTP');
+    return { secret: response.SecretCode, session: response.Session };
+  } catch (error) {
+    throw translateMfa(error);
+  }
+}
+
+/** Comprueba el primer código de la app. Con sesión de reto, devuelve la sesión nueva. */
+export async function verifyMfaSetup(source: MfaSetupSource, code: string): Promise<{ session?: string }> {
+  try {
+    const response = await getClient().send(new VerifySoftwareTokenCommand({
+      ...sourceParams(source),
+      UserCode: code,
+      FriendlyDeviceName: 'Consola Vapeupar'
+    }));
+    if (response.Status !== VerifySoftwareTokenResponseType.SUCCESS) {
+      throw new AuthError('INVALID_MFA_CODE', 'El código no es válido; prueba con el siguiente');
+    }
+    return { session: response.Session };
+  } catch (error) {
+    throw translateMfa(error);
+  }
+}
+
+/** Cierra el reto `MFA_SETUP` una vez verificado el código: entrega los tokens. */
+export async function completeMfaSetup(email: string, challengeSession: string): Promise<CognitoSession> {
+  const { clientId } = getCognitoConfig();
+  try {
+    const response = await getClient().send(new RespondToAuthChallengeCommand({
+      ClientId: clientId,
+      ChallengeName: ChallengeNameType.MFA_SETUP,
+      Session: challengeSession,
+      ChallengeResponses: { USERNAME: email, SECRET_HASH: secretHash(email) }
+    }));
+    const result = toLoginResult(response);
+    if (result.status !== 'authenticated') {
+      throw new AuthError('UNSUPPORTED_CHALLENGE', `Reto inesperado tras enrolar MFA: ${result.status}`);
+    }
+    return result.session;
+  } catch (error) {
+    throw translateMfa(error);
+  }
+}
+
+/**
+ * Deja TOTP activo y preferido para el usuario del token. A partir de aquí,
+ * cada inicio de sesión llega con el reto `SOFTWARE_TOKEN_MFA`.
+ */
+export async function enableTotp(accessToken: string): Promise<void> {
+  try {
+    await getClient().send(new SetUserMFAPreferenceCommand({
+      AccessToken: accessToken,
+      SoftwareTokenMfaSettings: { Enabled: true, PreferredMfa: true }
+    }));
+  } catch (error) {
+    throw translateMfa(error);
   }
 }
 

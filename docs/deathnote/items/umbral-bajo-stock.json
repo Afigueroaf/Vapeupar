@@ -1,0 +1,37 @@
+{
+  "title": "Umbral de bajo stock: global o por variante",
+  "status": "en_curso",
+  "priority": "baja",
+  "area": "admin",
+  "summary": "La alerta usa un 5 fijo repetido en frontend y backend; la decisión #5 sigue abierta.",
+  "question": "¿El umbral de bajo stock es un valor global configurable o uno propio por variante (o por línea)?",
+  "options": [
+    {
+      "detail": "Simple y suficiente con 4 líneas; un solo valor guardado como SiteContent o ajuste.",
+      "label": "Global configurable desde la consola",
+      "prompt": "Decisión #5: umbral de bajo stock global y configurable. Guárdalo como ajuste en la base (clave en SiteContent o tabla de ajustes con grants para vapeupar_app), expónlo en GET /api/admin/stock como meta.threshold, quita la constante LOW_STOCK_THRESHOLD del frontend y añade su edición para owner en /admin/stock. Tests, npm run test:backend, npm run build y actualiza la tabla A0.1.",
+      "recommended": true
+    },
+    {
+      "detail": "Refleja que unas líneas rotan más que otras; cuesta una columna nullable y lógica de fallback.",
+      "label": "Umbral por línea con valor por defecto",
+      "prompt": "Decisión #5: umbral por línea. Añade Product.lowStockThreshold nullable con migración (con sus grants) y fallback a un global de 5; ajusta findLowStock y la vista de stock para usar el de cada línea, y edítalo en product-form.tsx. Tests, npm run test:backend, npm run build y actualiza la tabla A0.1."
+    },
+    {
+      "detail": "Máxima precisión, pero 79 valores que mantener a mano para un negocio pequeño.",
+      "label": "Umbral por variante",
+      "prompt": "Decisión #5: umbral por variante. Añade Variant.lowStockThreshold nullable con migración y fallback global, ajusta findLowStock, la vista de stock y variants-panel.tsx. Tests, npm run test:backend, npm run build y actualiza la tabla A0.1."
+    }
+  ],
+  "source": "docs/admin-console-execution-plan.md (A0.1 decisión #5, registro A5.1)",
+  "evidence": "Rama feat/umbral-stock; services/settings.service.ts, routes/admin/stock.routes.ts",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-17T02:26:53.636Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "queued": false,
+  "claudeNote": "Implementado en la rama feat/umbral-stock (sin push): umbral global guardado en site_content (clave setting.low-stock-threshold, versionado y auditado, sin migración), GET/PUT /api/admin/stock/threshold (PUT solo owner), el filtro de bajo stock usa el configurado y el dueño lo edita en /admin/stock. 158 tests de backend, lint y build en verde."
+}

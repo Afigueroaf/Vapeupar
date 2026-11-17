@@ -59,7 +59,7 @@
 | 3.4 | "Ambient glows": dos `div` decorativos con `size-96`/`size-80` + `blur-3xl` en emerald y cyan | `hero.tsx` | 🔴 Eliminar | Composición geométrica; el protagonismo visual pasa a producto/3D |
 | 3.5 | `backdrop-blur-lg` + fondo semitransparente en la barra fija | `navbar.tsx` | 🟡 Rediseñar | Barra con tratamiento propio (sólida o con regla gruesa inferior) |
 | 3.6 | Pills redondeadas (`rounded-full`) como contenedor de todas las etiquetas | `hero.tsx`, `product-card.tsx`, `faq.tsx` | 🔴 Reemplazar | Etiquetas rectangulares tipo HUD/arcade con Press Start 2P |
-| 3.7 | No existe sistema de espaciado. Valores ad-hoc: `py-16 sm:py-24`, `py-3`, `p-4`, `px-4 sm:px-6`, `mt-14`, `gap-2.5`, `pb-4` | todos los componentes | 🔴 Reemplazar | Escala de espaciado basada en tokens |
+| 3.7 | No existe sistema de espaciado. Valores ad-hoc: `py-16 sm:py-24`, `py-3`, `p-4`, `px-4 sm:px-6`, `mt-14`, `gap-2.5`, `pb-4` | todos los componentes | ✅ Resuelto (2026-11-16) | Escala de espaciado basada en tokens: base 4 px + `--space-section/block/stack/inline` (`globals.css`) |
 
 ---
 
@@ -71,7 +71,7 @@
 | 4.2 | Bloque de marca "VAPEUPAR" + pill "Valledupar" en verde | `navbar.tsx` | 🔴 Reemplazar | Lockup tipográfico VP definido por el sistema de marca |
 | 4.3 | ~~`favicon.ico` por defecto del template de Next.js~~ | `app/favicon.ico`, `app/icon.svg`, `app/apple-icon.png`, `app/manifest.ts`, `public/icon-*.png` | ✅ Resuelto (2026-10-26) | Set completo sobre teja lima con el monograma macizo de `logomini.svg`, maskable incluido |
 | 4.4 | ~~Basura del template en `public/`: `next.svg`, `vercel.svg`, `file.svg`, `globe.svg`, `window.svg`~~ | `frontend/public/` | ✅ Resuelto (V0.2; verificado el 2026-10-26) | Solo assets VP: el logo y los tres iconos del manifiesto |
-| 4.5 | **22 iconos de Lucide** con estilo lineal redondeado neutro: `Flame`, `MessageCircle`, `ShoppingBag`, `Menu`, `X`, `ArrowDown`, `Zap`, `ShieldCheck`, `Truck`, `Sparkles`, `Check`, `XCircle`, `Search`, `SlidersHorizontal`, `PackageSearch`, `ChevronDown`, `HelpCircle`, `ShieldAlert`, `MapPin`, `Phone`, `Clock`, `CheckCircle`, `Ban`, `AlertTriangle` | todos los componentes | 🟡 Rediseñar | Decisión de set: iconografía angular/geométrica coherente con Oxanium (o Lucide con `strokeWidth` y tamaños normalizados por token). Ningún icono se deja "porque venía incluido" |
+| 4.5 | **22 iconos de Lucide** con estilo lineal redondeado neutro: `Flame`, `MessageCircle`, `ShoppingBag`, `Menu`, `X`, `ArrowDown`, `Zap`, `ShieldCheck`, `Truck`, `Sparkles`, `Check`, `XCircle`, `Search`, `SlidersHorizontal`, `PackageSearch`, `ChevronDown`, `HelpCircle`, `ShieldAlert`, `MapPin`, `Phone`, `Clock`, `CheckCircle`, `Ban`, `AlertTriangle` | todos los componentes | ✅ Resuelto (2026-11-16): iconos pixel propios, `components/ui/icons.tsx` | Decisión de set: iconografía angular/geométrica coherente con Oxanium (o Lucide con `strokeWidth` y tamaños normalizados por token). Ningún icono se deja "porque venía incluido" |
 | 4.6 | Iconos decorativos dentro de etiquetas (`Sparkles` en el badge del hero, `HelpCircle` en FAQ) | `hero.tsx`, `faq.tsx` | 🔴 Eliminar | La etiqueta pixel sustituye al icono decorativo |
 
 ---

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { ChevronDown, MessageCircle, ShoppingBag } from "lucide-react";
+import { BagIcon, ChatIcon, ChevronDownIcon } from "@/components/ui/icons";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PixelLabel } from "@/components/ui/pixel-label";
@@ -246,7 +246,7 @@ export function ProductDetail({ product, initialVariantSlug }: ProductDetailProp
                 className="group mt-4"
               >
                 <summary className="inline-flex min-h-[44px] cursor-pointer list-none items-center gap-2 text-sm font-semibold uppercase tracking-[0.04em] text-muted transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
-                  <ChevronDown
+                  <ChevronDownIcon
                     className="size-4 transition-transform duration-200 ease-vp group-open:rotate-180"
                     aria-hidden="true"
                   />
@@ -287,7 +287,7 @@ export function ProductDetail({ product, initialVariantSlug }: ProductDetailProp
                 disabled={remaining === 0}
                 className="mt-5 w-full sm:w-auto sm:min-w-72"
               >
-                <ShoppingBag className="size-4" aria-hidden="true" />
+                <BagIcon className="size-4" aria-hidden="true" />
                 Agregar al carrito
               </Button>
 
@@ -314,7 +314,7 @@ export function ProductDetail({ product, initialVariantSlug }: ProductDetailProp
                   rel="noopener noreferrer"
                   className="mt-5 w-full sm:w-auto"
                 >
-                  <MessageCircle className="size-4" aria-hidden="true" />
+                  <ChatIcon className="size-4" aria-hidden="true" />
                   Consultar por WhatsApp
                 </Button>
               ) : null}
@@ -338,7 +338,7 @@ export function ProductDetail({ product, initialVariantSlug }: ProductDetailProp
         </div>
 
         {specs.length > 0 ? (
-          <section aria-labelledby="ficha-tecnica" className="mt-10">
+          <section aria-labelledby="ficha-tecnica" className="mt-block">
             <h2 id="ficha-tecnica" className="text-sm font-semibold uppercase tracking-[0.04em] text-muted">
               Ficha técnica
             </h2>
@@ -354,7 +354,7 @@ export function ProductDetail({ product, initialVariantSlug }: ProductDetailProp
         ) : null}
 
         {product.description ? (
-          <section aria-labelledby="descripcion" className="mt-10">
+          <section aria-labelledby="descripcion" className="mt-block">
             <h2 id="descripcion" className="text-sm font-semibold uppercase tracking-[0.04em] text-muted">
               Descripción
             </h2>

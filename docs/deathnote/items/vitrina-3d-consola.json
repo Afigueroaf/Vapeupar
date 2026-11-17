@@ -1,0 +1,13 @@
+{
+  "title": "Vitrina 3D elegible desde la consola",
+  "status": "hecho",
+  "priority": "baja",
+  "area": "admin",
+  "summary": "Columna products.showcase y pantalla /admin/showcase que cuenta las seis caras del prisma; el prisma ya no recorta las fotos.",
+  "source": "docs/admin-console-execution-plan.md (Vitrina 3D desde la consola)",
+  "evidence": "Commit 2671402; frontend/src/app/(admin)/admin/(panel)/showcase/page.tsx",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z",
+  "completedAt": "2026-11-16T21:41:14.151Z"
+}

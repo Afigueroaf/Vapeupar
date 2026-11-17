@@ -1,0 +1,38 @@
+{
+  "title": "Qué líneas LifePod se publican y con qué categoría",
+  "status": "hecho",
+  "priority": "media",
+  "area": "producto",
+  "summary": "Hay 4 líneas y 2 publicadas; FIT no tiene variantes y las categorías se dedujeron de las fotos, sin confirmar con el proveedor.",
+  "question": "¿Se publican ONE y FIT, y FIT sin variantes o en borrador? ¿Las categorías (ONE = pod-systems; ECO 3, ECO PRO y FIT = disposables) son correctas?",
+  "options": [
+    {
+      "detail": "Muestra el catálogo real disponible sin una ficha vacía; FIT espera a tener sabores dados de alta.",
+      "label": "Publicar ONE ya y dejar FIT en borrador",
+      "prompt": "Decisión #4 de docs/admin-console-execution-plan.md: se publica LifePod ONE y FIT queda en borrador hasta tener variantes. Escribe la decisión en la tabla A0.1 (pásala a Cerradas), revisa con la API admin (o dime qué datos faltan) que ONE tenga precio, imagen de línea y al menos una variante activa, y confirma las categorías: ONE en pod-systems y ECO 3, ECO PRO y FIT en disposables. No cambies datos de producción sin mostrarme antes las peticiones.",
+      "recommended": true
+    },
+    {
+      "detail": "Más catálogo visible, pero exige que la regla de publicación acepte líneas sin variante, que hoy la bloquea.",
+      "label": "Publicar las cuatro, FIT como producto sin variantes",
+      "prompt": "Decisión #4: se publican las cuatro líneas, FIT sin variantes. Lee backend/src/services/catalog.service.ts (readiness) y propón cómo permitir publicar una línea sin variantes (por ejemplo, una variante implícita «estándar») sin romper el stock por variante ni el carrito. Muéstrame el diseño antes de implementarlo; luego añade tests, ejecuta npm run test:backend y npm run build, y documenta la decisión en el plan."
+    },
+    {
+      "detail": "Si el proveedor confirma otra clasificación, conviene arreglarla antes de que se indexe.",
+      "label": "Corregir categorías antes de publicar",
+      "prompt": "Te paso la categoría correcta de cada línea LifePod según el proveedor. Genera las peticiones PATCH /api/admin/products/:id necesarias (o un script en backend/scripts/ con --dry-run) y actualiza la nota de «Categorías provisionales» en docs/admin-console-execution-plan.md (registro A1)."
+    }
+  ],
+  "source": "docs/admin-console-execution-plan.md (A0.1 decisión #4 y registro A1)",
+  "evidence": "audit_logs: product.unpublish de lifepod-fit",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-17T04:17:21.786Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "queued": false,
+  "claudeNote": "Hecho el 2026-11-16. Decisión #4 en A0.1. Producción revisada en solo lectura: ONE lista (published, pod-systems, 100 000, imagen, 7 variantes activas) pero con stock 0, la tienda la muestra agotada hasta que entre inventario. Categorías correctas (ECO 3, ECO PRO y FIT en disposables). FIT pasada a borrador con autorización del dueño, por catalogService.updateProduct (mismo camino que PATCH /api/admin/products/:id); auditoría product.unpublish a las 04:17 UTC del 2026-11-17.",
+  "completedAt": "2026-11-17T04:17:21.785Z"
+}

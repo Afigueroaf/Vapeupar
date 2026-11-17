@@ -12,6 +12,7 @@ import { StockViewRepository } from '../../repositories/stock-view.repository.js
 import { UserRepository } from '../../repositories/user.repository.js';
 import { CatalogWriter, catalogService as defaultCatalogService } from '../../services/catalog.service.js';
 import { ContentWriter, contentService as defaultContentService } from '../../services/content.service.js';
+import { SettingsReader, settingsService as defaultSettingsService } from '../../services/settings.service.js';
 import { StockService, stockService as defaultStockService } from '../../services/stock.service.js';
 import { createAuditRouter } from './audit.routes.js';
 import { createAuthRouter } from './auth.routes.js';
@@ -41,10 +42,13 @@ export interface AdminRouterDeps {
   catalog?: CatalogRepository;
   catalogService?: CatalogWriter;
   contentService?: ContentWriter;
+  settings?: SettingsReader;
   auditView?: AuditViewRepository;
   inventoryNotes?: InventoryNoteService;
   imageUploads?: ImageUploadService;
-  auth?: Pick<typeof cognito, 'login' | 'completeNewPassword' | 'signOut' | 'inviteUser' | 'disableUser'>;
+  auth?: Partial<typeof cognito> & Pick<typeof cognito, 'login' | 'completeNewPassword' | 'signOut' | 'inviteUser' | 'disableUser'>;
+  /** Exigir TOTP en el login; por defecto, según el entorno (ver `isMfaRequired`). */
+  requireMfa?: boolean;
   verify?: typeof verifyAccessToken;
   /** Se sustituye en los tests para no hablar con Cognito ni con la base. */
   guard?: RequestHandler;
@@ -54,7 +58,7 @@ export function createAdminRouter(deps: AdminRouterDeps = {}): Router {
   const users = deps.users ?? new PrismaUserRepository();
   const router = Router();
 
-  router.use('/auth', createAuthRouter({ users, auth: deps.auth, verify: deps.verify }));
+  router.use('/auth', createAuthRouter({ users, auth: deps.auth, verify: deps.verify, requireMfa: deps.requireMfa }));
 
   // ---- A partir de aquí, sesión obligatoria ----
   router.use(deps.guard ?? requireAuth);
@@ -67,7 +71,8 @@ export function createAdminRouter(deps: AdminRouterDeps = {}): Router {
 
   router.use('/stock', createStockRouter({
     stockService: deps.stockService ?? defaultStockService,
-    stockView: deps.stockView ?? new PrismaStockViewRepository()
+    stockView: deps.stockView ?? new PrismaStockViewRepository(),
+    settings: deps.settings ?? defaultSettingsService
   }));
 
   router.use('/inventory-notes', createInventoryNotesRouter({

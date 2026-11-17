@@ -1,0 +1,33 @@
+{
+  "title": "Coste de arranque del 3D: diferir o aligerar",
+  "status": "en_curso",
+  "priority": "baja",
+  "area": "rendimiento",
+  "summary": "El perfil mostró que lo caro al cargar es crear el contexto WebGL y compilar shaders, no el muestreo; el plan pide elegir entre diferir el lienzo o reducir partículas.",
+  "question": "¿Se arranca la nube de puntos más tarde (requestIdleCallback) o se reduce su trabajo (menos partículas en móvil), que cambia su aspecto?",
+  "options": [
+    {
+      "detail": "No cambia el aspecto y saca el trabajo del camino crítico del INP; el coste total sigue.",
+      "label": "Diferir con requestIdleCallback",
+      "prompt": "Decisión de la fase 4 de docs/performance-optimization-plan.md: diferir el arranque. En frontend/src/components/vaporizer-point-cloud.tsx monta el lienzo tras la hidratación con requestIdleCallback (timeout ~1500 ms y respaldo con setTimeout donde no exista), manteniendo el hueco reservado para que no haya salto de layout. Mide con el protocolo del documento (calentamiento y A/B alternado) o deja los pasos para medir. npm run lint --workspace=frontend, npm run build y registra el cambio en el plan.",
+      "recommended": true
+    },
+    {
+      "detail": "Reduce trabajo real (~15 000 en táctil, ~30 000 en escritorio) pero la nube se ve menos densa.",
+      "label": "Menos partículas en táctil",
+      "prompt": "Decisión de la fase 4: reducir partículas. Baja el valor por defecto a ~30 000 en escritorio y ~15 000 en pointer: coarse en la configuración de la nube, y compáralo visualmente en capturas antes/después. npm run lint --workspace=frontend, npm run build y registra en el plan la medición A/B en caliente."
+    }
+  ],
+  "source": "docs/performance-optimization-plan.md (Fase 4 — el diagnóstico del arranque estaba equivocado)",
+  "evidence": "Rama perf/nube-particulas; vaporizer-point-cloud.tsx, vaporizer/{device,sampling,point-material}.ts",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-17T02:39:00.894Z",
+  "choice": {
+    "kind": "option",
+    "index": 1
+  },
+  "userPrompt": "Para compensar la pérdida de partículas, aumenta el tamaño máximo que pueden alcanzar las partículas y disminuye las velocidades a las que se mueven, de modo que la nube conserve presencia visual con menos densidad. Compara capturas antes/después en táctil y escritorio.",
+  "queued": false,
+  "claudeNote": "Rama perf/nube-particulas (sin push). 55 000 → 30 000 partículas en escritorio y factor táctil 0,6 → 0,5 (~15 000); techo de tamaño de punto subido (superficie 1,2→1,6, aristas 1,4→1,8, ambientales 0,9→1,2); giro 0,3→0,18 rad/s y respiración/parpadeo más lentos (0,9→0,55, 1,9→1,2). La interacción con el cursor no cambia. Lint y build en verde; anotado en performance-optimization-plan.md. Pendiente tuyo: mirar la portada (npm run dev) y mandarme capturas antes/después en escritorio y teléfono, y, si se quiere cifra, un A/B de FPS en la misma sesión."
+}

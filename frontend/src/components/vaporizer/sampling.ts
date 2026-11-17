@@ -161,7 +161,10 @@ function sampleSurface(
     buffers.normal[index + 1] = na.y;
     buffers.normal[index + 2] = na.z;
 
-    buffers.size[offset + i] = 0.7 + Math.random() * 0.5;
+    // Techo subido de 1,2 a 1,6 (2026-11-16, arranque-3d): con la mitad de
+    // puntos, los más grandes rellenan las caras planas para que el cuerpo no
+    // se vacíe.
+    buffers.size[offset + i] = 0.7 + Math.random() * 0.9;
     buffers.intensity[offset + i] = 0.3 + Math.random() * 0.24;
     buffers.seed[offset + i] = Math.random();
     writeScatter(buffers, index);
@@ -235,7 +238,7 @@ function sampleEdges(
     buffers.normal[index + 1] = point.y;
     buffers.normal[index + 2] = point.z;
 
-    buffers.size[offset + i] = 1.0 + Math.random() * 0.4;
+    buffers.size[offset + i] = 1.0 + Math.random() * 0.8;
     buffers.intensity[offset + i] = 0.56 + Math.random() * 0.22;
     buffers.seed[offset + i] = Math.random();
     writeScatter(buffers, index);
@@ -296,7 +299,7 @@ export function sampleAmbient(count: number, innerRadius: number): PointCloudBuf
     buffers.normal[index + 1] = direction.y;
     buffers.normal[index + 2] = direction.z;
 
-    buffers.size[i] = 0.4 + Math.random() * 0.5;
+    buffers.size[i] = 0.4 + Math.random() * 0.8;
     buffers.intensity[i] = 0.14 + Math.random() * 0.26;
     buffers.seed[i] = Math.random();
     writeScatter(buffers, index);

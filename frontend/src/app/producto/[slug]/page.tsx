@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeftIcon } from "@/components/ui/icons";
 import { AgeVerificationModal } from "@/components/age-verification-modal";
 import { Footer } from "@/components/footer";
 import { Navbar } from "@/components/navbar";
@@ -69,12 +69,12 @@ export default async function ProductPage({ params, searchParams }: PageProps<"/
 
       <Navbar />
       <main className="flex-1">
-        <div className="mx-auto max-w-vp px-4 pb-16 pt-6 sm:px-6 sm:pt-10 xl:px-10">
+        <div className="mx-auto max-w-vp px-inline pb-section pt-6 sm:pt-10">
           <Link
             href="/#catalogo"
             className="inline-flex min-h-[44px] items-center gap-1 text-sm font-semibold uppercase tracking-[0.04em] text-muted transition-colors hover:text-foreground"
           >
-            <ChevronLeft className="size-4" aria-hidden="true" />
+            <ChevronLeftIcon className="size-4" aria-hidden="true" />
             Catálogo
           </Link>
 

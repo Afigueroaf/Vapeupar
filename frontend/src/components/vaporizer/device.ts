@@ -54,7 +54,8 @@ export function deviceBudgetFactor(): number {
 
   let factor = 1;
 
-  if (window.matchMedia("(pointer: coarse)").matches) factor *= 0.6;
+  // 0,5 desde el 2026-11-16 (arranque-3d): ~15 000 puntos en táctil.
+  if (window.matchMedia("(pointer: coarse)").matches) factor *= 0.5;
 
   const cores = window.navigator.hardwareConcurrency ?? 8;
   if (cores <= 4) factor *= 0.7;

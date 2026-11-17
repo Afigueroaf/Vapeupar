@@ -44,7 +44,9 @@ const NAV = [
   { href: "/admin/products", label: "Líneas" },
   { href: "/admin/showcase", label: "Vitrina" },
   { href: "/admin/brands", label: "Marcas" },
-  { href: "/admin/suppliers", label: "Proveedores" }
+  { href: "/admin/suppliers", label: "Proveedores" },
+  // Solo el dueño decide quién más entra (el backend responde 403 al resto).
+  { href: "/admin/users", label: "Usuarios", ownerOnly: true }
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
@@ -125,7 +127,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           </Link>
 
           <nav aria-label="Secciones de la consola" className="flex items-center gap-1">
-            {NAV.map((item) => {
+            {NAV.filter((item) => !item.ownerOnly || identity.role === "owner").map((item) => {
               const current = pathname.startsWith(item.href);
               return (
                 <Link

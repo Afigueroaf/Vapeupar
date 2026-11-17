@@ -77,6 +77,11 @@ if (!webEnv.NEXT_PUBLIC_WHATSAPP_NUMBER) {
   if (process.env.CI) throw new Error(msg);
   console.warn(`[deploy] AVISO: ${msg}; se usará el de frontend/.env.local si lo hay`);
 }
+// Origen público (nombre de No-IP, decisión D2): sin él, OpenGraph apunta a
+// localhost y los enlaces compartidos salen sin imagen. Avisa, no bloquea.
+if (!webEnv.NEXT_PUBLIC_SITE_URL) {
+  console.warn(`[deploy] AVISO: falta /vapeupar/${envName}/web/NEXT_PUBLIC_SITE_URL en SSM; metadataBase quedará en localhost`);
+}
 
 const sha = git(['rev-parse', '--short=12', 'HEAD']);
 const dirty = git(['status', '--porcelain']).length > 0;

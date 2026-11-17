@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
+import { ChevronRightIcon } from "@/components/ui/icons";
 import { Product } from "@/types/product";
 import { buttonStyles } from "@/components/ui/button";
 import { PixelLabel } from "@/components/ui/pixel-label";
@@ -378,7 +378,7 @@ export function ProductCard({ product, eagerImage = false }: ProductCardProps) {
         {/* Rótulo corto en móvil; el `aria-label` lleva la frase completa. */}
         <span className="sm:hidden">{isAvailable ? "Elegir" : "Ver"}</span>
         <span className="hidden sm:inline">{ctaLong}</span>
-        <ChevronRight className="hidden size-4 shrink-0 xs:block" aria-hidden="true" />
+        <ChevronRightIcon className="hidden size-4 shrink-0 xs:block" aria-hidden="true" />
       </Link>
       </div>
     </Surface>

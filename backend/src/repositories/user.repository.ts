@@ -23,6 +23,8 @@ export interface UserRepository {
   /** `undefined` si el `sub` no tiene fila. */
   findById(id: string): Promise<AdminUser | undefined>;
   findByEmail(email: string): Promise<AdminUser | undefined>;
+  /** Todas las cuentas, activas e inactivas, por correo. Son pocas: sin paginar. */
+  list(): Promise<AdminUser[]>;
   create(user: AdminUser): Promise<AdminUser>;
   /** `undefined` si no existe. Devuelve la fila ya desactivada. */
   deactivate(id: string): Promise<AdminUser | undefined>;

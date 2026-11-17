@@ -1,0 +1,19 @@
+{
+  "title": "Nombre No-IP, TLS con Let's Encrypt y CORS de subida (F4)",
+  "status": "en_curso",
+  "priority": "alta",
+  "area": "infra",
+  "summary": "Sin HTTPS la consola /admin no funciona en producción (cookies Secure) y las subidas fallan por CORS; hay que apuntar el nombre No-IP, emitir certificado, redirigir a https y actualizar uploadOrigins y metadataBase.",
+  "suggestions": [
+    {
+      "label": "Preparar F4 con el nombre de No-IP",
+      "prompt": "Lee docs/aws-full-deployment-plan.md (F4 y F3, nota de activate.sh sobre vapeupar.conf con TLS), infra/deploy/nginx/, infra/deploy/activate.sh e infra/lib/config.ts. Te daré el nombre de No-IP. Prepara: config.app.publicOrigin y storage.uploadOrigins con https://<nombre>, metadataBase de frontend/src/app/layout.tsx leído de una variable pública, un vapeupar.conf versionado que incluya el bloque TLS y la redirección 301 (decidiendo cómo convive con certbot sin que activate.sh lo pise) y los comandos exactos de certbot --nginx y certbot renew --dry-run para ejecutar por SSM. No despliegues: muéstrame npm run infra:diff y el orden de pasos. Ejecuta npm run build."
+    }
+  ],
+  "source": "docs/aws-full-deployment-plan.md (F4 — Dominio, TLS y CORS)",
+  "evidence": "Rama chore/tls-noip; infra/deploy/nginx/, infra/deploy/activate.sh",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-17T16:17:57.879Z",
+  "claudeNote": "2026-11-17. Origen http://vapeupar.ddns.net desplegado (Storage + App) y backend reiniciado: CORS verificado desde fuera. Certificado Let's Encrypt emitido (CN=vapeupar.ddns.net, vence 2027-02-15) con renovación automática probada. Rama chore/tls-noip: sitio nginx en dos variantes (HTTP / TLS) con fragmento común; activate.sh instala la de TLS cuando existe el certificado y verifica por https; certbot no edita nginx. Ambas variantes pasan nginx -t en la instancia. Falta: orígenes a https (config + SSM) justo antes de la release dev → produccion, que es la que activa el TLS; luego comprobar login de /admin con MFA y, días después, HSTS. Procedimiento en aws-full-deployment-plan.md F4."
+}

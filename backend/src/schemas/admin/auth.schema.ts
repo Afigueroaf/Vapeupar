@@ -24,6 +24,12 @@ export const NewPasswordSchema = z.object({
   password
 });
 
+/** Código TOTP: 6 dígitos. Se aceptan espacios, que algunas apps muestran (123 456). */
+export const MfaCodeSchema = z.object({
+  email,
+  code: z.string().transform(value => value.replace(/\s+/g, '')).pipe(z.string().regex(/^\d{6}$/, 'El código son 6 dígitos'))
+});
+
 export const InviteSchema = z.object({
   email,
   role: z.enum(['owner', 'operator']).default('operator')

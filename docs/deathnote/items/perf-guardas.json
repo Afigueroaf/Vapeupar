@@ -1,0 +1,18 @@
+{
+  "title": "Guardas de rendimiento y afinado de la ráfaga del glitch (fase 5)",
+  "status": "pendiente",
+  "priority": "baja",
+  "area": "rendimiento",
+  "summary": "Documentar el presupuesto (cero filtros SVG fuera de ráfaga, un bucle WebGL a la vez), vigilar que three.js siga fuera del chunk inicial y cuantizar el dx del glitch para bajar invalidaciones.",
+  "suggestions": [
+    {
+      "label": "Presupuesto y vigilancia del bundle",
+      "prompt": "Lee docs/performance-optimization-plan.md (Fase 5 y la sección de la fase 1 sobre los 52,1 fps). Añade a docs/frontend.md un presupuesto de rendimiento, añade un script npm run analyze --workspace=frontend con @next/bundle-analyzer (dependencia de desarrollo instalada desde la raíz del monorepo, nunca dentro de frontend/) y cuantiza el dx del glitch a saltos de 3 px en frontend/src/lib/glitch.ts. Ejecuta npm run lint --workspace=frontend y npm run build y confirma que three.js no está en el chunk inicial."
+    }
+  ],
+  "source": "docs/performance-optimization-plan.md (Fase 5 y «Pendiente de explicar» de la fase 1)",
+  "evidence": "docs/frontend.md no tiene presupuesto de rendimiento; no hay bundle analyzer",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

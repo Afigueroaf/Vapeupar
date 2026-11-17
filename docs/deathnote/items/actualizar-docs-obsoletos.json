@@ -1,0 +1,18 @@
+{
+  "title": "Poner al día la documentación obsoleta",
+  "status": "pendiente",
+  "priority": "media",
+  "area": "producto",
+  "summary": "README, GEMINI.md, architecture.md, improvement-plan.md, infrastructure-aws.md §8.3 y el plan de la consola (A6 como pendiente) describen un estado anterior.",
+  "suggestions": [
+    {
+      "label": "Barrido de documentación",
+      "prompt": "Revisa README.md, GEMINI.md, docs/architecture.md, docs/improvement-plan.md, docs/infrastructure-aws.md (cabecera, §6.1 y §8.3) y docs/admin-console-execution-plan.md (tabla de fases) contrastándolos con el código y con git log. Corrige lo que ya no es cierto: diseño VP terminado, persistencia en RDS, despliegue en EC2 con CI/CD, A6 parcial, carrito existente. Marca docs/session-handoff-2026-10-27-inventory-images.md y docs/audit-and-fragile-points.md como históricos con una nota al inicio. No cambies decisiones, solo el estado. Muéstrame el diff antes de hacer commit."
+    }
+  ],
+  "source": "README.md (Estado del Diseño), GEMINI.md, docs/architecture.md, docs/infrastructure-aws.md (§8.3)",
+  "evidence": "README dice que la capa visual es un lienzo; GEMINI.md cita Express 4 y skills inexistentes; §8.3 propone ECS Fargate y Vercel cuando ya se usa EC2",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

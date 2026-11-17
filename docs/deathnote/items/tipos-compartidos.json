@@ -1,0 +1,18 @@
+{
+  "title": "Paquete de workspace con los tipos compartidos",
+  "status": "pendiente",
+  "priority": "baja",
+  "area": "backend",
+  "summary": "Los contratos se duplican a mano entre backend/src/types y frontend/src/types (incluida la taxonomía de categorías); un paquete común evitaría divergencias.",
+  "suggestions": [
+    {
+      "label": "Crear packages/contracts",
+      "prompt": "Lee ADR-002 (Consecuencias) y la skill architecture. Propón y, tras mi visto bueno, crea un workspace packages/contracts con los tipos del contrato público y de /api/admin y las etiquetas de categoría, consumido por backend y frontend. Comprueba que output: standalone de Next y el empaquetado de infra/scripts/deploy-app.mjs siguen funcionando (sin enlaces simbólicos en la release). Ejecuta npm install desde la raíz, npm run test:backend y npm run build."
+    }
+  ],
+  "source": "docs/decisions/002-consola-de-administracion-y-persistencia.md (Consecuencias en contra)",
+  "evidence": "frontend/src/types/product.ts y backend/src/types/product.types.ts mantenidos en espejo",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

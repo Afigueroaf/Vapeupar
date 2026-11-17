@@ -1,0 +1,18 @@
+{
+  "title": "Vigilancia: alarmas de EC2 y RDS, agente de CloudWatch y logs (F6)",
+  "status": "pendiente",
+  "priority": "media",
+  "area": "infra",
+  "summary": "Alarmas de StatusCheckFailed, CPU, memoria y disco de la instancia, CPU/almacenamiento/conexiones de RDS, tema SNS y límites de journald y nginx.",
+  "suggestions": [
+    {
+      "label": "Stack de alarmas con SNS",
+      "prompt": "Lee docs/aws-full-deployment-plan.md (F6 y §7), infra/lib/app-stack.ts, data-stack.ts y ops-stack.ts. Añade en ops-stack (o un nuevo monitoring) un tema SNS al correo del presupuesto y alarmas: StatusCheckFailed y CPU sostenida de la EC2, CPU, FreeStorageSpace y DatabaseConnections de RDS, y memoria/disco vía agente de CloudWatch instalado en user-data con configuración mínima. Sube el presupuesto a 45 USD. Configura límites de journald y logrotate de nginx en infra/deploy/. Ejecuta npm run build --workspace=infra y npm run infra:diff y muéstrame el diff antes de desplegar; actualiza docs/infrastructure-aws.md."
+    }
+  ],
+  "source": "docs/aws-full-deployment-plan.md (F6 — Vigilancia y copias)",
+  "evidence": "No hay ningún cloudwatch.Alarm en infra/lib/; presupuesto sigue en 30 USD",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

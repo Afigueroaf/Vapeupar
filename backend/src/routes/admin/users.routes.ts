@@ -23,6 +23,16 @@ export function createUsersRouter(deps: UsersRoutesDeps): Router {
 
   router.use(requireRole('owner'));
 
+  // GET /api/admin/users — todas las cuentas de la consola, activas o no.
+  router.get('/', async (_req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const users = await deps.users.list();
+      res.json({ success: true, data: users, meta: { count: users.length } });
+    } catch (error) {
+      next(error);
+    }
+  });
+
   // POST /api/admin/users/invite
   router.post('/invite', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const parsed = InviteSchema.safeParse(req.body);

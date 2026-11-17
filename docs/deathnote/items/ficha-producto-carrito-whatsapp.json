@@ -1,0 +1,13 @@
+{
+  "title": "Ficha /producto/[slug] con sabores y carrito con pedido por WhatsApp",
+  "status": "hecho",
+  "priority": "alta",
+  "area": "frontend",
+  "summary": "Elección de sabor y cantidad, carrito en localStorage sincronizado entre pestañas y pedido por WhatsApp con referencia VP-XXXXXX.",
+  "source": "docs/improvement-plan.md (Fase 2.2 carrito) + docs/admin-console-execution-plan.md (A6.2)",
+  "evidence": "Commit 052304a; frontend/src/app/producto/[slug]/page.tsx, frontend/src/lib/cart.ts",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z",
+  "completedAt": "2026-11-16T21:41:14.151Z"
+}

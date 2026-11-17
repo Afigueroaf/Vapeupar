@@ -1,0 +1,18 @@
+{
+  "title": "Revalidación on-demand del catálogo y el contenido (A7.3)",
+  "status": "pendiente",
+  "priority": "media",
+  "area": "backend",
+  "summary": "Route handler con REVALIDATE_SECRET que ejecuta revalidateTag, invocado por el backend al publicar, para no esperar los 60 s de ISR.",
+  "suggestions": [
+    {
+      "label": "Implementar revalidación con secreto",
+      "prompt": "Lee ADR-002 §7, docs/admin-console-execution-plan.md (A7.3), infra/deploy/write-env.mjs y infra/scripts/deploy-app.mjs. Crea frontend/src/app/api/revalidate/route.ts que valide REVALIDATE_SECRET con comparación en tiempo constante y ejecute revalidateTag('catalogo' | 'contenido'); etiqueta los fetch del catálogo en frontend/src/lib/api.ts. En el backend, llama a esa ruta tras publicar, despublicar, cambiar precio o variantes y contenido, sin fallar la escritura si la revalidación falla. Genera el secreto en Secrets Manager desde infra/ y llévalo a ambos entornos del servidor. Ten en cuenta que nginx enruta /api/* al backend: usa una ruta que no choque. Añade tests, ejecuta npm run test:backend y npm run build, y actualiza docs."
+    }
+  ],
+  "source": "docs/admin-console-execution-plan.md (A7.3) + docs/decisions/002-consola-de-administracion-y-persistencia.md (Decisión 7)",
+  "evidence": "No existe frontend/src/app/api/revalidate; docs/aws-full-deployment-plan.md F2 hallazgo 5: REVALIDATE_SECRET no se usa en el código",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

@@ -55,7 +55,9 @@ const vertexShader = /* glsl */ `
     // con el modelo normalizado a 2, 0.01 es medio punto de desplazamiento.
     // La partícula nunca se despega de la superficie, solo late sobre ella.
     float phase = aSeed * 6.2831853;
-    vec3 resting = position + aNormal * sin(uTime * 0.9 + phase) * uWave;
+    // Frecuencias bajadas el 2026-11-16 (arranque-3d): 0.9 → 0.55 aquí y
+    // 1.9 → 1.2 en el parpadeo; el movimiento se lee más pausado.
+    vec3 resting = position + aNormal * sin(uTime * 0.55 + phase) * uWave;
 
     // Cuánto está suelto este punto. Lo decide ScatterField, que simula un
     // estado por partícula en una textura: aquí solo se lee. Que la memoria
@@ -98,7 +100,7 @@ const vertexShader = /* glsl */ `
       vTorn = torn;
     }
 
-    float twinkle = 0.78 + 0.22 * sin(uTime * 1.9 + phase * 2.0);
+    float twinkle = 0.78 + 0.22 * sin(uTime * 1.2 + phase * 2.0);
     vIntensity = aIntensity * mix(1.0, twinkle, uTwinkle);
     vSeed = aSeed;
     vLoose = influence;

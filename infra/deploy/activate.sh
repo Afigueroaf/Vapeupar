@@ -25,6 +25,8 @@ CUR="$BASE/current"
 KEEP=3   # releases que se conservan para volver atrás a mano
 
 log() { echo "[activate $(date +%T)] $*"; }
+# Certificado de Let's Encrypt con nombre fijo (`certbot --cert-name vapeupar`).
+TLS_CERT=/etc/letsencrypt/live/vapeupar/fullchain.pem
 
 [[ "$RELEASE" =~ ^[A-Za-z0-9._-]+$ ]] || { log "id de release inválido"; exit 2; }
 
@@ -81,14 +83,22 @@ chmod 600 /etc/vapeupar/instance.env
 BAK="$TMP/bak"; mkdir -p "$BAK"
 cp -a /etc/nginx/nginx.conf "$BAK/" 2>/dev/null || true
 cp -a /etc/nginx/conf.d/vapeupar.conf "$BAK/" 2>/dev/null || true
+cp -a /etc/nginx/vapeupar/site.inc "$BAK/" 2>/dev/null || true
 
 install -m 644 "$DEST"/deploy/systemd/*.service /etc/systemd/system/
 install -m 644 "$DEST/deploy/nginx/nginx.conf" /etc/nginx/nginx.conf
-# Cuando certbot (F4) haya añadido el TLS a este archivo, NO se pisa: se
-# perdería el `listen 443`. A partir de ahí los cambios del sitio se hacen a
-# mano o se rediseña este paso (anotado en F4).
-if grep -q 'managed by Certbot' /etc/nginx/conf.d/vapeupar.conf 2>/dev/null; then
-  log "AVISO: vapeupar.conf lleva TLS de certbot; no se reemplaza"
+# Sitio: rutas comunes en site.inc y una de las dos variantes según haya o no
+# certificado (F4). certbot solo OBTIENE el certificado (`certonly`), no edita
+# nginx, así que el sitio se puede reinstalar en cada despliegue sin perder el
+# TLS. Releases anteriores a este esquema no traen site.inc: se instala su
+# vapeupar.conf de una pieza, como antes.
+install -d -m 755 /etc/nginx/vapeupar
+if [ -f "$DEST/deploy/nginx/vapeupar-site.inc" ]; then
+  install -m 644 "$DEST/deploy/nginx/vapeupar-site.inc" /etc/nginx/vapeupar/site.inc
+fi
+if [ -f "$TLS_CERT" ] && [ -f "$DEST/deploy/nginx/vapeupar-tls.conf" ]; then
+  log "certificado presente: sitio con TLS"
+  install -m 644 "$DEST/deploy/nginx/vapeupar-tls.conf" /etc/nginx/conf.d/vapeupar.conf
 else
   install -m 644 "$DEST/deploy/nginx/vapeupar.conf" /etc/nginx/conf.d/vapeupar.conf
 fi
@@ -109,12 +119,21 @@ switch_to() {
 # --- 5. Verificación ---------------------------------------------------------
 # Backend directo por loopback y la portada A TRAVÉS de nginx (que es lo que
 # ve el público): si nginx no reparte bien, el despliegue no está bien.
+#
+# Con TLS se verifica por https: el puerto 80 solo redirige, y un 301 haría
+# pasar la comprobación sin haber probado nada. `-k` porque el certificado es
+# del nombre público, no de 127.0.0.1; aquí se comprueba el reparto, no el
+# certificado.
 verify() {
-  local i
+  local i web="http://127.0.0.1" tls=()
+  # Solo directivas: el vapeupar.conf antiguo menciona «listen 443» en un comentario.
+  if grep -qE '^[[:space:]]*listen[[:space:]]+443' /etc/nginx/conf.d/vapeupar.conf 2>/dev/null; then
+    web="https://127.0.0.1"; tls=(-k)
+  fi
   for i in $(seq 1 45); do
     if curl -fsS -o /dev/null --max-time 5 http://127.0.0.1:4000/health \
-       && curl -fsS -o /dev/null --max-time 15 http://127.0.0.1/ \
-       && curl -fsS -o /dev/null --max-time 5 "http://127.0.0.1/api/products?limit=1"; then
+       && curl -fsS "${tls[@]}" -o /dev/null --max-time 15 "$web/" \
+       && curl -fsS "${tls[@]}" -o /dev/null --max-time 5 "$web/api/products?limit=1"; then
       return 0
     fi
     sleep 2
@@ -134,6 +153,7 @@ else
     log "volviendo a $PREV"
     cp -a "$BAK/nginx.conf" /etc/nginx/nginx.conf 2>/dev/null || true
     cp -a "$BAK/vapeupar.conf" /etc/nginx/conf.d/vapeupar.conf 2>/dev/null || true
+    cp -a "$BAK/site.inc" /etc/nginx/vapeupar/site.inc 2>/dev/null || true
     install -m 644 "$PREV"/deploy/systemd/*.service /etc/systemd/system/
     switch_to "$PREV"
     verify && log "release anterior restaurada y respondiendo" || log "la anterior TAMPOCO responde"

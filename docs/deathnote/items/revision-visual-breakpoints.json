@@ -1,0 +1,18 @@
+{
+  "title": "Revisión visual a 375/768/1440 px y recorrido con Tab",
+  "status": "pendiente",
+  "priority": "alta",
+  "area": "diseño",
+  "summary": "Nadie ha revisado en navegador el sitio ni las pantallas de la consola (formularios largos, modal +18, footer en móvil); estaba bloqueado por la extensión de Chrome.",
+  "suggestions": [
+    {
+      "label": "Revisión con Claude in Chrome",
+      "prompt": "Lee docs/design-execution-plan.md (Pendientes abiertos, estado actual) y docs/design-reset-inventory.md §11. Levanta el sitio con npm run build y npm start (frontend y backend), y con la extensión de Chrome revisa a 375, 768 y 1440 px: portada, catálogo, /producto/[slug], carrito, modal +18, FAQ, footer y las pantallas /admin (stock, brands, suppliers, products, showcase). Recorre cada una con Tab comprobando foco visible y orden lógico. Entrega una lista de defectos priorizada con capturas y corrige solo los triviales; ejecuta npm run lint --workspace=frontend y npm run build y marca el pendiente #1 en el plan."
+    }
+  ],
+  "source": "docs/design-execution-plan.md (Pendientes abiertos #1) + docs/admin-console-execution-plan.md (A5 No verificado)",
+  "evidence": "Todos los registros de V3–V7 y A5 marcan «No verificado en navegador»",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}

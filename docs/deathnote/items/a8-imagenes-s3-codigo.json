@@ -1,0 +1,13 @@
+{
+  "title": "Subida de imágenes a S3 con URL prefirmada e invalidación de CDN (A8)",
+  "status": "hecho",
+  "priority": "alta",
+  "area": "backend",
+  "summary": "Presign con clave decidida por el backend, permiso de imagen para el operator, invalidación de CloudFront al reemplazar, claves versionadas y notas de inventario.",
+  "source": "docs/session-handoff-2026-10-27-inventory-images.md (§4) + docs/security.md (§2.2)",
+  "evidence": "Commits d960862, 5afb3a7 y 0455638; backend/src/services/image-upload.service.ts",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z",
+  "completedAt": "2026-11-16T21:41:14.151Z"
+}

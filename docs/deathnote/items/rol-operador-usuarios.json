@@ -1,0 +1,37 @@
+{
+  "title": "Usuarios de la consola: ¿habrá operadores?",
+  "status": "en_curso",
+  "priority": "media",
+  "area": "admin",
+  "summary": "Los roles owner/operator existen y el operator solo opera inventario e imágenes, pero no hay pantalla para invitar ni desactivar usuarios; la decisión #6 sigue abierta.",
+  "question": "¿Habrá personal con rol operator y, si es así, qué puede hacer y quién lo da de alta?",
+  "options": [
+    {
+      "detail": "Permite delegar el ingreso diario sin compartir la cuenta del dueño; requiere pantalla de invitación y baja.",
+      "label": "Sí: pantalla de usuarios para el owner",
+      "prompt": "Decisión #6: habrá operadores. Lee docs/admin-console-execution-plan.md (A4.1, decisiones de A4 y A5) y backend/src/routes/admin/users.routes.ts. Añade GET /api/admin/users y la desactivación (activo false + AdminUserGlobalSignOut + AdminDisableUser, en ese orden) si faltan, y crea /admin/users solo para owner con invitación por correo y rol. Mantén el reparto actual de permisos del operator. Tests, npm run test:backend, npm run lint --workspace=frontend, npm run build, y cierra la decisión #6 en la tabla A0.1 y en docs/security.md.",
+      "recommended": true
+    },
+    {
+      "detail": "Nada que construir; las altas siguen con npm run admin:invite y el rol operator queda latente.",
+      "label": "Solo owner por ahora",
+      "prompt": "Decisión #6: solo owner por ahora. Cierra la decisión en la tabla A0.1 de docs/admin-console-execution-plan.md y en docs/security.md §2.1, dejando escrito que las altas se hacen con npm run admin:invite y que el rol operator existe pero no se usa. No cambies código."
+    },
+    {
+      "detail": "Útil si el empleado también fija precios o publica; aumenta el riesgo y reduce la trazabilidad del dueño.",
+      "label": "Operadores con más permisos",
+      "prompt": "Decisión #6: el operator también podrá editar <lista que te daré>. Revisa los requireRole y requireOwnerOrFields de backend/src/routes/admin/ y relaja solo esas rutas, con tests de 403/200 por rol. Ajusta la consola para mostrar los botones correspondientes. npm run test:backend, npm run build y actualiza docs/security.md §2.1."
+    }
+  ],
+  "source": "docs/admin-console-execution-plan.md (A0.1 decisión #6) + docs/security.md (§2.1)",
+  "evidence": "Rama feat/admin-usuarios; routes/admin/users.routes.ts, app/(admin)/admin/(panel)/users/page.tsx",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-17T02:22:12.162Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "queued": false,
+  "claudeNote": "Implementado en la rama feat/admin-usuarios (sin push): GET /api/admin/users, pantalla /admin/users solo para owner (invitar con rol, desactivar con confirmación) y entrada «Usuarios» en el menú solo para owner. Se mantiene el reparto de permisos del operador. 156 tests de backend, lint y build en verde. Reactivar una cuenta no está en la consola: se vuelve a invitar o se reactiva a mano en Cognito."
+}

@@ -1,0 +1,37 @@
+{
+  "title": "Dominio definitivo de la tienda",
+  "status": "en_curso",
+  "priority": "alta",
+  "area": "infra",
+  "summary": "Se usa temporalmente un nombre de No-IP; metadataBase declara vapeupar.com sin confirmar que esté registrado, y SES y la marca dependen del dominio.",
+  "question": "¿Se registra un dominio propio (y cuál, y en qué registrador/DNS) o se sigue con No-IP?",
+  "options": [
+    {
+      "detail": "0,50 USD/mes de zona más el dominio; DNS en CDK, habilita SES y certificados sin depender de No-IP.",
+      "label": "Registrar dominio y usar Route 53 como zona",
+      "prompt": "Decisión D2: dominio <dominio> con zona en Route 53. Lee docs/aws-full-deployment-plan.md (D2, F4) e infra/lib/. Añade la HostedZone y los registros A/AAAA a la IP elástica en CDK (y www con redirección), ajusta publicOrigin, uploadOrigins y metadataBase al dominio, y deja los pasos de certbot listos. npm run build, npm run infra:diff y muéstrame el diff antes de desplegar; actualiza D2 en el plan.",
+      "recommended": true
+    },
+    {
+      "detail": "Sin coste de zona, pero el DNS queda fuera de infra/ y se gestiona a mano.",
+      "label": "Registrar dominio con DNS del registrador",
+      "prompt": "Decisión D2: dominio <dominio> con DNS en el registrador. Escribe en docs/aws-full-deployment-plan.md (F4) los registros exactos a crear, ajusta publicOrigin, uploadOrigins y metadataBase en el código, y prepara los pasos de certbot. npm run build y npm run infra:diff antes de desplegar."
+    },
+    {
+      "detail": "Gratis, pero caduca si no se confirma cada 30 días y no sirve para SES ni para la marca.",
+      "label": "Seguir con No-IP indefinidamente",
+      "prompt": "Decisión D2: se mantiene No-IP. Documenta en docs/aws-full-deployment-plan.md el recordatorio de confirmación cada 30 días y comprueba si el dominio base está en la Public Suffix List; ajusta metadataBase al nombre de No-IP mediante variable pública. npm run build."
+    }
+  ],
+  "source": "docs/aws-full-deployment-plan.md (§3 D2 y F4)",
+  "evidence": "Rama chore/origen-noip; infra/lib/config.ts",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-17T15:51:46.424Z",
+  "choice": {
+    "kind": "option",
+    "index": 2
+  },
+  "queued": false,
+  "claudeNote": "Nombre de No-IP: vapeupar.ddns.net. SSM /vapeupar/dev/web/NEXT_PUBLIC_SITE_URL = http://vapeupar.ddns.net creado el 2026-11-17 (aplica en el próximo despliegue de la app). Rama chore/origen-noip (sin desplegar): publicOrigin y uploadOrigins con http://vapeupar.ddns.net; diff = CORS del bucket + parámetro PUBLIC_ORIGIN, sin reemplazos. Tras desplegarlo, la consola se usa por el nombre y no por la IP. Todo en http hasta F4 (TLS): entonces se cambia a https en los tres sitios."
+}

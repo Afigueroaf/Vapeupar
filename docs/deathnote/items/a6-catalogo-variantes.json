@@ -1,0 +1,18 @@
+{
+  "title": "Catálogo público con variantes (A6)",
+  "status": "en_curso",
+  "priority": "alta",
+  "area": "frontend",
+  "summary": "La API ya devuelve variants y la tarjeta dice «Ver N sabores», pero el filtro de marca compara strings, la búsqueda del cliente no mira los nombres de variante y el plan aún figura como pendiente.",
+  "suggestions": [
+    {
+      "label": "Cerrar A6.3 (filtros sobre variantes)",
+      "prompt": "Lee docs/admin-console-execution-plan.md (Fase A6) y docs/backend.md (Variantes en el producto público). En frontend/src/components/product-catalog.tsx haz que la búsqueda y el filtro de sabor operen sobre product.variants (nombre de variante), que el filtro de marca use un identificador estable (brandId o slug de marca, añadiéndolo al contrato en backend/src/types/product.types.ts y frontend/src/types/product.ts si falta) y que ordenar por puffs tolere productos sin puffCount. Criterios: buscar «watermelon» encuentra la línea por su variante; una línea con 49 variantes ocupa una sola tarjeta; con la API apagada el sitio sigue renderizando desde FALLBACK_PRODUCTS. Ejecuta npm run test:backend, npm run lint --workspace=frontend y npm run build, y marca A6 como ejecutada en el plan con su registro."
+    }
+  ],
+  "source": "docs/admin-console-execution-plan.md (Fase A6)",
+  "evidence": "Commit 052304a añadió variants; frontend/src/components/product-catalog.tsx:105-113 sigue filtrando por product.brand y specs.flavorProfile",
+  "origin": "docs",
+  "createdAt": "2026-11-16T21:41:14.151Z",
+  "updatedAt": "2026-11-16T21:41:14.151Z"
+}
