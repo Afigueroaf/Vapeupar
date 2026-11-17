@@ -11,9 +11,9 @@
     }
   ],
   "source": "docs/session-handoff-2026-10-27-inventory-images.md (§4.6) + docs/admin-console-execution-plan.md (A8)",
-  "evidence": "docs/backend.md (Base de datos)",
+  "evidence": "PR #18 · 00e31b1",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T21:04:50.519Z",
-  "claudeNote": "Rama feat/carga-imagenes (2026-11-17), sin fusionar. npm run db:upload-images (--dry-run): lee assets/brands con el mapa de la semilla, ahora compartido en src/catalog/catalog-assets.ts; sube solo lo que falta en el bucket, rellena imageKey solo en filas vacías (audita image.backfill) y lista las claves rotas que no arregla. Tests 178/178. NO EJECUTADO contra producción: abrir el túnel a la base quedó bloqueado por permisos; el dueño debe lanzar el dry-run y revisar antes de la carga real."
+  "updatedAt": "2026-11-17T22:21:53.132Z",
+  "claudeNote": "Rama feat/carga-imagenes, fusionada en main con el PR #18 (00e31b1) el 2026-11-17; la release espera aprobación (run 44183642513). npm run db:upload-images (--dry-run): lee assets/brands con el mapa de la semilla, ahora compartido en src/catalog/catalog-assets.ts; sube solo lo que falta en el bucket, rellena imageKey solo en filas vacías (audita image.backfill) y lista las claves rotas que no arregla. Tests 178/178. NO EJECUTADO contra producción: abrir el túnel a la base quedó bloqueado por permisos; el dueño debe lanzar el dry-run y revisar antes de la carga real."
 }

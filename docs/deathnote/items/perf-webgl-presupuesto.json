@@ -11,9 +11,9 @@
     }
   ],
   "source": "docs/performance-optimization-plan.md (Fase 2 — WebGL con presupuesto)",
-  "evidence": "docs/performance-optimization-plan.md «Fase 2 — lo que faltaba»",
+  "evidence": "PR #18 · 00e31b1",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T21:01:47.143Z",
-  "claudeNote": "Rama perf/webgl-presupuesto (2026-11-17), sin fusionar. Tope de 1,4 M píxeles en pointer: coarse; degradación adaptativa de un escalón (×0,75) si los 2 s tras el calentamiento superan 22 ms de media; raycast del prisma solo tras pointermove, y cada 0,1 s con el puntero quieto (el prisma sigue girando debajo). Partículas sin tocar. Lint y build OK. Falta: medir en el Moto G15 en caliente con A/B (lista en el plan)."
+  "updatedAt": "2026-11-17T22:21:53.056Z",
+  "claudeNote": "Rama perf/webgl-presupuesto, fusionada en main con el PR #18 (00e31b1) el 2026-11-17; la release espera aprobación (run 44183642513). Tope de 1,4 M píxeles en pointer: coarse; degradación adaptativa de un escalón (×0,75) si los 2 s tras el calentamiento superan 22 ms de media; raycast del prisma solo tras pointermove, y cada 0,1 s con el puntero quieto (el prisma sigue girando debajo). Partículas sin tocar. Lint y build OK. Falta: medir en el Moto G15 en caliente con A/B (lista en el plan)."
 }

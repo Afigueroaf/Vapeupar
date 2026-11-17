@@ -110,5 +110,12 @@
     "title": "Consola en producción con MFA",
     "detail": "Primer login del dueño en https://vapeupar.ddns.net/admin con TOTP. El 502 inicial venía del búfer de cabeceras de nginx (cookies con tokens de Cognito); /api/ pasa a 16 KB.",
     "ref": "PR #16 · 547bc97 · run 44162588030"
+  },
+  {
+    "id": "h20261117-17",
+    "date": "2026-11-17",
+    "title": "Cola en curso fusionada en main",
+    "detail": "A6 (filtros sobre variantes y brandSlug), V8 (/coleccion/[categoria] y /nosotros), WebGL fase 2, script de carga de imágenes y bucket con RETAIN y versionado. Release pendiente de aprobación; el bucket se aplica aparte con cdk deploy.",
+    "ref": "PR #18 · 00e31b1"
   }
 ]

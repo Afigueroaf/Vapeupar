@@ -1,0 +1,28 @@
+{
+  "title": "Rediseñar las tarjetas del panel de información (envío, original, pago)",
+  "status": "pendiente",
+  "priority": "media",
+  "area": "diseño",
+  "summary": "El dueño: «quiero rediseñar las tarjetas en el apartado de información, actualmente son planas y con poca información». Son las 3 tarjetas de trust-band.tsx (ITEMS: Envío, Original, Pago), dentro del panel INFO de TrustStage: etiqueta pixel + título + una línea de detalle sobre Surface .vp-card.",
+  "origin": "usuario",
+  "source": "Añadido desde la terminal",
+  "createdAt": "2026-11-17T22:01:47.577Z",
+  "updatedAt": "2026-11-17T22:02:06.760Z",
+  "suggestions": [
+    {
+      "label": "Más información por tarjeta (recomendado)",
+      "detail": "Icono pixel, dato clave grande, 2–3 detalles concretos y un enlace secundario por tarjeta.",
+      "prompt": "Lee frontend/src/components/trust-band.tsx (ITEMS y el render de las tarjetas), frontend/src/components/trust-stage.tsx (panel INFO y su alto), ui/surface.tsx, ui/card-field.tsx, .vp-card y .vp-glitch-card en globals.css, ui/icons.tsx (iconos pixel 16×16) y docs/design-reset-inventory.md (§3, §4.6, §11 reglas de CTA). Rediseña las tres tarjetas para que informen de verdad: cada una con un icono pixel nuevo en icons.tsx (moto/entrega, sello/QR, billete), un dato destacado en grande («Hoy mismo», «QR verificable», «Al recibir»), 2–3 líneas concretas (zonas y horario de entrega tomados del pie; cómo se verifica el QR con el fabricante; efectivo, Nequi y Daviplata) y un enlace secundario (WhatsApp, /nosotros, /#faq). Mueve los textos a una estructura de datos tipada para que A7 (SiteContent) pueda hacerlos editables después. Antes de escribir el texto final, muéstrame el copy propuesto. Criterios: las tres tarjetas siguen cabiendo apiladas en el escenario a 375×667 en vertical sin recortarse (o el escenario crece sin romper la igualación de app/page.tsx), contraste AA, objetivos táctiles de 44 px, sin nuevos filtros sobre el lienzo 3D (ver comentarios de rendimiento en trust-band.tsx) y un solo CTA primario por vista. Ejecuta npm run lint --workspace=frontend y npm run build y documenta el cambio en docs/frontend.md."
+    },
+    {
+      "label": "Más profundidad visual, mismo contenido",
+      "detail": "Capas, sombra desplazada, acento por tarjeta y textura pixel; no cambia el texto.",
+      "prompt": "Lee frontend/src/components/trust-band.tsx (ITEMS y el render de las tarjetas), frontend/src/components/trust-stage.tsx (panel INFO y su alto), ui/surface.tsx, ui/card-field.tsx, .vp-card y .vp-glitch-card en globals.css, ui/icons.tsx (iconos pixel 16×16) y docs/design-reset-inventory.md (§3, §4.6, §11 reglas de CTA). Sin cambiar el texto, quita lo plano de las tarjetas: usa la variante offset de Surface (sombra dura desplazada), un acento de color distinto por tarjeta dentro de la paleta VP (lima, violeta, outline), una textura o retícula pixel sutil de fondo en CSS (sin imágenes nuevas) y que el campo de luz de card-field se note más al pasar el puntero. Respeta prefers-reduced-motion. Criterios: las tres tarjetas siguen cabiendo apiladas en el escenario a 375×667 en vertical sin recortarse (o el escenario crece sin romper la igualación de app/page.tsx), contraste AA, objetivos táctiles de 44 px, sin nuevos filtros sobre el lienzo 3D (ver comentarios de rendimiento en trust-band.tsx) y un solo CTA primario por vista. Ejecuta npm run lint --workspace=frontend y npm run build y documenta el cambio en docs/frontend.md."
+    },
+    {
+      "label": "Tarjetas desplegables",
+      "detail": "Compactas en móvil; al tocar se despliegan con el detalle completo. En escritorio, abiertas.",
+      "prompt": "Lee frontend/src/components/trust-band.tsx (ITEMS y el render de las tarjetas), frontend/src/components/trust-stage.tsx (panel INFO y su alto), ui/surface.tsx, ui/card-field.tsx, .vp-card y .vp-glitch-card en globals.css, ui/icons.tsx (iconos pixel 16×16) y docs/design-reset-inventory.md (§3, §4.6, §11 reglas de CTA). Haz que cada tarjeta muestre en móvil solo icono, etiqueta y título, y que al tocarla se despliegue (botón con aria-expanded, una abierta a la vez) con 3–4 líneas de detalle y un enlace; en lg y más ancho, todas abiertas. Así cabe más información sin pasarse del alto del escenario. Propón el copy de los detalles antes de escribirlo. Criterios: las tres tarjetas siguen cabiendo apiladas en el escenario a 375×667 en vertical sin recortarse (o el escenario crece sin romper la igualación de app/page.tsx), contraste AA, objetivos táctiles de 44 px, sin nuevos filtros sobre el lienzo 3D (ver comentarios de rendimiento en trust-band.tsx) y un solo CTA primario por vista. Ejecuta npm run lint --workspace=frontend y npm run build y documenta el cambio en docs/frontend.md."
+    }
+  ]
+}
