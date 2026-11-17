@@ -14,8 +14,9 @@
     "plan-pago-aws"
   ],
   "source": "docs/aws-full-deployment-plan.md (§3 D1, F1.8) + infra/lib/config.ts (comentario de CONFIGS.dev)",
-  "evidence": "infra/lib/config.ts: storage.removalPolicy DESTROY, versioned false, backupRetentionDays 1",
+  "evidence": "cdk diff del 2026-11-17",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-16T21:41:14.151Z"
+  "updatedAt": "2026-11-17T21:08:38.196Z",
+  "claudeNote": "Rama chore/bucket-retain-versionado (2026-11-17), SIN DESPLEGAR. Bucket de catálogo a RETAIN y versionado, con versiones antiguas expiradas a los 30 días. cdk diff: solo Vapeupar-dev-Storage (se van el recurso de vaciado, su rol y su Lambda; el bucket gana versionado y ciclo de vida, pierde la etiqueta auto-delete; sin reemplazo). El manejador de CDK 2.275 no vacía un bucket sin esa etiqueta. Procedimiento con copia previa en docs/infrastructure-aws.md §8.2. Pendiente: aprobación del dueño para copia + deploy. La retención de backups de 7 días sigue esperando a plan-pago-aws."
 }

@@ -1,4 +1,4 @@
-import { RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
+import { Duration, RemovalPolicy, Stack, StackProps } from 'aws-cdk-lib';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import * as s3 from 'aws-cdk-lib/aws-s3';
@@ -39,6 +39,17 @@ export class StorageStack extends Stack {
       encryption: s3.BucketEncryption.S3_MANAGED,
       enforceSSL: true,
       versioned: config.storage.versioned,
+      // Con versionado, una imagen borrada o reemplazada se puede recuperar
+      // durante 30 días y después deja de ocupar sitio. Las subidas de la
+      // consola usan claves nuevas y `CatalogService` borra la anterior: sin
+      // esta regla esas versiones viejas se acumularían para siempre.
+      lifecycleRules: config.storage.versioned
+        ? [{
+            id: 'noncurrent-30d',
+            noncurrentVersionExpiration: Duration.days(30),
+            expiredObjectDeleteMarker: true,
+          }]
+        : undefined,
       cors: config.storage.uploadOrigins.length
         ? [{
             allowedMethods: [s3.HttpMethods.PUT],
