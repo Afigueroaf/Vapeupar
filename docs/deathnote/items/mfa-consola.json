@@ -1,6 +1,6 @@
 {
   "title": "MFA de la consola en producción",
-  "status": "pendiente",
+  "status": "en_curso",
   "priority": "alta",
   "area": "seguridad",
   "summary": "El backend responde 501 al reto SOFTWARE_TOKEN_MFA y el pool vivo tiene MFA opcional, que Cognito no permite pasar a obligatorio sin recrear el pool.",
@@ -24,14 +24,14 @@
     }
   ],
   "source": "docs/security.md (§2.1 Pendiente) + infra/lib/config.ts (comentario MFA) + docs/decisions/002-consola-de-administracion-y-persistencia.md (Decisión 6)",
-  "evidence": "backend/src/services/auth.service.ts:123 y routes/admin/http.ts UNSUPPORTED_CHALLENGE: 501; config.dev.auth.mfaRequired = false",
+  "evidence": "Rama feat/mfa-totp; backend/src/services/auth.service.ts, routes/admin/auth.routes.ts",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T01:43:55.102Z",
+  "updatedAt": "2026-11-17T02:17:12.238Z",
   "choice": {
     "kind": "option",
     "index": 0
   },
-  "queued": true,
-  "queuedAt": "2026-11-17T01:43:55.101Z"
+  "queued": false,
+  "claudeNote": "Implementado en la rama feat/mfa-totp (sin push): retos SOFTWARE_TOKEN_MFA y MFA_SETUP, TOTP obligatorio por aplicación en producción (ADMIN_MFA_REQUIRED o NODE_ENV=production), enrolamiento con QR en /admin/login. 163 tests de backend, lint y build en verde. Falta: probarlo contra el pool real de Cognito (los tests sustituyen Cognito) y fusionar."
 }

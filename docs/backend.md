@@ -81,8 +81,9 @@ nace protegida.
 
 | Método y ruta | Rol | Qué hace |
 |---|---|---|
-| `POST /api/admin/auth/login` | — | Abre sesión. Con la contraseña temporal de la invitación responde `new_password_required` |
-| `POST /api/admin/auth/new-password` | — | Resuelve ese reto y abre sesión |
+| `POST /api/admin/auth/login` | — | Abre sesión, o responde el paso que falta: `new_password_required` (contraseña temporal), `mfa_required` (la cuenta tiene TOTP) o `mfa_setup` (hay que enrolar TOTP; trae `secret` y `otpauthUri`) |
+| `POST /api/admin/auth/new-password` | — | Resuelve el reto de contraseña temporal; puede responder también un paso de MFA |
+| `POST /api/admin/auth/mfa` | — | Código TOTP de 6 dígitos: entra con una cuenta que ya tiene TOTP o termina de enrolarlo. Código malo: `400 INVALID_MFA_CODE` |
 | `POST /api/admin/auth/logout` | sesión | Revoca los refresh tokens en Cognito y borra las cookies |
 | `GET /api/admin/me` | sesión | Identidad y rol del usuario de la sesión |
 | `GET /api/admin/stock` | sesión | Inventario paginado. `?q=&brandId=&lowStock=&threshold=&page=&limit=` |

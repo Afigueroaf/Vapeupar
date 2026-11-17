@@ -191,7 +191,7 @@ Cognito:
   por invitación desde el backend (`AdminCreateUser`, rol `owner`): Cognito envía
   una contraseña temporal que se cambia en el primer acceso. Nunca hay
   contraseñas en variables de entorno.
-- MFA por TOTP: opcional en desarrollo, **obligatorio en producción**.
+- MFA por TOTP: opcional en desarrollo, **obligatorio en producción**. *Actualización 2026-11-16:* el pool se desplegó con MFA opcional y Cognito no deja cambiarlo a obligatoria sin recrear el pool (lo que cambiaría el `sub`, clave de `User`). Se decidió no recrearlo e imponer la obligación en el backend: en producción, una cuenta sin TOTP no recibe sesión hasta enrolarlo desde la propia pantalla de acceso. Detalle en `docs/security.md` §2.1.
 - Correo: en desarrollo, el correo integrado de Cognito (límite diario bajo,
   suficiente para invitar a pocas personas). En producción, Amazon SES con
   dominio verificado.
