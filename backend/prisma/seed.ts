@@ -1,9 +1,8 @@
 import 'dotenv/config';
-import { existsSync, readdirSync } from 'node:fs';
-import { extname, join, parse, resolve } from 'node:path';
-import { humanize, imageKeys, slugify } from '../src/catalog/image-keys.js';
+import { extname, join, resolve } from 'node:path';
+import { CATALOG, readVariants, requireFile } from '../src/catalog/catalog-assets.js';
+import { imageKeys } from '../src/catalog/image-keys.js';
 import { disconnectPrisma, getPrisma } from '../src/db/prisma.js';
-import { ProductCategory, VariantKind } from '../src/generated/prisma/enums.js';
 
 /**
  * Semilla del catálogo desde `assets/brands/<marca>/products/<linea>/`
@@ -22,86 +21,9 @@ import { ProductCategory, VariantKind } from '../src/generated/prisma/enums.js';
 
 const ASSETS_DIR = resolve(__dirname, '../../assets/brands');
 
-interface LineSeed {
-  /** Carpeta dentro de `products/`. */
-  dir: string;
-  slug: string;
-  name: string;
-  /** Imagen de la línea dentro de la carpeta; el resto de archivos son variantes. */
-  lineImage: string;
-  category: ProductCategory;
-  variantKind: VariantKind;
-}
-
-interface BrandSeed {
-  dir: string;
-  slug: string;
-  name: string;
-  logo: string;
-  isPartner: boolean;
-  lines: LineSeed[];
-}
-
-// Categorías PROVISIONALES, deducidas de las imágenes de línea: ONE es un
-// dispositivo que se vende por color; ECO 3, ECO PRO y FIT son equipos con
-// cápsulas o líquido precargado que se venden por sabor. Confirmar con el
-// catálogo del proveedor y corregir desde la consola: la semilla no
-// sobrescribe ediciones posteriores.
-const CATALOG: BrandSeed[] = [
-  {
-    dir: 'lifepod',
-    slug: 'lifepod',
-    name: 'LifePod',
-    logo: 'logo_lifePod_white.svg',
-    isPartner: true,
-    lines: [
-      { dir: 'eco-3', slug: 'lifepod-eco-3', name: 'LifePod ECO 3', lineImage: 'eco-3.webp',
-        category: ProductCategory.disposables, variantKind: VariantKind.flavor },
-      { dir: 'eco.pro', slug: 'lifepod-eco-pro', name: 'LifePod ECO PRO', lineImage: 'ECO-PRO.webp',
-        category: ProductCategory.disposables, variantKind: VariantKind.flavor },
-      { dir: 'ONE', slug: 'lifepod-one', name: 'LifePod ONE', lineImage: 'one.webp',
-        category: ProductCategory.pod_systems, variantKind: VariantKind.color },
-      { dir: 'fit', slug: 'lifepod-fit', name: 'LifePod FIT', lineImage: 'FIT.webp',
-        category: ProductCategory.disposables, variantKind: VariantKind.flavor },
-    ],
-  },
-];
-
-const IMAGE_EXTENSIONS = new Set(['.webp', '.png', '.jpg', '.jpeg', '.svg']);
-
-interface VariantFile {
-  name: string;
-  slug: string;
-  extension: string;
-}
-
-function readVariants(lineDir: string, lineImage: string): VariantFile[] {
-  const files = readdirSync(lineDir).filter(
-    (file) => file !== lineImage && IMAGE_EXTENSIONS.has(extname(file).toLowerCase()),
-  );
-
-  const variants = files
-    .map((file) => {
-      const { name, ext } = parse(file);
-      return { name: humanize(name), slug: slugify(name), extension: ext.toLowerCase() };
-    })
-    .sort((a, b) => a.name.localeCompare(b.name));
-
-  const seen = new Set<string>();
-  for (const variant of variants) {
-    if (seen.has(variant.slug)) {
-      throw new Error(`Variante duplicada "${variant.slug}" en ${lineDir}`);
-    }
-    seen.add(variant.slug);
-  }
-  return variants;
-}
-
-function requireFile(path: string): void {
-  if (!existsSync(path)) {
-    throw new Error(`No existe ${path}. ¿Está la carpeta assets/brands en el repositorio local?`);
-  }
-}
+// El catálogo de partida (marcas, líneas, carpetas) vive en
+// `src/catalog/catalog-assets.ts`: lo comparte con la carga de imágenes al
+// bucket (`scripts/upload-catalog-images.ts`), que deriva las mismas claves.
 
 async function main(): Promise<void> {
   const prisma = getPrisma();

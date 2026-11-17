@@ -44,6 +44,14 @@ const FOV = 42;
  */
 const MAX_DELTA = 1 / 30;
 
+/**
+ * Cada cuánto se rehace el raycast de resalte con el puntero QUIETO, en
+ * segundos. Con el giro en reposo (15°/s) son 1,5° entre comprobaciones: el
+ * resalte cambia de cara sin retraso visible y el raycast pasa de 60 a 10 por
+ * segundo. Si el puntero se mueve, se hace en el mismo fotograma.
+ */
+const PICK_IDLE_INTERVAL = 0.1;
+
 /* --- Giro ---------------------------------------------------------------- */
 
 /** Giro en reposo: una vuelta cada 24 segundos. */
@@ -556,6 +564,13 @@ export function createPrismScene(host: HTMLElement, options: PrismSceneOptions):
   let pointerNormX = 0;
 
   let hoveredIndex = -1;
+  /**
+   * El puntero se movió desde el último raycast: el panel señalado puede ser
+   * otro. Ver `PICK_IDLE_INTERVAL`.
+   */
+  let pointerMoved = false;
+  /** Segundos desde el último raycast de resalte. */
+  let sincePick = 0;
   /** Panel detectado al pulsar, antes de que el bucle gire la pieza. */
   let pressedIndex = -1;
   /** Progreso de 0 a 1 del resalte de cada panel. */
@@ -665,6 +680,7 @@ export function createPrismScene(host: HTMLElement, options: PrismSceneOptions):
 
   function onPointerEnter(event: PointerEvent) {
     pointerInside = true;
+    pointerMoved = true;
     updatePointerNorm(event);
     updatePointerNDC(event);
   }
@@ -702,6 +718,7 @@ export function createPrismScene(host: HTMLElement, options: PrismSceneOptions):
 
   function onPointerMove(event: PointerEvent) {
     pointerInside = true;
+    pointerMoved = true;
     updatePointerNorm(event);
     updatePointerNDC(event);
 
@@ -837,7 +854,20 @@ export function createPrismScene(host: HTMLElement, options: PrismSceneOptions):
 
     // El raycast va después del giro: las matrices que acaba de dejar el
     // cuaternión son las que se ven en este fotograma.
-    hoveredIndex = pointerInside ? pickPanel() : -1;
+    //
+    // Solo cuando hace falta (fase 2 de `docs/performance-optimization-plan.md`):
+    // al instante si el puntero se movió, y con el puntero quieto a un ritmo
+    // bajo, porque aunque el cursor no se mueva el prisma sigue girando por
+    // debajo y la cara señalada cambia. Antes era un raycast contra todas las
+    // superficies en CADA fotograma, también con el cursor parado.
+    sincePick += delta;
+    if (!pointerInside) {
+      hoveredIndex = -1;
+    } else if (pointerMoved || sincePick >= PICK_IDLE_INTERVAL) {
+      hoveredIndex = pickPanel();
+      pointerMoved = false;
+      sincePick = 0;
+    }
 
     /* --- Resalte y rótulo ------------------------------------------------ */
 

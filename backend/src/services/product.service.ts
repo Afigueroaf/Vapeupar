@@ -15,8 +15,10 @@ export class ProductService {
       }
 
       if (filters.brand) {
+        // Acepta el slug (identificador estable, el que usa el sitio) o el
+        // nombre, por compatibilidad con enlaces antiguos.
         const brandLower = filters.brand.toLowerCase();
-        result = result.filter(p => p.brand.toLowerCase() === brandLower);
+        result = result.filter(p => p.brandSlug === brandLower || p.brand.toLowerCase() === brandLower);
       }
 
       if (filters.nicotine) {
@@ -64,8 +66,14 @@ export class ProductService {
             return a.name.localeCompare(b.name) * orderMultiplier;
           }
           if (filters.sortBy === 'puffCount') {
-            const puffsA = a.specs.puffCount ?? 0;
-            const puffsB = b.specs.puffCount ?? 0;
+            // Los pods recargables no tienen caladas: van al final en
+            // cualquier sentido, en vez de contar como 0 y encabezar el orden
+            // ascendente.
+            const puffsA = a.specs.puffCount;
+            const puffsB = b.specs.puffCount;
+            if (puffsA === undefined || puffsB === undefined) {
+              return (puffsA === undefined ? 1 : 0) - (puffsB === undefined ? 1 : 0);
+            }
             return (puffsA - puffsB) * orderMultiplier;
           }
           return 0;

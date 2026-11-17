@@ -90,12 +90,12 @@ const CONFIGS: Record<EnvName, EnvConfig> = {
    * protección de borrado y RETAIN en RDS y Cognito, backups de 7 días y
    * CloudFront con edges de Sudamérica.
    *
-   * QUEDA PENDIENTE, A PROPÓSITO, EL BUCKET DE CATÁLOGO (`storage.removalPolicy`
-   * y `versioned`). Pasar de DESTROY a RETAIN retira el recurso personalizado
-   * `autoDeleteObjects`, y ese recurso es el que VACÍA el bucket al borrarse.
-   * Las versiones recientes de CDK lo protegen, pero con las 89 imágenes reales
-   * dentro no se cambia sin una copia previa (`aws s3 sync`) y sin comprobarlo
-   * en el diff. Va en su propio paso, no mezclado con F1.
+   * EL BUCKET DE CATÁLOGO PASA A RETAIN Y VERSIONADO (2026-11-17, Deathnote
+   * `endurecer-entorno-vivo`), en su propio despliegue. Pasar de DESTROY a
+   * RETAIN retira el recurso personalizado `autoDeleteObjects`, que es el que
+   * VACÍA el bucket al borrarse: se despliega solo después de una copia
+   * (`aws s3 sync`) y de leer el diff. Procedimiento en
+   * docs/infrastructure-aws.md §8.2.
    *
    * MFA: `mfaRequired` sigue en false porque Cognito NO PERMITE pasar un pool
    * existente de OPCIONAL a OBLIGATORIO; solo se fija al crearlo.
@@ -126,10 +126,10 @@ const CONFIGS: Record<EnvName, EnvConfig> = {
     storage: {
       // Nombre de No-IP (D2: se mantiene), con TLS desde el 2026-11-17 (F4).
       uploadOrigins: ['https://vapeupar.ddns.net', 'http://localhost:3000'],
-      versioned: false,
+      versioned: true,
       // Colombia se sirve desde edges de Sudamérica, que PRICE_CLASS_100 excluye.
       cdnPriceClassAll: true,
-      removalPolicy: RemovalPolicy.DESTROY,
+      removalPolicy: RemovalPolicy.RETAIN,
     },
     auth: {
       mfaRequired: false,

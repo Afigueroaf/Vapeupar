@@ -1,6 +1,7 @@
 "use client";
 
-import { Canvas } from "@react-three/fiber";
+import { useRef } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { Scene, type PointerState, type SceneAnchor, type SceneConfig } from "./scene";
 import { usePointCloud } from "./use-point-cloud";
 
@@ -23,6 +24,47 @@ export interface VaporizerCanvasProps extends SceneConfig {
   active: boolean;
   pointer: React.RefObject<PointerState>;
   anchor: SceneAnchor | null;
+  /**
+   * Los primeros segundos de animación fueron lentos (ver `FrameBudget`). Se
+   * llama como mucho una vez por montaje.
+   */
+  onSlowStart?: () => void;
+}
+
+/** Segundos que se descartan al empezar: compilación de shaders y subida de búferes. */
+const WARMUP_SECONDS = 0.5;
+/** Ventana de medida tras el calentamiento. */
+const MEASURE_SECONDS = 2;
+/** Fotograma medio por encima del cual se baja la resolución (~45 fps). */
+const SLOW_FRAME_SECONDS = 0.022;
+/** Un salto mayor es una pausa (pestaña oculta, bucle detenido), no lentitud. */
+const MAX_SAMPLE_SECONDS = 0.25;
+
+/**
+ * Degradación adaptativa, fase 2 de `docs/performance-optimization-plan.md`.
+ *
+ * Mide el fotograma medio durante los primeros 2 s de animación de verdad y,
+ * si pasa de ~22 ms, avisa UNA vez para que el lienzo baje un escalón de
+ * resolución. Después no hace nada más: no vuelve a subir ni a medir, para no
+ * oscilar. El medio segundo inicial no cuenta porque ahí se compilan los
+ * shaders y cualquier aparato parece lento.
+ */
+function FrameBudget({ onSlow }: { onSlow: () => void }) {
+  const state = useRef({ elapsed: 0, measured: 0, frames: 0, done: false });
+
+  useFrame((_, delta) => {
+    const s = state.current;
+    if (s.done || delta > MAX_SAMPLE_SECONDS) return;
+    s.elapsed += delta;
+    if (s.elapsed < WARMUP_SECONDS) return;
+    s.measured += delta;
+    s.frames += 1;
+    if (s.measured < MEASURE_SECONDS) return;
+    s.done = true;
+    if (s.measured / s.frames > SLOW_FRAME_SECONDS) onSlow();
+  });
+
+  return null;
 }
 
 export default function VaporizerCanvas({
@@ -33,6 +75,7 @@ export default function VaporizerCanvas({
   active,
   pointer,
   anchor,
+  onSlowStart,
   ...config
 }: VaporizerCanvasProps) {
   const { cloud } = usePointCloud({ modelPath, particleCount, ambientCount });
@@ -57,6 +100,8 @@ export default function VaporizerCanvas({
       }}
     >
       {cloud && <Scene cloud={cloud} pointer={pointer} anchor={anchor} {...config} />}
+      {/* Solo con animación continua: en `demand` no hay fotogramas que medir. */}
+      {cloud && config.animate && onSlowStart && <FrameBudget onSlow={onSlowStart} />}
     </Canvas>
   );
 }

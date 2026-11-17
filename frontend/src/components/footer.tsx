@@ -1,5 +1,7 @@
 import Image from "next/image";
+import Link from "next/link";
 import { PixelLabel } from "@/components/ui/pixel-label";
+import { COLLECTIONS } from "@/lib/collections";
 import { formatPhoneCO, storePhone, telLink } from "@/lib/contact";
 
 /**
@@ -40,7 +42,8 @@ export function Footer() {
       </div>
 
       <div className="mx-auto mt-12 grid max-w-vp grid-cols-1 gap-block border-b-2 border-muted px-inline pb-10 md:grid-cols-4">
-        {/* Col 1: Brand Info — destino del enlace "Nosotros" del navbar */}
+        {/* Col 1: marca. Era el destino de «Nosotros» hasta V8; el id se
+            conserva para los enlaces `/#nosotros` ya compartidos. */}
         <div id="nosotros" className="scroll-mt-24">
           <Image
             src="/logo-detalle.svg"
@@ -87,10 +90,12 @@ export function Footer() {
         <div>
           <h3 className={COL_HEADING}>Categorías rápidas</h3>
           <ul className={COL_LIST}>
-            <li><a href="#desechables" className={LINK}>Desechables 10k Puffs</a></li>
-            <li><a href="#pods" className={LINK}>Pods Recargables</a></li>
-            <li><a href="#liquidos" className={LINK}>Sales de Nicotina</a></li>
-            <li><a href="#faq" className={LINK}>Preguntas Frecuentes</a></li>
+            {COLLECTIONS.slice(0, 3).map((c) => (
+              <li key={c.slug}><Link href={`/coleccion/${c.slug}`} className={LINK}>{c.label}</Link></li>
+            ))}
+            <li><Link href="/nosotros" className={LINK}>Nosotros</Link></li>
+            {/* `/#faq` y no `#faq`: el pie sale también en la ficha, la colección y nosotros. */}
+            <li><Link href="/#faq" className={LINK}>Preguntas frecuentes</Link></li>
           </ul>
         </div>
       </div>

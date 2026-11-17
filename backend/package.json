@@ -15,7 +15,8 @@
     "db:migrate:create": "prisma migrate dev --create-only",
     "db:sync-app-role": "tsx prisma/sync-app-role.ts",
     "db:seed": "prisma db seed",
-    "admin:invite": "tsx scripts/admin-invite.ts"
+    "admin:invite": "tsx scripts/admin-invite.ts",
+    "db:upload-images": "tsx scripts/upload-catalog-images.ts"
   },
   "dependencies": {
     "@aws-sdk/client-cloudfront": "^3.1169.0",

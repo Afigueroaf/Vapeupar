@@ -22,7 +22,7 @@ V4 y V5.
 | **A3** | Dominio de inventario: movimientos, idempotencia, auditoría | `backend/src/services/stock.service.ts` | ✅ **Ejecutada** (2026-10-26) |
 | **A4** | Autenticación y superficie `/api/admin/*` | `backend/src/routes/admin/`, `backend/src/middleware/` | ✅ **Ejecutada** (2026-10-27): sesión, roles, endurecimiento, inventario y el CRUD completo. Solo queda fuera el puente AdminJS (A4.4), opcional y descartado |
 | **A5** | Consola `/admin` en Next | `frontend/src/app/(admin)/` | 🟡 **Parcial** (2026-10-27): A5.1 (stock), A5.2 (marcas y proveedores) y A5.3 (lineas y variantes), ejecutadas; falta A5.4, que depende de A7.1 |
-| **A6** | Catálogo público con variantes | `product-card.tsx`, `product-catalog.tsx`, tipos | ⬜ Pendiente |
+| **A6** | Catálogo público con variantes | `product-card.tsx`, `product-catalog.tsx`, tipos | ✅ **Ejecutada** (2026-11-17): contratos con `variants` y `brandSlug`, tarjeta «Ver N sabores» con la elección en la ficha, y filtros sobre variantes. Ver «Registro A6» |
 | **A7** | `SiteContent` + revalidación + barrido de textos | `faq.tsx`, `layout.tsx`, `trust-band.tsx` | ⬜ Pendiente |
 | **A8** | Imágenes en S3 + CloudFront | `next.config.ts`, `storage.service.ts` | 🟡 **Parcial** (2026-10-27): código terminado y verificado de extremo a extremo —migración aplicada, subida real con URL prefirmada y lectura `200` por CloudFront—. Falta subir las imágenes del catálogo al bucket. Ver `docs/session-handoff-2026-10-27-inventory-images.md` |
 
@@ -1060,6 +1060,25 @@ Búsqueda y filtro de sabor operan sobre variantes; el filtro de marca pasa a us
 **Verificación A6**: con la API apagada el sitio sigue renderizando desde el
 fallback; buscar «watermelon» encuentra la línea por su variante; una línea con 49
 variantes ocupa una tarjeta, no 49.
+
+### Registro A6 (2026-11-17)
+
+- **A6.1**: `variants` llegó con el commit 052304a; `inStock` y `stock` de la
+  línea se derivan de sus variantes activas en `prisma-product.repository.ts`. Se
+  añade `brandSlug` al contrato (back y front) y a `FALLBACK_PRODUCTS`.
+- **A6.2, con un cambio**: la tarjeta NO lleva selector. Muestra «Ver N sabores»
+  y la elección se hace en la ficha (`product-detail/product-detail.tsx`), que
+  cambia imagen y disponible y pone la variante en el mensaje de WhatsApp. Un
+  selector de 49 sabores no cabe en una tarjeta de 2 columnas en móvil, y V4/V5
+  piden un solo CTA por vista.
+- **A6.3**: la búsqueda del catálogo (`product-catalog.tsx`) mira los nombres de
+  variante y no distingue tildes («sandia» encuentra «Sandía»). No hay un
+  desplegable de sabor aparte: con decenas de sabores por línea, el buscador es
+  el filtro de sabor. El filtro de marca usa `brandSlug` (la API acepta slug o
+  nombre en `?brand=`). «Más caladas» manda al final las líneas sin
+  `puffCount`, también en la API y en ambos sentidos.
+- Tests: `product.service.test.ts` (marca por slug, orden por caladas) y
+  `prisma-product.repository.test.ts` (`brandSlug`).
 
 ---
 
