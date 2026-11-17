@@ -24,14 +24,14 @@
     }
   ],
   "source": "docs/security.md (§2.1 Pendiente) + infra/lib/config.ts (comentario MFA) + docs/decisions/002-consola-de-administracion-y-persistencia.md (Decisión 6)",
-  "evidence": "Rama feat/mfa-totp; backend/src/services/auth.service.ts, routes/admin/auth.routes.ts",
+  "evidence": "Prueba manual del dueño, localhost contra el pool vapeupar-dev",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T02:17:12.238Z",
+  "updatedAt": "2026-11-17T18:23:50.877Z",
   "choice": {
     "kind": "option",
     "index": 0
   },
   "queued": false,
-  "claudeNote": "Implementado en la rama feat/mfa-totp (sin push): retos SOFTWARE_TOKEN_MFA y MFA_SETUP, TOTP obligatorio por aplicación en producción (ADMIN_MFA_REQUIRED o NODE_ENV=production), enrolamiento con QR en /admin/login. 163 tests de backend, lint y build en verde. Falta: probarlo contra el pool real de Cognito (los tests sustituyen Cognito) y fusionar."
+  "claudeNote": "MFA TOTP probado por el dueño el 2026-11-17 contra el pool real de Cognito desde localhost (ADMIN_MFA_REQUIRED=true): asociación con QR y login con código correctos. En dev. Pasa a producción con la release dev → produccion, que además activa HTTPS (necesario: las cookies de la consola son secure)."
 }
