@@ -776,6 +776,15 @@ aws s3 ls s3://vapeupar-dev-catalog-342284838697 --recursive | wc -l
 El diff del 2026-11-17 dio exactamente lo esperado en el paso 2 y ninguna
 diferencia en `Vapeupar-dev-App`.
 
+**Aplicado el 2026-11-17** (≈ 01:30 UTC del 18), con copia previa de los 88 objetos en
+`C:apeupar-backup-catalogo-20261117`. Resultado: `UPDATE_COMPLETE`, 88 objetos
+en el bucket después, versionado `Enabled` y regla `noncurrent-30d` activa.
+CDK avisó de «recursos que no se pudieron borrar»: fue el propio recurso de vaciado.
+Su manejador falló con `AccessDenied` en `s3:GetBucketTagging`, porque la política del
+bucket ya había perdido su permiso; es decir, **no llegó a vaciar nada**. Después
+CloudFormation lo dio por omitido (`DELETE_SKIPPED`, la Lambda ya no existía). La
+Lambda y su rol sí se borraron, así que no queda nada que limpiar a mano.
+
 ### 8.3 Lo que falta construir
 
 | Pieza | Propuesta | Nota |

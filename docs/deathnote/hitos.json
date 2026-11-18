@@ -131,5 +131,12 @@
     "title": "Imágenes del catálogo en el bucket",
     "detail": "75 imágenes subidas con db:upload-images; las 82 URLs de imagen de la API responden 200.",
     "ref": "db:upload-images · bucket 13 → 88 objetos"
+  },
+  {
+    "id": "h20261117-20",
+    "date": "2026-11-17",
+    "title": "Bucket del catálogo con RETAIN y versionado",
+    "detail": "cdk deploy de Vapeupar-dev-Storage tras copiar los 88 objetos. Sin pérdida: 88 antes y después.",
+    "ref": "cdk deploy Vapeupar-dev-Storage"
   }
 ]
