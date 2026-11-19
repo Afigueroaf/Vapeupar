@@ -3,7 +3,8 @@ import { requireOwnerOrFields, requireRole } from '../../middleware/require-role
 import { CatalogRepository } from '../../repositories/catalog.repository.js';
 import { BrandPatchSchema, BrandBodySchema, BrandQuerySchema, IdParamSchema } from '../../schemas/admin/catalog.schema.js';
 import { CatalogService } from '../../services/catalog.service.js';
-import { parseOrFail, sendDomainError, sendPage } from './http.js';
+import { SiteRevalidator } from '../../services/site-revalidation.service.js';
+import { parseOrFail, revalidateSite, sendDomainError, sendPage } from './http.js';
 
 /**
  * Marcas (plan A4.2, pantalla A5.2). Leer es para cualquier sesión; escribir,
@@ -13,10 +14,15 @@ import { parseOrFail, sendDomainError, sendPage } from './http.js';
  *
  * **No hay DELETE**: `Product.brandId` referencia la marca con
  * `onDelete: Restrict`, así que retirar una marca es `active: false`.
+ *
+ * Cada alta o edición refresca `catalogo` en el sitio (A7.3). Con eso basta
+ * también para la lista de marcas aliadas de la portada: `getPartnerBrands`
+ * lleva las dos etiquetas.
  */
 export interface BrandRoutesDeps {
   catalog: CatalogRepository;
   service: Pick<CatalogService, 'createBrand' | 'updateBrand'>;
+  revalidate: SiteRevalidator;
 }
 
 export function createBrandsRouter(deps: BrandRoutesDeps): Router {
@@ -62,7 +68,8 @@ export function createBrandsRouter(deps: BrandRoutesDeps): Router {
 
     try {
       const brand = await deps.service.createBrand(body, { userId: req.admin!.userId });
-      res.status(201).json({ success: true, data: brand });
+      const revalidated = await revalidateSite(deps.revalidate, ['catalogo']);
+      res.status(201).json({ success: true, data: brand, meta: { revalidated } });
     } catch (error) {
       if (sendDomainError(res, error)) return;
       next(error);
@@ -78,7 +85,8 @@ export function createBrandsRouter(deps: BrandRoutesDeps): Router {
 
     try {
       const brand = await deps.service.updateBrand(params.id, patch, { userId: req.admin!.userId });
-      res.json({ success: true, data: brand });
+      const revalidated = await revalidateSite(deps.revalidate, ['catalogo']);
+      res.json({ success: true, data: brand, meta: { revalidated } });
     } catch (error) {
       if (sendDomainError(res, error)) return;
       next(error);

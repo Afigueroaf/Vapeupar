@@ -6,7 +6,8 @@ import {
   VariantParamsSchema, VariantPatchSchema
 } from '../../schemas/admin/catalog.schema.js';
 import { CatalogService, readiness } from '../../services/catalog.service.js';
-import { parseOrFail, sendDomainError, sendPage } from './http.js';
+import { SiteRevalidator } from '../../services/site-revalidation.service.js';
+import { parseOrFail, revalidateSite, sendDomainError, sendPage } from './http.js';
 
 /**
  * Líneas de producto y sus variantes (plan A4.2, pantalla A5.3).
@@ -26,10 +27,14 @@ import { parseOrFail, sendDomainError, sendPage } from './http.js';
  * **No hay DELETE**: las variantes están referenciadas por el libro de
  * inventario con `onDelete: Restrict`. Retirar una variante es `active: false`
  * y retirar una línea es `status: 'draft'`.
+ *
+ * Toda escritura refresca `catalogo` en el sitio (A7.3) y lo cuenta en
+ * `meta.revalidated`.
  */
 export interface ProductRoutesDeps {
   catalog: CatalogRepository;
   service: Pick<CatalogService, 'createProduct' | 'updateProduct' | 'createVariant' | 'updateVariant'>;
+  revalidate: SiteRevalidator;
 }
 
 export function createProductsRouter(deps: ProductRoutesDeps): Router {
@@ -72,7 +77,8 @@ export function createProductsRouter(deps: ProductRoutesDeps): Router {
 
     try {
       const product = await deps.service.createProduct(body, { userId: req.admin!.userId });
-      res.status(201).json({ success: true, data: product, meta: { readiness: readiness(product) } });
+      const revalidated = await revalidateSite(deps.revalidate, ['catalogo']);
+      res.status(201).json({ success: true, data: product, meta: { readiness: readiness(product), revalidated } });
     } catch (error) {
       if (sendDomainError(res, error)) return;
       next(error);
@@ -88,7 +94,8 @@ export function createProductsRouter(deps: ProductRoutesDeps): Router {
 
     try {
       const product = await deps.service.updateProduct(params.id, patch, { userId: req.admin!.userId });
-      res.json({ success: true, data: product, meta: { readiness: readiness(product) } });
+      const revalidated = await revalidateSite(deps.revalidate, ['catalogo']);
+      res.json({ success: true, data: product, meta: { readiness: readiness(product), revalidated } });
     } catch (error) {
       if (sendDomainError(res, error)) return;
       next(error);
@@ -122,7 +129,8 @@ export function createProductsRouter(deps: ProductRoutesDeps): Router {
 
     try {
       const variant = await deps.service.createVariant(params.id, body, { userId: req.admin!.userId });
-      res.status(201).json({ success: true, data: variant });
+      const revalidated = await revalidateSite(deps.revalidate, ['catalogo']);
+      res.status(201).json({ success: true, data: variant, meta: { revalidated } });
     } catch (error) {
       if (sendDomainError(res, error)) return;
       next(error);
@@ -142,7 +150,8 @@ export function createProductsRouter(deps: ProductRoutesDeps): Router {
       const variant = await deps.service.updateVariant(params.id, params.variantId, patch, {
         userId: req.admin!.userId
       });
-      res.json({ success: true, data: variant });
+      const revalidated = await revalidateSite(deps.revalidate, ['catalogo']);
+      res.json({ success: true, data: variant, meta: { revalidated } });
     } catch (error) {
       if (sendDomainError(res, error)) return;
       next(error);

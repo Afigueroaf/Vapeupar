@@ -13,6 +13,7 @@ import { StockError } from '../../services/stock.service.js';
 import { AdminUser } from '../../repositories/user.repository.js';
 import { InMemorySiteContentRepository } from '../../repositories/in-memory-site-content.repository.js';
 import { SettingsService } from '../../services/settings.service.js';
+import { SiteRevalidator } from '../../services/site-revalidation.service.js';
 
 /**
  * Verificación de A4: que la superficie autenticada responda 401 sin sesión,
@@ -71,6 +72,7 @@ interface Harness {
     enableTotp: ReturnType<typeof vi.fn>;
   };
   users: InMemoryUserRepository;
+  revalidate: ReturnType<typeof vi.fn<SiteRevalidator>>;
 }
 
 const servers: Server[] = [];
@@ -79,7 +81,9 @@ async function start(options: {
   rateLimits?: AppOptions['rateLimits'];
   login?: () => Promise<LoginResult>;
   requireMfa?: boolean;
+  revalidate?: SiteRevalidator;
 } = {}): Promise<Harness> {
+  const revalidate = vi.fn<SiteRevalidator>(options.revalidate ?? (async () => true));
   const users = new InMemoryUserRepository(SEED);
   const recordMovement = vi.fn(async (input: { variantId: string; userId: string }) => ({
     movement: { id: 'm1', variantId: input.variantId, userId: input.userId } as never,
@@ -137,7 +141,8 @@ async function start(options: {
         }) as never
       },
       stockView: new InMemoryStockViewRepository(STOCK_ROWS),
-      settings: new SettingsService(new InMemorySiteContentRepository())
+      settings: new SettingsService(new InMemorySiteContentRepository()),
+      revalidate
     })
   });
 
@@ -146,7 +151,7 @@ async function start(options: {
   });
   servers.push(server);
   const { port } = server.address() as AddressInfo;
-  return { url: `http://127.0.0.1:${port}`, recordMovement, login, inviteUser, disableUser, mfa, users };
+  return { url: `http://127.0.0.1:${port}`, recordMovement, login, inviteUser, disableUser, mfa, users, revalidate };
 }
 
 afterEach(async () => {
@@ -336,6 +341,32 @@ describe('superficie /api/admin', () => {
       });
       expect(response.status).toBe(201);
       expect(recordMovement).toHaveBeenCalledWith(expect.objectContaining({ userId: OPERATOR }));
+    });
+
+    // Decisión del dueño (A7.3): una venta que deja una variante en 0 tiene que
+    // verse como «AGOTADO» al recargar, sin esperar el ISR.
+    it('cada movimiento refresca `catalogo` en el sitio', async () => {
+      const { url, revalidate } = await start();
+      const response = await call(url, '/api/admin/stock/movements', {
+        method: 'POST',
+        cookies: asOperator,
+        body: { variantId: VARIANT, type: 'sale', quantity: 1, operationKey: 'venta-de-prueba' }
+      });
+      expect(response.status).toBe(201);
+      expect(response.body?.meta).toEqual({ revalidated: true });
+      expect(revalidate).toHaveBeenCalledWith(['catalogo']);
+    });
+
+    it('si el sitio no confirma, el movimiento se registra igual', async () => {
+      const { url, recordMovement } = await start({ revalidate: async () => false });
+      const response = await call(url, '/api/admin/stock/movements', {
+        method: 'POST',
+        cookies: asOperator,
+        body: { variantId: VARIANT, type: 'inbound', quantity: 5, operationKey: 'ingreso-de-prueba' }
+      });
+      expect(response.status).toBe(201);
+      expect(response.body?.meta).toEqual({ revalidated: false });
+      expect(recordMovement).toHaveBeenCalledOnce();
     });
 
     it('rechaza un cuerpo mal formado antes de tocar el servicio', async () => {
