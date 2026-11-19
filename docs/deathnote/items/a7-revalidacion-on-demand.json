@@ -1,6 +1,6 @@
 {
   "title": "Revalidación on-demand del catálogo y el contenido (A7.3)",
-  "status": "pendiente",
+  "status": "en_curso",
   "priority": "media",
   "area": "backend",
   "summary": "Route handler con REVALIDATE_SECRET que ejecuta revalidateTag, invocado por el backend al publicar, para no esperar los 60 s de ISR.",
@@ -14,7 +14,7 @@
   "evidence": "No existe frontend/src/app/api/revalidate; docs/aws-full-deployment-plan.md F2 hallazgo 5: REVALIDATE_SECRET no se usa en el código",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z",
+  "updatedAt": "2026-11-19T06:47:46.876Z",
   "plan": [
     "Frontend: crea frontend/src/app/internal/revalidate/route.ts (POST), fuera de /api porque nginx manda /api/* al backend (infra/deploy/nginx/vapeupar-site.inc). Lee REVALIDATE_SECRET de process.env. Si falta, responde 503. Compara la cabecera Authorization: Bearer <secreto> con crypto.timingSafeEqual sobre los hashes SHA-256 de ambos valores, para que el largo no filtre nada. El cuerpo {tags: ('catalogo'|'contenido')[]} se valida con Zod y cualquier etiqueta fuera de esa lista es 400. Llama a revalidateTag(tag, { expire: 0 }). Next 16.4 exige el segundo argumento: con 'max' la primera visita seguiría recibiendo la versión vieja, y el criterio es verla al recargar.",
     "Frontend: exporta CATALOG_TAG = 'catalogo' junto a CONTENT_TAG (frontend/src/lib/content.ts) y úsala en lugar del literal de frontend/src/lib/api.ts (getJson) y de getPartnerBrands en content.ts. Revisa frontend/src/app/coleccion/[categoria]/page.tsx (revalidate = 60). Deja los 60 s de ISR como red de seguridad.",
@@ -45,5 +45,5 @@
     "a7-contenido-editable",
     "dec-que-cambios-refrescan-el-sitio-al-instante"
   ],
-  "claudeNote": "Plan 2026-11-18: El plan y el prompt del item proponen frontend/src/app/api/revalidate/route.ts: esa ruta choca con location /api/ de nginx y hay que moverla (por ejemplo, a /internal/revalidate). Ya existen CONTENT_TAG='contenido' y la doble etiqueta de getPartnerBrands (rama feat/a7-contenido-editable, sin fusionar). La etiqueta 'catalogo' ya está en getJson (frontend/src/lib/api.ts), pero como literal: falta exportar CATALOG_TAG. REVALIDATE_SECRET solo lo genera infra/scripts/write-backend-env.mjs en local; infra/deploy/write-env.mjs no lo escribe y el CDK no lo crea, así que «ambos entornos del servidor» significa dev (que ES producción) y prod en config.ts. En Next 16, revalidateTag sin segundo argumento está obsoleto."
+  "claudeNote": "Plan 2026-11-18: El plan y el prompt del item proponen frontend/src/app/api/revalidate/route.ts: esa ruta choca con location /api/ de nginx y hay que moverla (por ejemplo, a /internal/revalidate). Ya existen CONTENT_TAG='contenido' y la doble etiqueta de getPartnerBrands (rama feat/a7-contenido-editable, sin fusionar). La etiqueta 'catalogo' ya está en getJson (frontend/src/lib/api.ts), pero como literal: falta exportar CATALOG_TAG. REVALIDATE_SECRET solo lo genera infra/scripts/write-backend-env.mjs en local; infra/deploy/write-env.mjs no lo escribe y el CDK no lo crea, así que «ambos entornos del servidor» significa dev (que ES producción) y prod en config.ts. En Next 16, revalidateTag sin segundo argumento está obsoleto.\n2026-11-19: implementado en la rama feat/a7-3-revalidacion (sin desplegar). Falta: con aprobación, desplegar solo el stack Vapeupar-dev-App (secreto vapeupar/dev/revalidate, parámetro REVALIDATE_SECRET_ARN y permiso) y después la release dev → produccion; comprobar en producción que POST /internal/revalidate desde fuera da 404, que publicar una FAQ y registrar una venta que deja una variante en 0 se ven al recargar, y que journalctl -u vapeupar-backend no muestra avisos de revalidación; mostrar en la consola el aviso «se verá en ≤60 s» cuando meta.revalidated sea false. write-env.mjs tolera que el parámetro no exista (sigue sin revalidación), así que el orden stack→release ya no puede tumbar el backend."
 }
