@@ -1,6 +1,6 @@
 {
   "title": "Rendimiento: objetivo de rendimiento en el Moto G15",
-  "status": "decision",
+  "status": "hecho",
   "priority": "baja",
   "area": "rendimiento",
   "summary": "Sin un número, el presupuesto es una lista de buenas intenciones; con él, cualquier efecto nuevo que lo rompa necesita tu permiso. Hoy el scroll está en ~52–57 fps según la tanda.",
@@ -22,5 +22,11 @@
   "source": "Plan de desarrollo 2026-11-18 (perf-guardas)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.641Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:31:29.332Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:31:29.330Z",
+  "queued": false
 }

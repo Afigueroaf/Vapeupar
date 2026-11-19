@@ -1,6 +1,6 @@
 {
   "title": "Tipos compartidos: alcance del paquete de contratos",
-  "status": "decision",
+  "status": "hecho",
   "priority": "baja",
   "area": "backend",
   "summary": "Compartir solo tipos no toca la release, porque los tipos desaparecen al compilar. Compartir código obliga a cambiar el empaquetado de deploy-app.mjs, y en este proyecto dev ES producción, así que un error ahí deja el sitio caído hasta el rollback. El item tiene prioridad baja y hoy la paridad de contenido ya está cubierta por una prueba.",
@@ -27,5 +27,11 @@
   "source": "Plan de desarrollo 2026-11-18 (tipos-compartidos)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:58:52.620Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:31:25.214Z",
+  "choice": {
+    "kind": "option",
+    "index": 2
+  },
+  "completedAt": "2026-11-19T06:31:25.213Z",
+  "queued": false
 }

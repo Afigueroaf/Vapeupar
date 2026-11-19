@@ -1,6 +1,6 @@
 {
   "title": "Revalidación: qué cambios refrescan el sitio al instante",
-  "status": "decision",
+  "status": "hecho",
   "priority": "media",
   "area": "backend",
   "summary": "La tarjeta del producto muestra «N disponibles» y «AGOTADO». Si no refrescas al vender, durante un máximo de 60 s alguien puede pedir algo que ya se agotó. Refrescar en cada venta regenera la portada más veces en una instancia de 1 GB, aunque con el volumen actual el costo es despreciable.",
@@ -27,5 +27,11 @@
   "source": "Plan de desarrollo 2026-11-18 (a7-revalidacion-on-demand)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:58:52.620Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:24:47.379Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:24:47.378Z",
+  "queued": false
 }

@@ -1,6 +1,6 @@
 {
   "title": "Docs: futuro de GEMINI.md",
-  "status": "decision",
+  "status": "hecho",
   "priority": "baja",
   "area": "producto",
   "summary": "GEMINI.md repite el stack, la estructura y la lista de skills del README y se ha quedado atrás: no menciona Prisma, RDS, Cognito, infra/ ni el Deathnote, y describe 12 skills cuando .claude/skills tiene 7 distintas. Con un solo documento de referencia se acaba esta deriva.",
@@ -27,5 +27,11 @@
   "source": "Plan de desarrollo 2026-11-18 (actualizar-docs-obsoletos)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.748Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:29:31.239Z",
+  "choice": {
+    "kind": "option",
+    "index": 2
+  },
+  "completedAt": "2026-11-19T06:29:31.238Z",
+  "queued": false
 }

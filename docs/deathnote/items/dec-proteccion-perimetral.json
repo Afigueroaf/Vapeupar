@@ -1,6 +1,6 @@
 {
   "title": "Seguridad: protección perimetral",
-  "status": "decision",
+  "status": "hecho",
   "priority": "baja",
   "area": "seguridad",
   "summary": "WAF no se puede conectar directamente a una EC2: necesita CloudFront delante. Y CloudFront no puede usar vapeupar.ddns.net porque ACM no puede validar ese nombre. Con WAF son unos 8–10 USD/mes (5 de la web ACL, 1 por cada grupo de reglas y 0,60 por millón de peticiones). Express ya limita los intentos de inicio de sesión.",
@@ -27,5 +27,11 @@
   "source": "Plan de desarrollo 2026-11-18 (f7-endurecimiento-perimetral)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.854Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:29:24.824Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:29:24.823Z",
+  "queued": false
 }

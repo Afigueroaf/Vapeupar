@@ -1,6 +1,6 @@
 {
   "title": "Tarjetas de información: métodos de pago y verificación QR",
-  "status": "decision",
+  "status": "pendiente",
   "priority": "media",
   "area": "diseño",
   "summary": "La tarjeta dice «Efectivo, Nequi y Daviplata» y la FAQ añade Bancolombia a la Mano. La tarjeta «Original» promete que todo es verificable con QR: si alguna marca no lo trae, es una promesa falsa en la portada.",
@@ -22,5 +22,10 @@
   "source": "Plan de desarrollo 2026-11-18 (redisenar-las-tarjetas-del-panel-de-informacion-)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.641Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:21:33.506Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "claudeNote": "Elegido el 2026-11-19: el dueño confirmará los métodos de pago reales y qué marcas traen QR verificable. Pásalos con: npm run deathnote -- prompt dec-metodos-de-pago-y-verificacion-qr \"…\". Hasta entonces queda pendiente."
 }

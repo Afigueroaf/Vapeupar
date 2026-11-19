@@ -1,6 +1,6 @@
 {
   "title": "Docs: incluir las skills en el barrido",
-  "status": "decision",
+  "status": "hecho",
   "priority": "media",
   "area": "producto",
   "summary": "Las skills guían a los agentes en cada tarea: database dice «Prisma o Supabase en fases posteriores» e infrastructure habla de Vercel/VPS/Render/Railway, cuando todo corre ya en RDS y EC2. Cambian la configuración de los agentes, así que conviene que lo autorices tú.",
@@ -27,5 +27,11 @@
   "source": "Plan de desarrollo 2026-11-18 (actualizar-docs-obsoletos)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.748Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:21:28.939Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:21:28.937Z",
+  "queued": false
 }

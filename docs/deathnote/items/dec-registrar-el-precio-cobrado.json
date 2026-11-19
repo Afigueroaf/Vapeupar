@@ -1,6 +1,6 @@
 {
   "title": "Ventas: registrar el precio cobrado",
-  "status": "decision",
+  "status": "hecho",
   "priority": "baja",
   "area": "producto",
   "summary": "Hoy el movimiento de venta solo guarda unidades, y el costo solo se guarda en los ingresos. Sin el precio de venta no hay informe de facturación ni de margen. Añadirlo es una migración pequeña (unitPrice en StockMovement o en las líneas de pedido).",
@@ -22,5 +22,11 @@
   "source": "Plan de desarrollo 2026-11-18 (registro-ventas)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:58:52.620Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:27:23.176Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:27:23.175Z",
+  "queued": false
 }

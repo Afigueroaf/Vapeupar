@@ -1,6 +1,6 @@
 {
   "title": "Correo: correo de invitaciones sin dominio propio",
-  "status": "decision",
+  "status": "hecho",
   "priority": "baja",
   "area": "seguridad",
   "summary": "SES solo envía bien con un dominio en el que puedas crear registros DNS, y eso no se puede con vapeupar.ddns.net. El correo de Cognito es gratis y llega a unos 50 correos al día, de sobra para invitar a pocos administradores, aunque sale de un remitente genérico. Un dominio cuesta unos 10–15 USD al año, más 0,50 USD/mes si la zona va en Route 53. SES cuesta 0,10 USD por cada 1.000 correos.",
@@ -27,5 +27,11 @@
   "source": "Plan de desarrollo 2026-11-18 (correo-ses-cognito)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.854Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:29:29.147Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:29:29.146Z",
+  "queued": false
 }

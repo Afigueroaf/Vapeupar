@@ -1,6 +1,6 @@
 {
   "title": "Plan de pago AWS: presupuesto y avisos de costo",
-  "status": "decision",
+  "status": "hecho",
   "priority": "media",
   "area": "infra",
   "summary": "Con el plan de pago, Vapeupar cuesta unos 27,5 USD/mes de verdad. Un presupuesto muy alto avisa tarde y uno muy bajo avisa por nada. Las alertas son gratis. Los avisos llegan solo al correo de VAPEUPAR_ALERT_EMAIL.",
@@ -22,5 +22,11 @@
   "source": "Plan de desarrollo 2026-11-18 (plan-pago-aws)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.854Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:27:16.762Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:27:16.761Z",
+  "queued": false
 }

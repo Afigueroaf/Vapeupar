@@ -1,6 +1,6 @@
 {
   "title": "Datos reales: precios de las líneas sin publicar",
-  "status": "decision",
+  "status": "hecho",
   "priority": "media",
   "area": "datos",
   "summary": "Una línea no se publica sin precio (PATCH devuelve 409 con lo que falta). El precio es por línea, no por variante, así que son 3 o 4 valores; el import de stock no los toca.",
@@ -22,5 +22,11 @@
   "source": "Plan de desarrollo 2026-11-18 (carga-datos-reales)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.748Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:21:31.371Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:21:31.370Z",
+  "queued": false
 }

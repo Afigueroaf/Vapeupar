@@ -1,6 +1,6 @@
 {
   "title": "Alarmas: enviar logs a CloudWatch",
-  "status": "decision",
+  "status": "hecho",
   "priority": "baja",
   "area": "infra",
   "summary": "En CloudWatch se pueden buscar sin entrar por SSM y sobreviven si la instancia se reemplaza. Cada GB ingerido cuesta 0,50 USD (los 5 primeros GB al mes son gratis, compartidos con DeliPan). Con el tráfico actual sería menos de 1 USD/mes, pero exige el agente de CloudWatch, que consume RAM en una máquina de 1 GB.",
@@ -22,5 +22,11 @@
   "source": "Plan de desarrollo 2026-11-18 (f6-vigilancia-alarmas)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.854Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:29:27.052Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:29:27.051Z",
+  "queued": false
 }

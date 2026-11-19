@@ -1,6 +1,6 @@
 {
   "title": "Revisión visual: alcance",
-  "status": "decision",
+  "status": "hecho",
   "priority": "media",
   "area": "diseño",
   "summary": "La consola tiene los formularios más largos del proyecto y la usan solo tú y tus operadores. Meterla duplica el trabajo; sacarla deja abiertos los «No verificado» de A5.",
@@ -22,5 +22,11 @@
   "source": "Plan de desarrollo 2026-11-18 (revision-visual-breakpoints)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.641Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:24:51.582Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:24:51.581Z",
+  "queued": false
 }

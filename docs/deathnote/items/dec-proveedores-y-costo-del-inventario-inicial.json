@@ -1,6 +1,6 @@
 {
   "title": "Datos reales: proveedores y costo del inventario inicial",
-  "status": "decision",
+  "status": "hecho",
   "priority": "media",
   "area": "datos",
   "summary": "Proveedor y costo solo se pueden guardar en los ingresos (inbound). Si no entran ahora, el inventario inicial queda sin costo para siempre, porque el libro no se edita. Hoy la base tiene 0 proveedores (dato del 2026-10-27).",
@@ -27,5 +27,11 @@
   "source": "Plan de desarrollo 2026-11-18 (carga-datos-reales)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.748Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:24:45.336Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:24:45.335Z",
+  "queued": false
 }

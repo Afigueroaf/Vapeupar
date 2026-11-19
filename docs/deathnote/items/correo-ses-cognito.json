@@ -18,7 +18,7 @@
   "evidence": "infra/lib/auth-stack.ts sigue con el correo de Cognito",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z",
+  "updatedAt": "2026-11-19T06:31:42.468Z",
   "plan": [
     "Hoy el item está bloqueado sin fecha: dominio-definitivo se cerró eligiendo seguir con No-IP (D2, 2026-11-16) y SES necesita un dominio con DNS propio. Con vapeupar.ddns.net no se pueden crear los CNAME de DKIM ni el TXT de DMARC.",
     "Mientras no haya dominio, documenta en docs/infrastructure-aws.md §8.1 punto 4 los límites del correo de Cognito: unos 50 correos al día, remitente no-reply@verificationemail.com y riesgo de que caiga en spam. Las invitaciones salen del backend con AdminCreateUser (npm run admin:invite).",
@@ -40,5 +40,5 @@
     "Si un día se cambia a SES sin salir del sandbox, Cognito deja de entregar a direcciones no verificadas y nadie nuevo puede entrar a /admin.",
     "Hay que vigilar que el diff no reemplace el User Pool: perdería los usuarios y las MFA. El pool tiene RETAIN y protección de borrado."
   ],
-  "claudeNote": "Plan 2026-11-18: El blockedBy apunta a dominio-definitivo, que está «hecho», pero se cerró con No-IP indefinido. El bloqueo en la práctica no tiene fecha. `npm run build --workspace=infra` no existe: el script es `typecheck`."
+  "claudeNote": "Plan 2026-11-18: El blockedBy apunta a dominio-definitivo, que está «hecho», pero se cerró con No-IP indefinido. El bloqueo en la práctica no tiene fecha. `npm run build --workspace=infra` no existe: el script es `typecheck`.\n\n2026-11-19: el dueño decidió seguir con el correo integrado de Cognito. Item aparcado hasta que haya dominio propio."
 }

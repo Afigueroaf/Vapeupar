@@ -1,6 +1,6 @@
 {
   "title": "Rendimiento: glitch cuantizado a pasos de 3 px",
-  "status": "decision",
+  "status": "hecho",
   "priority": "media",
   "area": "rendimiento",
   "summary": "Cuantizar baja de ~25 a ~6 los repintados del filtro por ráfaga, el candidato principal de los 52 fps en scroll. El desgarro de los lienzos 3D lee la misma señal (--glitch-shift): si se cuantiza también, todo glitchea igual; si no, el 3D sigue suave.",
@@ -27,5 +27,11 @@
   "source": "Plan de desarrollo 2026-11-18 (perf-guardas)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.641Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:21:26.303Z",
+  "choice": {
+    "kind": "option",
+    "index": 1
+  },
+  "completedAt": "2026-11-19T06:21:26.301Z",
+  "queued": false
 }
