@@ -11,11 +11,35 @@
     }
   ],
   "blockedBy": [
-    "f4-tls-no-ip"
+    "dec-como-rotar-la-contrasena-maestra-de-rds",
+    "dec-proteccion-perimetral"
   ],
   "source": "docs/aws-full-deployment-plan.md (F7) + docs/infrastructure-aws.md (§8.3)",
   "evidence": "Nada de esto existe en infra/lib/",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-16T21:41:14.151Z"
+  "updatedAt": "2026-11-19T03:09:42.867Z",
+  "plan": [
+    "Rotación del secreto maestro: infra/deploy/migrate.mjs lee el secreto en cada ejecución (get-secret-value con DB_SECRET_ARN, línea 85) y el backend usa solo rds-app (write-env.mjs). Por eso rotar el maestro solo afecta a las migraciones y a infra/scripts/write-backend-env.mjs.",
+    "Pasa la base a contraseña gestionada por RDS en infra/lib/data-stack.ts, salvo que elijas otra opción. Con escape hatch sobre CfnDBInstance: manageMasterUserPassword true y quitar MasterUserPassword. DB_SECRET_ARN pasa a apuntar a attrMasterUserSecretSecretArn. Rota sola, sin Lambda y sin endpoint de VPC. En infra/lib/app-stack.ts, cambia el permiso de secretsmanager:GetSecretValue del maestro al ARN nuevo (por parámetro SSM o prop, nunca un comodín rds!db-* que alcanzaría a DeliPan).",
+    "Ejecuta `npm run typecheck --workspace=infra` y `npm run infra:diff`. Exige que la instancia de RDS sea una actualización sin reemplazo. Haz snapshot manual antes y despliega Data en solitario. Luego despliega App y comprueba que una release con migraciones pasa. Al final borra el secreto viejo vapeupar/dev/rds-master, o deja que lo retire CloudFormation.",
+    "Perímetro sin dominio (lo que se puede hoy): en infra/deploy/nginx/nginx.conf, limit_req_zone por $binary_remote_addr; y en vapeupar-site.inc, una location /api/admin/auth/ con limit_req (p. ej. 10r/m, burst 5) delante del rate limit de Express (backend/src/app.ts). Así protege la instancia de 1 GB antes de que la petición llegue a Node. Añade también limit_conn modesto en el server.",
+    "CloudFront y WAF delante de la aplicación quedan para cuando haya dominio propio, salvo que elijas lo contrario. ACM no puede validar vapeupar.ddns.net (no hay CNAME ni correo de validación), y WAF no se puede poner directamente en una EC2. Si se hace: TRUST_PROXY=2 en infra/deploy/systemd/vapeupar-backend.service, $proxy_add_x_forwarded_for en site.inc, el grupo de seguridad limitado a la prefix list com.amazonaws.global.cloudfront.origin-facing y la consola /admin sin caché.",
+    "Documenta en docs/infrastructure-aws.md §8.3 (rotación hecha, perímetro) y en F7 de docs/aws-full-deployment-plan.md. Multi-AZ y el ALB quedan fuera de este item.",
+    "Verificación: npm run typecheck --workspace=infra · VAPEUPAR_ALERT_EMAIL=... npm run infra:diff · aws secretsmanager describe-secret --secret-id <DB_SECRET_ARN> --query '[RotationEnabled,LastRotatedDate,NextRotationDate]' · aws rds describe-db-instances --db-instance-identifier vapeupar-dev-db --query 'DBInstances[0].[Endpoint.Address,MasterUserSecret]' · for i in $(seq 1 15); do curl -s -o /dev/null -w '%{http_code}\\n' -X POST https://vapeupar.ddns.net/api/admin/auth/login; done"
+  ],
+  "acceptance": [
+    "`aws secretsmanager describe-secret --secret-id <DB_SECRET_ARN>` muestra RotationEnabled true y una rotación reciente.",
+    "`aws rds describe-db-instances --db-instance-identifier vapeupar-dev-db --query 'DBInstances[0].[Endpoint.Address,MasterUserSecret.SecretArn]'` devuelve el mismo endpoint de antes y el ARN gestionado.",
+    "Una release con deploy-produccion ejecuta migrate.mjs sin errores después de una rotación.",
+    "Con 15 POST seguidos a /api/admin/auth/login desde una IP, del 7.º en adelante reciben 429 de nginx sin llegar al backend, y la tienda sigue respondiendo 200.",
+    "El diff de Data no muestra reemplazo de la instancia."
+  ],
+  "risks": [
+    "Pasar a la contraseña gestionada por RDS cambia el secreto. Si el permiso del rol o el parámetro DB_SECRET_ARN no se actualizan a la vez, la siguiente release falla en migrate.mjs (y activate.sh no activa nada).",
+    "Un limit_req demasiado estricto puede bloquear a varios administradores detrás de la misma IP (misma oficina o red móvil con CGNAT).",
+    "Con CloudFront delante, si TRUST_PROXY y X-Forwarded-For no se cambian a la vez, express-rate-limit trata a todos como una sola IP o se puede saltar con una IP falsa (ver comentario en vapeupar-site.inc).",
+    "La rotación cada 7 días de RDS invalida la contraseña del túnel local que tengas abierta: hay que volver a leer el secreto."
+  ],
+  "claudeNote": "Plan 2026-11-18: blockedBy f4-tls-no-ip ya no bloquea la rotación ni el rate limit (el TLS está en producción). CloudFront delante de la app, en cambio, depende de un dominio propio, que D2 descartó por ahora. `npm run build --workspace=infra` no existe: el script es `typecheck`. La sugerencia de la Lambda de rotación no menciona que, sin NAT, necesita un endpoint de VPC de pago.\n\nSolo la parte de CloudFront + WAF depende de dominio-definitivo; la rotación y el límite en nginx no tienen bloqueos."
 }

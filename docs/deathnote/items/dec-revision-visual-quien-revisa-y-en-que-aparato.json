@@ -1,0 +1,26 @@
+{
+  "title": "Revisión visual: quién revisa y en qué aparato",
+  "status": "decision",
+  "priority": "alta",
+  "area": "diseño",
+  "summary": "La emulación ve la maquetación y el foco, pero no la barra dinámica de Chrome en Android (que cambia --vp-screen), el tacto real ni el escenario 3D en el teléfono. Si pruebas tú en el Moto G15, tarda más pero cierra esos huecos.",
+  "question": "¿Basta con que Claude revise en Chrome con el viewport emulado, o quieres además una pasada tuya en el Moto G15 real?",
+  "options": [
+    {
+      "label": "Claude en Chrome y tú 10 min en el Moto G15",
+      "detail": "Claude hace la pasada completa y tú confirmas solo portada, modal +18 y carrito en el teléfono real.",
+      "prompt": "Lee docs/design-execution-plan.md (Pendientes abiertos, estado actual) y docs/design-reset-inventory.md §9 y §11. Compila y arranca en local el build de producción (npm run build; npm start --workspace=backend y npm start --workspace=frontend) y con Claude in Chrome revisa a 375×667, 768×1024 y 1440×900: portada (hero, VITRINA/INFO de trust-stage.tsx en vertical y horizontal, catálogo, FAQ, footer), modal +18, /producto/[slug] con carrito, /coleccion/[categoria], /nosotros. Recorre cada una con Tab y Shift+Tab (foco visible, orden lógico, Escape) y mide los objetivos táctiles de 44 px y el contraste AA. Entrega la lista priorizada con capturas, corrige solo lo trivial sin añadir filtros sobre los lienzos 3D y prepárame 5 comprobaciones para el Moto G15 (alto del escenario con la barra de Chrome visible y oculta, modal +18, carrito, tiradores INFO/VOLVER, scroll). Ejecuta npm run lint --workspace=frontend y npm run build. El alcance (tienda, o tienda y consola) es el decidido en dec-revision-visual-alcance; en /admin no envíes ningún formulario: el backend local apunta a la base de producción.",
+      "recommended": true
+    },
+    {
+      "label": "Solo Claude en Chrome",
+      "detail": "Más rápido, pero la barra dinámica de Android y el tacto real quedan sin comprobar.",
+      "prompt": "Lee docs/design-execution-plan.md (Pendientes abiertos, estado actual) y docs/design-reset-inventory.md §9 y §11. Compila y arranca en local el build de producción (npm run build; npm start --workspace=backend y npm start --workspace=frontend) y con Claude in Chrome revisa a 375×667, 768×1024 y 1440×900 todas las rutas públicas, recorriéndolas con Tab. Comprueba contraste AA, objetivos táctiles de 44 px y que no se recorta nada a 375×667. Entrega la lista priorizada con capturas y corrige solo lo trivial, sin filtros nuevos sobre el lienzo 3D. Ejecuta npm run lint --workspace=frontend y npm run build y cierra la fila #1 del plan. El alcance (tienda, o tienda y consola) es el decidido en dec-revision-visual-alcance; en /admin no envíes ningún formulario: el backend local apunta a la base de producción."
+    }
+  ],
+  "parent": "revision-visual-breakpoints",
+  "source": "Plan de desarrollo 2026-11-18 (revision-visual-breakpoints)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.641Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}

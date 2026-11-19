@@ -16,6 +16,10 @@ Lee y modifica los items **con el CLI** siempre que haya un comando para ello (`
 ## Modelo de un item
 `title`, `status` (`decision` · `en_curso` · `pendiente` · `hecho`), `priority` (alta|media|baja), `area` (frontend|backend|datos|infra|seguridad|diseño|admin|rendimiento|producto), `summary`, `question` + `options[] {label, detail, prompt, recommended?}` en decisiones, `suggestions[] {label, detail?, prompt}`, `choice {kind: "option"|"suggestion", index}`, `userPrompt` (se suma al prompt elegido como "Indicaciones adicionales"), `queued` + `queuedAt`, `claudeNote`, `blockedBy[]`, `source`, `evidence`, `origin` (`docs`|`usuario`), `createdAt`, `updatedAt`, `completedAt`.
 
+Plan de desarrollo (opcional, lo muestra `ver`): `plan[]` (pasos, el último «Verificación: …»), `acceptance[]` (se da por hecho cuando), `risks[]`.
+
+**Varias decisiones por pendiente**: un item solo tiene una `question`. Cuando un pendiente necesita más de una decisión del dueño, cada una es un item propio `dec-<slug>` (`status: decision`, `parent: <id del pendiente>`, título con prefijo del tema, p. ej. «Alarmas: a quién avisar») y el pendiente la lista en `blockedBy`. Al resolverla: `elegir`, pasar el `dec-*` a `hecho` y aplicar su prompt al plan del padre cuando se ejecute. `/deathnote decidir` las recorre como cualquier otra decisión.
+
 Hito: `{id: "hAAAAMMDD-n", date: "AAAA-MM-DD", title, detail, ref: "PR #12 · abc1234"}`. Uno por PR fusionado o grupo de commits con sentido.
 
 ## /deathnote (sin argumentos)

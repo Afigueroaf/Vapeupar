@@ -1,0 +1,26 @@
+{
+  "title": "Rendimiento: quién mide en el Moto G15",
+  "status": "decision",
+  "priority": "alta",
+  "area": "rendimiento",
+  "summary": "Sin medir en el teléfono el item no se cierra. Claude solo puede medir si el teléfono está conectado por USB con depuración activa y Chrome abierto en chrome://inspect; si no, mides tú con el guion.",
+  "question": "¿Quién hace la medición de rendimiento en el teléfono: tú con un guion paso a paso, o Claude con el Moto G15 conectado por USB a tu PC?",
+  "options": [
+    {
+      "label": "Claude mide con el teléfono por USB",
+      "detail": "Tú conectas el Moto G15 y dejas la pantalla encendida; Claude ejecuta el A/B y escribe la tabla.",
+      "prompt": "Lee docs/performance-optimization-plan.md («AVISO DE MÉTODO» y «Fase 2 — lo que faltaba»). En una rama de medición añade instrumentación temporal: console.log en onSlow de FrameBudget (vaporizer/canvas.tsx) y un interruptor ?b=0 que desactive MAX_DRAW_PIXELS_COARSE (vaporizer-point-cloud.tsx) y el espaciado de PICK_IDLE_INTERVAL (prism/scene.ts). Con el Moto G15 por USB (adb + CDP, como en la fase 0) mide en caliente, calentamiento descartado y luego A,B,A,B de 12 s: prisma con el dedo quieto y scroll completo (FPS, p95, >33 ms). Registra si salta FrameBudget en 5 cargas en frío y 5 en caliente y saca capturas de la nube con y sin el tope. Escribe la tabla en el plan, propón ajustes y quita la instrumentación. npm run lint --workspace=frontend y npm run build.",
+      "recommended": true
+    },
+    {
+      "label": "Mides tú con un guion",
+      "detail": "Claude prepara la rama con el interruptor y un guion de 15 minutos; tú le pasas los números.",
+      "prompt": "Prepara una rama de medición con console.log en onSlow (vaporizer/canvas.tsx) y un interruptor ?b=0 para el tope de 1,4 M y el raycast espaciado. Escríbeme un guion paso a paso para medir en el Moto G15 (añade en la rama de medición un contador de FPS en pantalla activable con ?fps=1), siguiendo el «AVISO DE MÉTODO» (calentamiento y A,B,A,B). Cuando te pase los números, regístralos en docs/performance-optimization-plan.md y quita la instrumentación. Lint y build."
+    }
+  ],
+  "parent": "perf-webgl-presupuesto",
+  "source": "Plan de desarrollo 2026-11-18 (perf-webgl-presupuesto)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.641Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}

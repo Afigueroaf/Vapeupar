@@ -1,0 +1,26 @@
+{
+  "title": "Rendimiento: objetivo de rendimiento en el Moto G15",
+  "status": "decision",
+  "priority": "baja",
+  "area": "rendimiento",
+  "summary": "Sin un número, el presupuesto es una lista de buenas intenciones; con él, cualquier efecto nuevo que lo rompa necesita tu permiso. Hoy el scroll está en ~52–57 fps según la tanda.",
+  "question": "¿Fijamos una cifra mínima de fluidez en tu Moto G15 que ningún efecto nuevo pueda empeorar sin tu permiso?",
+  "options": [
+    {
+      "label": "≥55 fps y p95 ≤17 ms en scroll",
+      "detail": "Lo que se consigue en las mejores tandas (hoy 52–57 fps): obliga a medir cada efecto nuevo.",
+      "prompt": "Añade a docs/frontend.md, en «Presupuesto de rendimiento», el objetivo: Moto G15 en caliente, scroll de la portada a ≥55 fps de media, p95 ≤17 ms y menos de 10 fotogramas >33 ms en 12 s, medido con el protocolo de «AVISO DE MÉTODO». Cualquier efecto nuevo en la portada se mide contra él.",
+      "recommended": true
+    },
+    {
+      "label": "Sin cifra, solo reglas",
+      "detail": "Reglas cualitativas sin objetivo numérico.",
+      "prompt": "Añade a docs/frontend.md un presupuesto solo con reglas (sin filtros SVG fuera de ráfaga, sin filtros sobre lienzos 3D, three.js fuera del chunk inicial, 3D de tarjeta solo en la activa), sin objetivo de FPS."
+    }
+  ],
+  "parent": "perf-guardas",
+  "source": "Plan de desarrollo 2026-11-18 (perf-guardas)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.641Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}

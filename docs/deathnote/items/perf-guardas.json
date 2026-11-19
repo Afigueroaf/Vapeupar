@@ -14,5 +14,33 @@
   "evidence": "docs/frontend.md no tiene presupuesto de rendimiento; no hay bundle analyzer",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-16T21:41:14.151Z"
+  "updatedAt": "2026-11-19T03:09:42.867Z",
+  "plan": [
+    "Añade a docs/frontend.md una sección «Presupuesto de rendimiento» con lo que es cierto hoy: cero filtros SVG fuera de ráfaga, ningún filter ni backdrop-filter sobre los lienzos WebGL, 3D y lámina solo en la tarjeta activa, MAX_DRAW_PIXELS 2,6 M en escritorio y 1,4 M en táctil, three.js fuera del chunk inicial, y el objetivo en el Moto G15 en caliente. «Un bucle WebGL a la vez» solo si se aprueba.",
+    "Análisis de bundle: Next 16 compila con Turbopack y @next/bundle-analyzer solo ve builds de webpack. Usa el analizador de Turbopack si la 16.4.6 lo trae, o compila con --webpack solo para el análisis. Si hay que instalar algo, desde la raíz con -w frontend.",
+    "Guarda permanente sin herramienta: un script en scripts/ que, tras npm run build, busque la firma de three.js (p. ej. «WebGLRenderer») en los chunks iniciales de la portada y falle si aparece.",
+    "Cuantiza el desplazamiento del glitch en frontend/src/components/page-glitch.tsx (función apply), no en lib/glitch.ts: p. ej. shift = Math.round(raw / 3) * 3, según la decisión sobre --glitch-shift.",
+    "Revisa los márgenes de región de los filtros (.vp-glitch-chip en globals.css) y corrige el comentario obsoleto sobre las .vp-card de la banda.",
+    "Repite el protocolo de la fase 0 en caliente con A/B (dx continuo contra cuantizado, ráfagas y scroll) y registra los números en la fase 5 de docs/performance-optimization-plan.md.",
+    "Verificación: npm run build y el script de chequeo de chunks · Contador temporal de escrituras por ráfaga en page-glitch.tsx · chrome://inspect en el Moto G15: A,B,A,B de scroll con ráfagas · npm run lint --workspace=frontend && npm run build"
+  ],
+  "acceptance": [
+    "docs/frontend.md tiene una sección de presupuesto con cifras y reglas que el código cumple hoy.",
+    "Un comando reproducible demuestra que three.js no está en el chunk inicial de la portada.",
+    "Con el glitch cuantizado, los cambios de dx por ráfaga bajan de ~25 a ≤8.",
+    "A/B en caliente en el Moto G15 sin regresión de FPS ni p95 en scroll, y aspecto del glitch aprobado por ti.",
+    "Si se añade una dependencia, package-lock.json actualizado desde la raíz y sin node_modules nuevo en frontend/."
+  ],
+  "risks": [
+    "@next/bundle-analyzer no ve los builds de Turbopack: instalarlo daría un informe vacío o exigiría compilar con webpack, que no es lo que se despliega.",
+    "Cuantizar --glitch-shift cambia también el desgarro de la nube y del prisma.",
+    "Documentar «un bucle WebGL a la vez» sería falso hoy.",
+    "Instalar dependencias dentro de frontend/ rompe el lockfile del monorepo."
+  ],
+  "blockedBy": [
+    "perf-webgl-presupuesto",
+    "dec-glitch-cuantizado-a-pasos-de-3-px",
+    "dec-objetivo-de-rendimiento-en-el-moto-g15"
+  ],
+  "claudeNote": "Plan 2026-11-18: El prompt antiguo dice cuantizar en lib/glitch.ts, pero el redondeo está en page-glitch.tsx (apply). Pide @next/bundle-analyzer sin contar con Turbopack. El comentario de globals.css sobre las .vp-card de la banda está desfasado."
 }

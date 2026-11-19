@@ -7,7 +7,7 @@
   "origin": "usuario",
   "source": "Añadido desde la terminal",
   "createdAt": "2026-11-17T22:01:47.577Z",
-  "updatedAt": "2026-11-17T22:02:06.760Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z",
   "suggestions": [
     {
       "label": "Más información por tarjeta (recomendado)",
@@ -24,5 +24,40 @@
       "detail": "Compactas en móvil; al tocar se despliegan con el detalle completo. En escritorio, abiertas.",
       "prompt": "Lee frontend/src/components/trust-band.tsx (ITEMS y el render de las tarjetas), frontend/src/components/trust-stage.tsx (panel INFO y su alto), ui/surface.tsx, ui/card-field.tsx, .vp-card y .vp-glitch-card en globals.css, ui/icons.tsx (iconos pixel 16×16) y docs/design-reset-inventory.md (§3, §4.6, §11 reglas de CTA). Haz que cada tarjeta muestre en móvil solo icono, etiqueta y título, y que al tocarla se despliegue (botón con aria-expanded, una abierta a la vez) con 3–4 líneas de detalle y un enlace; en lg y más ancho, todas abiertas. Así cabe más información sin pasarse del alto del escenario. Propón el copy de los detalles antes de escribirlo. Criterios: las tres tarjetas siguen cabiendo apiladas en el escenario a 375×667 en vertical sin recortarse (o el escenario crece sin romper la igualación de app/page.tsx), contraste AA, objetivos táctiles de 44 px, sin nuevos filtros sobre el lienzo 3D (ver comentarios de rendimiento en trust-band.tsx) y un solo CTA primario por vista. Ejecuta npm run lint --workspace=frontend y npm run build y documenta el cambio en docs/frontend.md."
     }
-  ]
+  ],
+  "plan": [
+    "Amplía el esquema de contenido en los dos lados a la vez (backend/src/schemas/content/trust-band.ts y frontend/src/lib/content/schemas.ts): por ejemplo icon (enum de 3), highlight (≤24), points (1–3 de ≤60) y link opcional. Se mantienen exactamente 3 items, y los campos nuevos llevan valor por defecto para que el contenido ya publicado siga validando.",
+    "Ejecuta npm run test:backend para que content-parity.test.ts confirme que esquemas y valores por defecto coinciden; actualiza los fixtures de trust-band en content.service.test.ts.",
+    "Añade a frontend/src/components/ui/icons.tsx tres iconos pixel de 16×16 (moto/entrega, sello/QR, billete) con la misma rejilla que los existentes.",
+    "Rehaz el render de trust-band.tsx según la opción elegida, conservando Surface .vp-card vp-glitch-card y CardField. Un enlace a WhatsApp se construye con waLink() y se omite si devuelve null; siempre como secundario.",
+    "Si la opción es desplegable: botón con aria-expanded y aria-controls, una abierta a la vez y todas abiertas en lg y en horizontal; la tarjeta pasa a componente de cliente y trust-band.tsx sigue siendo Server Component.",
+    "Ajusta trust-stage.tsx (CardField) solo si hace falta para caber a 375×667; si el escenario crece, comprueba la rejilla de app/page.tsx.",
+    "Corrige el comentario obsoleto de globals.css que dice que las .vp-card de la banda no llevan filtro, y documenta el esquema nuevo en docs/frontend.md y docs/backend.md.",
+    "Capturas a 375×667, 768 y 1440 con el panel INFO abierto.",
+    "Verificación: npm run test:backend · npm run lint --workspace=frontend && npm run build · Claude in Chrome a 375×667, 768×1024 y 1440×900 con INFO abierto · Contraste de text-muted sobre .vp-card"
+  ],
+  "acceptance": [
+    "Los dos esquemas de trust-band son idénticos y content-parity.test.ts pasa.",
+    "Un trust-band publicado con el formato antiguo sigue pintándose (valida o cae al valor por defecto) sin romper la portada.",
+    "A 375×667 en vertical las tres tarjetas caben sin recortarse.",
+    "Contraste AA del texto muted sobre .vp-card y objetivos de al menos 44×44 px.",
+    "Sin filter, backdrop-filter ni mix-blend-mode nuevos sobre la sección del prisma.",
+    "Sin número de WhatsApp configurado el enlace no aparece y no deja hueco.",
+    "Lint, tests del backend y build en verde."
+  ],
+  "risks": [
+    "Si cambia el esquema y en la base hay un trust-band publicado con el formato antiguo, el frontend lo rechaza y vuelve a los textos por defecto sin avisar: hay que aceptar el formato antiguo o migrar el valor.",
+    "A5.4 genera sus formularios desde estos esquemas: más campos significan un formulario más largo con arrays anidados.",
+    "El alto a 375×667 es el límite: con más texto el escenario crece y la rejilla de app/page.tsx deja de igualar vitrina e intro.",
+    "Una retícula o textura puede bajar el contraste del texto muted por debajo de AA.",
+    "La opción desplegable añade JS de cliente a la portada."
+  ],
+  "blockedBy": [
+    "a7-contenido-editable",
+    "dec-tarjetas-de-informacion-direccion-del-rediseno",
+    "dec-datos-reales-de-entrega-zonas-tiempos-y-horario",
+    "dec-metodos-de-pago-y-verificacion-qr",
+    "dec-tarjetas-de-informacion-enlace-de-cada-tarjeta"
+  ],
+  "claudeNote": "Plan 2026-11-18: Las opciones antiguas piden «mover los textos a una estructura tipada para A7»: ya está hecho (trust-band.tsx lee getContent('trust-band')); ahora toca AMPLIAR el esquema en los dos lados. El summary habla de ITEMS, constante que ya no existe. Las decisiones están en los items dec-* enlazados en «bloqueado por»."
 }

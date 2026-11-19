@@ -1,0 +1,31 @@
+{
+  "title": "Tarjetas de información: dirección del rediseño",
+  "status": "decision",
+  "priority": "alta",
+  "area": "diseño",
+  "summary": "Más información obliga a ampliar el esquema de contenido en los dos lados y a escribir copy real. Profundidad visual no toca el esquema ni el copy. Desplegables permiten más texto en móvil a cambio de un toque extra y de JS de cliente.",
+  "question": "¿Qué quieres que ganen las tarjetas del panel de información: más información, más profundidad visual o formato desplegable?",
+  "options": [
+    {
+      "label": "Más información y algo de profundidad",
+      "detail": "Icono pixel, dato destacado, 2–3 líneas concretas y un enlace secundario, con sombra offset y acento por tarjeta. Amplía el esquema.",
+      "prompt": "Lee frontend/src/components/trust-band.tsx, trust-stage.tsx (panel INFO y CardField), ui/surface.tsx (offset), ui/card-field.tsx, ui/icons.tsx, .vp-card y .vp-glitch-card en globals.css, lib/contact.ts (waLink), backend/src/schemas/content/trust-band.ts, frontend/src/lib/content/schemas.ts, content-parity.test.ts y docs/design-reset-inventory.md (§3, §4.6, §11). Amplía TrustBandItemSchema en los dos lados con icon (enum de 3), highlight (≤24), points (1–3 de ≤60) y, solo si dec-tarjetas-de-informacion-enlace-de-cada-tarjeta lo pide, link opcional {label ≤24, href}, manteniendo exactamente 3 items y aceptando el formato antiguo. Añade 3 iconos pixel de 16×16. Pinta cada tarjeta con icono, etiqueta pixel, dato grande, puntos y enlace secundario según esa decisión (WhatsApp oculto si waLink es null), con Surface offset y un acento por tarjeta de la paleta VP. Usa el copy que te he confirmado; no inventes zonas, tiempos ni métodos de pago. Criterios: caben apiladas a 375×667 en vertical, contraste AA, objetivos de 44 px, sin filtros nuevos sobre el lienzo 3D y un solo CTA primario por vista. Ejecuta npm run test:backend, npm run lint --workspace=frontend y npm run build y documenta en docs/frontend.md y docs/backend.md.",
+      "recommended": true
+    },
+    {
+      "label": "Solo profundidad visual",
+      "detail": "Sombra offset, acento por tarjeta y retícula pixel en CSS; mismo texto y mismo esquema.",
+      "prompt": "Lee trust-band.tsx, trust-stage.tsx, ui/surface.tsx (offset), ui/card-field.tsx, .vp-card y .vp-glitch-card en globals.css y docs/design-reset-inventory.md (§3, §11). Sin tocar el esquema ni el texto, usa Surface offset, un acento por tarjeta (lima, violeta, outline), una retícula pixel sutil en CSS y un campo de luz de card-field más visible al pasar el puntero, respetando prefers-reduced-motion. Criterios: 375×667 sin recortes, contraste AA medido sobre la retícula, 44 px, sin filtros nuevos sobre el lienzo 3D. Corrige el comentario obsoleto de globals.css sobre las .vp-card. Lint, build y docs/frontend.md."
+    },
+    {
+      "label": "Desplegables con más información",
+      "detail": "Compactas en móvil y una abierta a la vez con puntos y enlace; abiertas en lg y en horizontal.",
+      "prompt": "Lee los mismos archivos que en la opción recomendada y amplía el esquema igual (el enlace, según dec-tarjetas-de-informacion-enlace-de-cada-tarjeta) (compatible con el formato antiguo). Crea un componente de cliente para la tarjeta con botón aria-expanded y aria-controls, una abierta a la vez y la primera abierta por defecto; en lg y en horizontal todas abiertas y sin botón. trust-band.tsx sigue siendo Server Component. La apertura se anima con grid-template-rows, sin filtros, e instantánea con prefers-reduced-motion. Criterios: 375×667 sin recortes con la más larga abierta, botón de al menos 44 px, contraste AA y un solo CTA primario. Tests, lint, build y docs."
+    }
+  ],
+  "parent": "redisenar-las-tarjetas-del-panel-de-informacion-",
+  "source": "Plan de desarrollo 2026-11-18 (redisenar-las-tarjetas-del-panel-de-informacion-)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.641Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}

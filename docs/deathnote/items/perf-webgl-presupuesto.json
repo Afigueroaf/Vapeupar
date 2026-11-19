@@ -3,17 +3,37 @@
   "status": "en_curso",
   "priority": "media",
   "area": "rendimiento",
-  "summary": "Ya hay prisma sin MSAA en táctil, nube sin GPGPU en reposo y frameloop pausado fuera de pantalla; faltan menos partículas, DPR adaptativo, tope MAX_DRAW_PIXELS móvil y pickPanel solo con pointermove.",
-  "suggestions": [
-    {
-      "label": "Completar fase 2 con A/B en caliente",
-      "prompt": "Lee docs/performance-optimization-plan.md (Fase 2 y «AVISO DE MÉTODO: el teléfono frío miente»). Implementa los puntos pendientes de la fase 2 en frontend/src/components/vaporizer-point-cloud.tsx, frontend/src/components/vaporizer/ y frontend/src/components/prism/: tope MAX_DRAW_PIXELS de ~1,4 M en pointer: coarse, pickPanel solo tras un pointermove y degradación de DPR de un solo escalón si el fotograma medio supera ~22 ms en los primeros 2 s. No cambies el número de partículas sin consultarme. Ejecuta npm run lint --workspace=frontend y npm run build, y añade una sección con los cambios al plan indicando qué falta medir en el teléfono."
-    }
-  ],
+  "summary": "El código de la fase 2 está en producción desde el PR #18: tope de 1,4 M píxeles en táctil, degradación de DPR de un escalón y raycast del prisma solo tras pointermove. Falta medir en el Moto G15 en caliente con A/B y decidir el punto 1 (un solo bucle WebGL).",
+  "suggestions": [],
   "source": "docs/performance-optimization-plan.md (Fase 2 — WebGL con presupuesto)",
   "evidence": "PR #18 · 00e31b1",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T22:29:26.653Z",
-  "claudeNote": "Rama perf/webgl-presupuesto, fusionada en main con el PR #18 (00e31b1) el 2026-11-17; en producción desde el 2026-11-17 (release 00e31b1). Tope de 1,4 M píxeles en pointer: coarse; degradación adaptativa de un escalón (×0,75) si los 2 s tras el calentamiento superan 22 ms de media; raycast del prisma solo tras pointermove, y cada 0,1 s con el puntero quieto (el prisma sigue girando debajo). Partículas sin tocar. Lint y build OK. Falta: medir en el Moto G15 en caliente con A/B (lista en el plan)."
+  "updatedAt": "2026-11-19T03:09:42.867Z",
+  "claudeNote": "Rama perf/webgl-presupuesto, fusionada en main con el PR #18 (00e31b1) el 2026-11-17; en producción desde el 2026-11-17 (release 00e31b1). Tope de 1,4 M píxeles en pointer: coarse; degradación adaptativa de un escalón (×0,75) si los 2 s tras el calentamiento superan 22 ms de media; raycast del prisma solo tras pointermove, y cada 0,1 s con el puntero quieto (el prisma sigue girando debajo). Partículas sin tocar. Lint y build OK. Falta: medir en el Moto G15 en caliente con A/B (lista en el plan).\n\nPlan 2026-11-18: El summary sigue listando como pendientes el tope MAX_DRAW_PIXELS móvil, el DPR adaptativo y pickPanel solo con pointermove: están en main desde el PR #18, y las partículas ya bajaron. La sugerencia «Completar fase 2» ya está ejecutada; solo falta medir en el teléfono.",
+  "plan": [
+    "Prepara la medición: build de producción accesible desde el Moto G15 por la red local (o la release 00e31b1 en producción), con la release anterior al PR #18 como línea base. Inspección por chrome://inspect sobre USB.",
+    "Instrumentación temporal en una rama aparte: console.log en onSlow de FrameBudget (frontend/src/components/vaporizer/canvas.tsx) y un interruptor ?b=0 que desactive MAX_DRAW_PIXELS_COARSE (vaporizer-point-cloud.tsx) y el espaciado de PICK_IDLE_INTERVAL (prism/scene.ts).",
+    "Medición 1, nitidez con el tope de 1,4 M: capturas de la nube con A y B en el mismo teléfono. Si la diferencia es visible, abre entonces la decisión «nitidez contra fluidez» (aceptar algo de blandura con 1,4 M o subir el tope a ~2 M) con las capturas enlazadas.",
+    "Medición 2, FrameBudget: 5 cargas en frío y 5 en caliente, anotando si salta onSlow; si salta en caliente, proponer ajustar SLOW_FRAME_SECONDS o el calentamiento.",
+    "Medición 3, raycast espaciado: calentamiento descartado y A,B,A,B de 12 s con el dedo quieto sobre el prisma y con scroll (FPS, p95, >33 ms), según «AVISO DE MÉTODO» de docs/performance-optimization-plan.md.",
+    "Registra la tabla en docs/performance-optimization-plan.md, decide ajustes y quita la instrumentación antes de fusionar.",
+    "Si se aprueba «un solo bucle WebGL a la vez» (punto 1 de la fase 2), ábrelo como item aparte.",
+    "Verificación: npm run build && npm start --workspace=backend (y en otra terminal npm start --workspace=frontend) con el Moto G15 en la misma red · chrome://inspect > Performance, 12 s por escenario · Logs de onSlow en 5 cargas en frío y 5 en caliente · npm run lint --workspace=frontend && npm run build tras quitar la instrumentación"
+  ],
+  "acceptance": [
+    "Tabla A/B en caliente (A,B,A,B con calentamiento descartado) con FPS, p95 y >33 ms para prisma quieto y scroll.",
+    "Registro de cuántas veces salta FrameBudget en frío y en caliente (n ≥ 5 cada uno).",
+    "Capturas de la nube con y sin el tope y tu visto bueno explícito.",
+    "Ninguna instrumentación temporal llega a main."
+  ],
+  "risks": [
+    "En frío el teléfono da 40–48 fps contra 57–58 en caliente: sin calentamiento y sin alternar A/B los resultados no valen.",
+    "FrameBudget puede saltar en casi todas las cargas en frío y degradar la nube toda la visita en un aparato que, ya caliente, iría bien.",
+    "Si la instrumentación temporal llega a main, ensucia producción."
+  ],
+  "blockedBy": [
+    "dec-rendimiento-quien-mide-en-el-moto-g15",
+    "dec-rendimiento-un-solo-bucle-webgl-a-la-vez"
+  ]
 }

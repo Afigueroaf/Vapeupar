@@ -1,0 +1,31 @@
+{
+  "title": "Alarmas: a quién y por dónde avisar",
+  "status": "decision",
+  "priority": "alta",
+  "area": "infra",
+  "summary": "Con un único servidor, si se cae la instancia se cae toda la tienda. Que alguien se entere a tiempo depende de que lea el aviso. El correo por SNS es gratis. El SMS a Colombia cuesta unos centavos de USD por mensaje y exige sacar SNS del sandbox de SMS.",
+  "question": "¿Las alarmas te llegan solo por correo (el mismo del presupuesto) o también por SMS o a una segunda persona?",
+  "options": [
+    {
+      "label": "Solo correo, al de VAPEUPAR_ALERT_EMAIL",
+      "detail": "Gratis y sin trámites. Depende de que revises ese buzón (y de un filtro que marque los avisos como importantes).",
+      "prompt": "Implementa F6 según el plan del item f6-vigilancia-alarmas. Lee docs/aws-full-deployment-plan.md (F6, §5), infra/lib/app-stack.ts, data-stack.ts, ops-stack.ts, infra/bin/vapeupar.ts e infra/deploy/activate.sh. Crea infra/lib/monitoring-stack.ts con el tema SNS vapeupar-dev-alerts suscrito solo a alertEmail y las alarmas de EC2, RDS y métricas propias (namespace Vapeupar) que indica el plan, más el timer vapeupar-metrics y los límites de journald y logrotate en infra/deploy/. Ejecuta `npm run typecheck --workspace=infra` y `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff` y muéstrame el diff. NO despliegues sin mi aprobación. Aceptación: solo aparecen el stack nuevo y la política PutMetricData en App, sin reemplazos, y no más de 10 alarmas.",
+      "recommended": true
+    },
+    {
+      "label": "Correo + SMS a tu celular",
+      "detail": "Te enteras aunque no mires el correo. Unos centavos de USD por SMS y un trámite para salir del sandbox de SMS de SNS.",
+      "prompt": "Implementa F6 según el plan del item f6-vigilancia-alarmas y, además, suscribe por SMS al tema vapeupar-dev-alerts un número que leas de la variable VAPEUPAR_ALERT_PHONE (fuera del repositorio, como el correo, en infra/bin/vapeupar.ts). Solo StatusCheckFailed y el chequeo de caída van al SMS: crea un segundo tema vapeupar-dev-critical. Documenta en docs/infrastructure-aws.md cómo salir del sandbox de SMS de SNS y el costo por mensaje. Ejecuta `npm run typecheck --workspace=infra` y `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff` y muéstrame el diff. NO despliegues sin mi aprobación. Aceptación: dos temas, el crítico con suscripciones de correo y SMS."
+    },
+    {
+      "label": "Correo a dos personas",
+      "detail": "Si tú no lo ves, lo ve otra persona. Gratis. Hay que decidir quién es la segunda.",
+      "prompt": "Implementa F6 según el plan del item f6-vigilancia-alarmas, con el tema vapeupar-dev-alerts suscrito a alertEmail y a una segunda dirección leída de VAPEUPAR_ALERT_EMAIL_2 (fuera del repositorio, en infra/bin/vapeupar.ts, opcional). Ejecuta `npm run typecheck --workspace=infra` y `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff` y muéstrame el diff. NO despliegues sin mi aprobación. Aceptación: dos suscripciones de correo pendientes de confirmar en el diff."
+    }
+  ],
+  "parent": "f6-vigilancia-alarmas",
+  "source": "Plan de desarrollo 2026-11-18 (f6-vigilancia-alarmas)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.854Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}

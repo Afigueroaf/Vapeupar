@@ -1,0 +1,31 @@
+{
+  "title": "Datos reales: proveedores y costo del inventario inicial",
+  "status": "decision",
+  "priority": "media",
+  "area": "datos",
+  "summary": "Proveedor y costo solo se pueden guardar en los ingresos (inbound). Si no entran ahora, el inventario inicial queda sin costo para siempre, porque el libro no se edita. Hoy la base tiene 0 proveedores (dato del 2026-10-27).",
+  "question": "¿Para el stock que ya tienes conoces proveedor y costo unitario, y cómo me pasas los datos de los proveedores?",
+  "options": [
+    {
+      "label": "Los creas tú en /admin y el costo va por línea",
+      "detail": "Creas los proveedores (nombre, NIT, contacto, WhatsApp, condiciones y marcas) y en la planilla repites el costo por línea",
+      "prompt": "Requiere el importador de la opción recomendada de dec-formato-del-conteo-fisico; si se eligió el registro manual en /admin, adapta el procedimiento a /admin/stock. Verifica en backend/src/routes/admin/suppliers.routes.ts que POST /api/admin/suppliers acepta todos los campos de Supplier y brandIds. Después asegúrate de que import-initial-stock.ts resuelve el proveedor por nombre exacto sin distinguir mayúsculas y que, si la columna proveedor viene vacía, el ingreso se registra sin supplierId. Añade el test. Aceptación: npm run test:backend en verde y docs/backend.md explica que los proveedores deben existir antes del import.",
+      "recommended": true
+    },
+    {
+      "label": "Me pasas una lista y los cargo yo",
+      "detail": "Un CSV de proveedores que se importa por script con auditoría; útil si son muchos",
+      "prompt": "Requiere el importador de la opción recomendada de dec-formato-del-conteo-fisico; si se eligió el registro manual en /admin, adapta el procedimiento a /admin/stock. Crea backend/scripts/import-suppliers.ts, que lee un CSV (nombre, nit, contacto, whatsapp, condiciones, marcas separadas por |) y crea los proveedores con catalogService para auditar. Debe ser idempotente por nombre, tener --dry-run y --user-email, y llevar tests en memoria. Aceptación: npm run test:backend en verde y una segunda ejecución sin cambios."
+    },
+    {
+      "label": "Sin costo ni proveedor por ahora",
+      "detail": "Solo cantidades; el stock inicial queda sin costo y los proveedores se cargan después",
+      "prompt": "Requiere el importador de la opción recomendada de dec-formato-del-conteo-fisico; si se eligió el registro manual en /admin, adapta el procedimiento a /admin/stock. Asegura que import-initial-stock.ts acepta filas sin proveedor ni costo y registra inbound solo con cantidad y lote. Documenta en docs/backend.md que ese inventario inicial no tendrá costo en el kardex. Aceptación: test que cubre la fila sin proveedor ni costo y npm run test:backend en verde."
+    }
+  ],
+  "parent": "carga-datos-reales",
+  "source": "Plan de desarrollo 2026-11-18 (carga-datos-reales)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.748Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}

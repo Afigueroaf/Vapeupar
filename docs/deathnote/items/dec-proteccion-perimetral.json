@@ -1,0 +1,31 @@
+{
+  "title": "Seguridad: protección perimetral",
+  "status": "decision",
+  "priority": "baja",
+  "area": "seguridad",
+  "summary": "WAF no se puede conectar directamente a una EC2: necesita CloudFront delante. Y CloudFront no puede usar vapeupar.ddns.net porque ACM no puede validar ese nombre. Con WAF son unos 8–10 USD/mes (5 de la web ACL, 1 por cada grupo de reglas y 0,60 por millón de peticiones). Express ya limita los intentos de inicio de sesión.",
+  "question": "¿Basta con un límite de peticiones en nginx o pones CloudFront y WAF delante de la tienda?",
+  "options": [
+    {
+      "label": "Límite de peticiones en nginx, sin WAF por ahora",
+      "detail": "0 USD. Frena la fuerza bruta y los picos antes de llegar a Node. CloudFront y WAF se revisan si llega un dominio.",
+      "prompt": "Lee infra/deploy/nginx/nginx.conf, infra/deploy/nginx/vapeupar-site.inc y backend/src/app.ts (rateLimit). Añade limit_req_zone y limit_conn_zone en nginx.conf, y una location /api/admin/auth/ con limit_req (10r/m, burst 5, nodelay, limit_req_status 429) que mantenga los proxy_buffer de /api/. Documéntalo en F7 de docs/aws-full-deployment-plan.md, con CloudFront y WAF aplazados hasta tener dominio. Ejecuta `npm run build` y confirma que `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff` no muestra cambios. Abre el PR a dev y NO lances la release sin mi aprobación. Aceptación: tras la release, 15 POST seguidos al login dan 429 a partir del 7.º y la portada sigue en 200.",
+      "recommended": true
+    },
+    {
+      "label": "CloudFront con su dominio *.cloudfront.net y WAF",
+      "detail": "Unos 8–10 USD/mes. La URL pública pasa a ser dxxxx.cloudfront.net y cambian publicOrigin, uploadOrigins, NEXT_PUBLIC_SITE_URL y TRUST_PROXY.",
+      "prompt": "Diseña sin desplegar un stack nuevo infra/lib/edge-stack.ts con una distribución de CloudFront con origen vapeupar.ddns.net (HTTPS, certificado de Let's Encrypt) y una web ACL de WAF (AWSManagedRulesCommonRuleSet, KnownBadInputs y una regla de tasa). Lista todo lo que cambia: config.app.publicOrigin, storage.uploadOrigins, /vapeupar/dev/web/NEXT_PUBLIC_SITE_URL, TRUST_PROXY=2 en infra/deploy/systemd/vapeupar-backend.service, $proxy_add_x_forwarded_for en vapeupar-site.inc, la prefix list de CloudFront en el grupo de seguridad de app-stack.ts y sin caché para /api y /admin. Ejecuta `npm run typecheck --workspace=infra` y `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff`, muéstrame el diff y el costo mensual. NO despliegues sin mi aprobación. Aceptación: un diff sin reemplazos en App y un costo documentado."
+    },
+    {
+      "label": "Esperar a tener dominio propio y entonces CloudFront + WAF",
+      "detail": "0 USD hoy. Más adelante unos 8–10 USD/mes más el dominio. Mientras tanto, solo el rate limit de Express.",
+      "prompt": "Decisión: F7 perimetral se aplaza hasta tener dominio propio. Anota en F7 de docs/aws-full-deployment-plan.md y en el item que depende de dominio-definitivo, con el costo estimado de 8–10 USD/mes de WAF. Sin cambios en el código. Aceptación: los docs reflejan el aplazamiento."
+    }
+  ],
+  "parent": "f7-endurecimiento-perimetral",
+  "source": "Plan de desarrollo 2026-11-18 (f7-endurecimiento-perimetral)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.854Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}

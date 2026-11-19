@@ -1,0 +1,31 @@
+{
+  "title": "Docs: futuro de GEMINI.md",
+  "status": "decision",
+  "priority": "baja",
+  "area": "producto",
+  "summary": "GEMINI.md repite el stack, la estructura y la lista de skills del README y se ha quedado atrás: no menciona Prisma, RDS, Cognito, infra/ ni el Deathnote, y describe 12 skills cuando .claude/skills tiene 7 distintas. Con un solo documento de referencia se acaba esta deriva.",
+  "question": "¿Sigues usando Gemini en este repo, o GEMINI.md se puede reducir o quitar?",
+  "options": [
+    {
+      "label": "Reducirlo a un puntero",
+      "detail": "Conserva las 6 reglas obligatorias y remite al README y a docs/ para todo lo demás",
+      "prompt": "Reescribe GEMINI.md: deja la intro, la sección 5 «Reglas Mandatorias» (actualiza la regla 3 a backend/src/schemas/ y schemas/admin/, y añade que el stock y los precios solo se escriben desde backend/src/services/) y un bloque «Dónde está cada cosa» que enlace README.md, docs/architecture.md, docs/backend.md, docs/frontend.md, docs/infrastructure-aws.md y docs/deathnote/. Quita la lista de skills y el árbol. Aceptación: GEMINI.md no duplica stack ni estructura y sus enlaces existen. Muestra el diff.",
+      "recommended": true
+    },
+    {
+      "label": "Actualizarlo completo",
+      "detail": "Sigue siendo una guía autónoma, pero hay que mantenerlo en paralelo al README",
+      "prompt": "Actualiza GEMINI.md contra el código: stack (Express 4.21 es correcto; añade Prisma 7, RDS PostgreSQL, Cognito, S3+CloudFront y CDK en infra/), comandos reales del package.json raíz, árbol con infra/, scripts/ y docs nuevos, y lista de skills real (.claude/skills: architecture, backend, database, deathnote, frontend, infrastructure, security; .agents/skills: las 12 que hay). Aceptación: cada comando y ruta citados existen. Muestra el diff."
+    },
+    {
+      "label": "Borrarlo",
+      "detail": "Si no usas Gemini; la guía de agentes queda en .claude/skills y README",
+      "prompt": "Borra GEMINI.md con git rm y sustituye cualquier referencia (grep -rn GEMINI) por README.md. Aceptación: el grep no devuelve nada. Muestra el diff."
+    }
+  ],
+  "parent": "actualizar-docs-obsoletos",
+  "source": "Plan de desarrollo 2026-11-18 (actualizar-docs-obsoletos)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.748Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}

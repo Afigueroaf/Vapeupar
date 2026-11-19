@@ -1,0 +1,31 @@
+{
+  "title": "Tarjetas de información: enlace de cada tarjeta",
+  "status": "decision",
+  "priority": "media",
+  "area": "diseño",
+  "summary": "Un enlace a WhatsApp convierte, pero compite con el CTA primario de la vista y desaparece si no hay número configurado. Los internos (/#faq, /nosotros) amplían la información sin salir del sitio.",
+  "question": "¿Cada tarjeta del panel de información lleva un enlace secundario, y adónde va: WhatsApp, /nosotros o la FAQ?",
+  "options": [
+    {
+      "label": "Envío→WhatsApp, Original→/nosotros, Pago→/#faq",
+      "detail": "Un enlace de texto por tarjeta; el de WhatsApp se oculta si falta el número.",
+      "prompt": "En el rediseño de trust-band.tsx añade un enlace secundario de estilo texto, nunca botón primario: Envío a waLink() con un mensaje de consulta de domicilio (oculto si devuelve null), Original a /nosotros y Pago a /#faq. Área táctil de al menos 44 px, foco visible y contraste AA. Lint y build.",
+      "recommended": true
+    },
+    {
+      "label": "Sin enlaces",
+      "detail": "Las tarjetas solo informan; menos ruido y ningún choque con la regla de un solo CTA.",
+      "prompt": "Rediseña las tarjetas sin enlaces; el campo link del esquema no se añade. Lint y build."
+    },
+    {
+      "label": "Solo WhatsApp en Envío",
+      "detail": "Un único enlace, el que más convierte.",
+      "prompt": "Añade un único enlace secundario a WhatsApp (waLink, oculto si es null) en la tarjeta de Envío, con área táctil de 44 px y contraste AA. Lint y build."
+    }
+  ],
+  "parent": "redisenar-las-tarjetas-del-panel-de-informacion-",
+  "source": "Plan de desarrollo 2026-11-18 (redisenar-las-tarjetas-del-panel-de-informacion-)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.641Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}

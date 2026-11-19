@@ -1,0 +1,31 @@
+{
+  "title": "Alarmas: chequeo de caída desde fuera",
+  "status": "decision",
+  "priority": "media",
+  "area": "infra",
+  "summary": "Las alarmas de EC2 no ven que nginx o Node estén caídos con la máquina encendida, ni que el nombre de No-IP haya caducado. Un health check de Route 53 sí lo ve y cuesta unos 0,50–1,50 USD/mes (HTTPS cuenta como opción extra). UptimeRobot lo hace gratis, pero queda fuera de AWS y de CDK.",
+  "question": "¿Añadimos un chequeo externo que pida https://vapeupar.ddns.net cada minuto y avise si no responde?",
+  "options": [
+    {
+      "label": "Health check de Route 53 en CDK",
+      "detail": "Todo versionado y por el mismo SNS. Unos 0,50–1,50 USD/mes.",
+      "prompt": "Añade a infra/lib/monitoring-stack.ts un route53.CfnHealthCheck HTTPS contra vapeupar.ddns.net, puerto 443, ruta / (o añade antes GET /api/health en backend/src/app.ts y úsala), con intervalo de 30 s y umbral 3, y una alarma sobre HealthCheckStatus < 1 enviada a vapeupar-dev-alerts. Documenta el costo en docs/infrastructure-aws.md §6. Ejecuta `npm run typecheck --workspace=infra` y `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff` y muéstrame el diff. NO despliegues sin mi aprobación. Aceptación: el diff añade solo el health check y su alarma, y el total de alarmas de Vapeupar no pasa de 10.",
+      "recommended": true
+    },
+    {
+      "label": "UptimeRobot gratis, fuera de AWS",
+      "detail": "0 USD, pero se configura a mano en su panel y no queda en el repositorio.",
+      "prompt": "Decisión: el chequeo externo se hace con UptimeRobot (plan gratuito, cada 5 min) contra https://vapeupar.ddns.net. Documenta en docs/infrastructure-aws.md §5 cómo crearlo a mano, a qué correo avisa y que caduca con la cuenta de UptimeRobot. No toques infra/lib/. Aceptación: el procedimiento queda escrito."
+    },
+    {
+      "label": "Sin chequeo externo",
+      "detail": "0 USD. Una caída de nginx o de Node con la máquina encendida, o un nombre de No-IP caducado, no avisan.",
+      "prompt": "Decisión: sin chequeo externo de disponibilidad. Anótalo como riesgo aceptado en docs/aws-full-deployment-plan.md §5 (fila «Un solo nodo») y en el claudeNote de f6-vigilancia-alarmas. Sin cambios en infra/. Aceptación: el riesgo queda documentado."
+    }
+  ],
+  "parent": "f6-vigilancia-alarmas",
+  "source": "Plan de desarrollo 2026-11-18 (f6-vigilancia-alarmas)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.854Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}

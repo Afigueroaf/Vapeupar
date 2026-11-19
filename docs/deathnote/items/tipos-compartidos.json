@@ -14,5 +14,32 @@
   "evidence": "frontend/src/types/product.ts y backend/src/types/product.types.ts mantenidos en espejo",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-16T21:41:14.151Z"
+  "updatedAt": "2026-11-19T03:09:42.867Z",
+  "plan": [
+    "Inventario: lista lo duplicado hoy. frontend/src/types/product.ts frente a backend/src/types/product.types.ts. frontend/src/types/admin.ts (300 líneas) frente a los tipos implícitos de los servicios del backend. La taxonomía: backend/src/catalog/categories.ts, CategoryEnum en backend/src/schemas/product.schema.ts, CATEGORY_LABELS/CATEGORIES en frontend/src/components/admin/catalog.ts y CATEGORIES en frontend/src/components/product-catalog.tsx. Los esquemas de contenido: backend/src/schemas/content/ frente a frontend/src/lib/content/schemas.ts. Clasifica cada pieza como solo tipo o como código en tiempo de ejecución.",
+    "Crea packages/contracts (nombre @vapeupar/contracts) y añádelo a workspaces en el package.json raíz. El tsconfig es propio, con declaration: true y salida ESM en dist/. Los exports apuntan a dist, porque el backend usa rootDir ./src con NodeNext y no puede compilar .ts de fuera de su carpeta. Añade npm run build --workspace=@vapeupar/contracts como primer paso del script build raíz y del CI.",
+    "Mueve los contratos según la decisión de alcance. Backend y frontend importan desde @vapeupar/contracts y se borran los espejos. Si entran los esquemas Zod, borra frontend/src/lib/content/schemas.ts y content-parity.test.ts queda obsoleto. Fija la misma versión de zod como peerDependency.",
+    "Backend: sustituye las importaciones y verifica que tsc emite dist sin rutas relativas fuera de src. Si el paquete lleva código en tiempo de ejecución, añádelo a dependencies de backend/package.json.",
+    "Frontend: añade transpilePackages: ['@vapeupar/contracts'] en next.config.ts solo si se consume el código fuente. Con dist no hace falta. Comprueba que output: standalone copia el paquete a .next/standalone/node_modules como archivos reales.",
+    "Empaquetado: en infra/scripts/deploy-app.mjs, el directorio temporal deps solo copia package.json de frontend, backend e infra. Añade packages/contracts/package.json y su dist, y copia @vapeupar/contracts dentro de backend/node_modules como carpeta real (dereference: true solo para él), porque la release prohíbe enlaces simbólicos. Si el alcance es solo de tipos, comprueba que el backend no importa nada en tiempo de ejecución y que no hace falta copiar nada.",
+    "Documentación: actualiza ADR-002 (Consecuencias), la skill database (regla de espejo), docs/architecture.md y docs/backend.md. Genera la release en seco (deploy-app.mjs hasta el empaquetado, sin subir) y comprueba que no tiene enlaces simbólicos. El despliegue real va por la release dev → produccion, solo con mi aprobación.",
+    "Verificación: npm install (desde la raíz) · npm run build --workspace=@vapeupar/contracts · npm run test:backend · npx --workspace=backend tsc --noEmit · npm run lint --workspace=frontend · npm run build"
+  ],
+  "acceptance": [
+    "No queda ningún tipo de contrato ni taxonomía definido dos veces. grep de 'disposable' en types y en las etiquetas de categoría da una sola fuente.",
+    "npm ci desde cero, npm run test:backend y npm run build pasan en el CI (ubuntu, Node 22).",
+    "La release generada por deploy-app.mjs no contiene enlaces simbólicos (la comprobación existente pasa), y el backend arranca en la instancia con node dist/index.js.",
+    "Cambiar una categoría en packages/contracts rompe la compilación de backend y frontend si alguno no la maneja."
+  ],
+  "risks": [
+    "Los workspaces de npm crean enlaces simbólicos en node_modules, y la release los rechaza. Si el backend importa código del paquete en tiempo de ejecución y no se copia como carpeta real, el arranque en la instancia falla.",
+    "Con rootDir ./src, el backend no puede importar el .ts fuente de otro paquete. Hace falta dist con d.ts o project references.",
+    "Si zod se instala con dos versiones (en el paquete y en el consumidor), los esquemas pueden dejar de ser compatibles. Por eso va como peerDependency.",
+    "Añadir un paso de build cambia el orden en el CI y en deploy-app.mjs. Si se olvida en un sitio, el fallo aparece en el build o en producción."
+  ],
+  "blockedBy": [
+    "a7-contenido-editable",
+    "dec-alcance-del-paquete-de-contratos"
+  ],
+  "claudeNote": "Plan 2026-11-18: Desde A7.1 los esquemas de contenido también están en espejo (frontend/src/lib/content/schemas.ts), protegidos por backend/src/schemas/content/content-parity.test.ts. El Registro A7 dejó explícitamente para este item la decisión de compartirlos. La taxonomía ya se centralizó en parte: backend/src/catalog/categories.ts alimenta CategoryEnum. Del lado frontend la declaran components/admin/catalog.ts (CATEGORY_LABELS) y product-catalog.tsx (CATEGORIES). La evidencia del item sigue siendo cierta (product.ts frente a product.types.ts)."
 }

@@ -1,0 +1,31 @@
+{
+  "title": "Datos reales: formato del conteo físico",
+  "status": "decision",
+  "priority": "alta",
+  "area": "datos",
+  "summary": "Decide si hace falta el importador. Con la planilla, las unidades entran por lote, sin errores de tecleo y sin duplicarse si se repite. Si lo registras tú en /admin, no se escribe código, pero son cerca de 80 variantes una a una.",
+  "question": "¿Cómo me entregas el conteo físico inicial?",
+  "options": [
+    {
+      "label": "Planilla generada desde la base",
+      "detail": "Te genero un CSV/Excel con todas las variantes ya listadas; solo llenas cantidades y lo importo de una vez",
+      "prompt": "Lee backend/prisma/schema.prisma (Variant, StockMovement, Supplier), backend/src/services/stock.service.ts y backend/scripts/upload-catalog-images.ts como patrón de script. Implementa backend/scripts/export-count-template.ts y backend/scripts/import-initial-stock.ts con la lógica pura en backend/src/catalog/initial-count.ts, como describe el plan del item carga-datos-reales: --dry-run por defecto, --apply explícito, --user-email que resuelve a un User owner activo, operationKey `conteo-inicial:<batch>:<lineSlug>/<variantSlug>`, inbound si el stock es 0 y adjustment con motivo si no, y abortar con la lista de variantes o proveedores desconocidos. Añade los scripts db:count-template y db:import-stock a backend/package.json e ignora backend/scripts/data/ en .gitignore. Tests con el repositorio en memoria: BOM, `;`, desconocidos, reejecución sin duplicados y conflicto de clave. Aceptación: npm run test:backend y npm run build:backend en verde, y uso documentado en docs/backend.md. No te conectes a la base ni ejecutes --apply.",
+      "recommended": true
+    },
+    {
+      "label": "Lo registro yo en /admin",
+      "detail": "Sin código nuevo; cada variante es un ingreso manual en la pantalla de stock",
+      "prompt": "Lee docs/frontend.md (Consola de administración) y escribe en docs/backend.md una guía corta para registrar el conteo físico inicial desde /admin/stock: un ingreso por variante, con proveedor y costo si se conocen, qué hacer si la variante no existe y cómo comprobar el kardex. No escribas código. Aceptación: la guía cubre FIT sin variantes y el caso de una variante que ya tenía stock (ajuste con motivo)."
+    },
+    {
+      "label": "Te paso fotos o una lista libre",
+      "detail": "Transcribo tu lista a la planilla y la importo; más lento y con riesgo de nombres que no casan",
+      "prompt": "Implementa el importador del plan carga-datos-reales (backend/scripts/import-initial-stock.ts más backend/src/catalog/initial-count.ts, con tests y --dry-run). Después transcribe la lista del dueño que está en <ruta> al CSV de la plantilla, marcando como DUDOSA toda fila cuyo nombre no case exacto con una variante, y entrégale la tabla de dudosas antes de ejecutar nada. Aceptación: npm run test:backend en verde y 0 filas dudosas sin resolver."
+    }
+  ],
+  "parent": "carga-datos-reales",
+  "source": "Plan de desarrollo 2026-11-18 (carga-datos-reales)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.748Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}

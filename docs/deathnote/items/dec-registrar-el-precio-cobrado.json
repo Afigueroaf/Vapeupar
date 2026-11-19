@@ -1,0 +1,26 @@
+{
+  "title": "Ventas: registrar el precio cobrado",
+  "status": "decision",
+  "priority": "baja",
+  "area": "producto",
+  "summary": "Hoy el movimiento de venta solo guarda unidades, y el costo solo se guarda en los ingresos. Sin el precio de venta no hay informe de facturación ni de margen. Añadirlo es una migración pequeña (unitPrice en StockMovement o en las líneas de pedido).",
+  "question": "¿Quieres que cada venta guarde el precio cobrado y el domicilio, para poder ver ingresos y márgenes en la consola?",
+  "options": [
+    {
+      "label": "Sí, precio unitario y domicilio",
+      "detail": "Habilita ingresos y margen por línea y por mes. Es una migración pequeña.",
+      "prompt": "Decisión: las ventas guardan el precio unitario cobrado (por defecto, el precio de la línea en ese momento, editable si hubo descuento) y el valor del domicilio por referencia. Lee backend/prisma/schema.prisma (StockMovement) y stock.service.ts. Crea la migración (unit_price nullable en stock_movements, y el domicilio en el registro del pedido) y amplía POST /api/admin/stock/sales y el formulario. Tests. Crea la migración con `npm run db:migrate:create --workspace=backend -- --name venta-precio` (usa la base por el túnel: pídeme permiso antes y no apliques nada). Si no hay entidad de pedido, guarda el domicilio en una columna nullable de un movimiento por referencia o pospónlo. Ejecuta npm run test:backend y npm run build.",
+      "recommended": true
+    },
+    {
+      "label": "No por ahora",
+      "detail": "La facturación se lleva fuera de la consola. Sin cambios de esquema.",
+      "prompt": "Decisión: no se registra el precio de venta. Anota en docs/sales-flow-proposal.md que la facturación se lleva fuera de la consola y que el margen solo se puede estimar con el costo de los ingresos."
+    }
+  ],
+  "parent": "registro-ventas",
+  "source": "Plan de desarrollo 2026-11-18 (registro-ventas)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:58:52.620Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}

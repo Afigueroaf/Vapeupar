@@ -12,11 +12,38 @@
   ],
   "blockedBy": [
     "a7-contenido-editable",
-    "a7-revalidacion-on-demand"
+    "dec-borrador-o-publicacion-directa",
+    "dec-texto-legal-de-mayoria-de-edad"
   ],
   "source": "docs/admin-console-execution-plan.md (A5.4)",
   "evidence": "No existe frontend/src/app/(admin)/admin/(panel)/content",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-16T21:41:14.151Z"
+  "updatedAt": "2026-11-19T03:09:42.867Z",
+  "plan": [
+    "API de la consola: en frontend/src/lib/admin-api.ts añade adminApi.content con: listKeys() → GET /content, get(key) → GET /content/:key (un 404 se trata como «sin publicar» y se usan los defaults), versions(key, limit) → GET /content/:key/versions y publish(key, value) → PUT /content/:key. Los tipos ContentKey y ContentValue salen de frontend/src/lib/content/schemas.ts.",
+    "Vistas reutilizables: separa la presentación de los componentes async del sitio para que la vista previa use exactamente el mismo marcado. Hero pasa a HeroView({content}), TrustBand a TrustBandView y Footer a un ContactView. FAQ ya recibe content por props. Los componentes async siguen leyendo con getContent y renderizan la vista, de modo que el sitio público no cambia.",
+    "Pantalla: crea frontend/src/app/(admin)/admin/(panel)/content/page.tsx. Tiene un selector de clave (hero, trust-band, faq, seo, contact) y un editor específico para cada una en frontend/src/components/admin/content/. No se genera el formulario a ciegas desde el esquema: listas de longitud fija (trust-band, 3 tarjetas), listas reordenables con los mínimos y máximos de cada esquema (faq.items 1–12, u 11 si se fija la pregunta legal; seo.keywords 1–20; contact.hours 1–4; contact.service 1–6) y contadores de caracteres con los máximos del esquema. Usa Labelled, FieldGroup, FormError y FormStatus de components/admin/form.tsx, y ScreenHeader de screen.tsx.",
+    "Validación en vivo: safeParse del esquema espejo mientras se escribe. Los errores se muestran por campo (las rutas de los issues de Zod) y el botón Publicar se desactiva mientras haya errores. Un 400 del backend (value.<campo>) se proyecta sobre los mismos campos.",
+    "Vista previa: un panel junto al formulario renderiza la vista real con el valor que se está editando. En la FAQ, el marcador {marcas} se sustituye con withPartnerBrands y las aliadas reales. En seo, la vista previa es una tarjeta de buscador o de red social con title y description truncados. Aplica lo que se decida sobre borradores y sobre el texto legal.",
+    "Historial: lista las versiones con número, fecha y autor desde GET /:key/versions, con «Ver» (carga el valor en la vista previa) y «Restaurar» (vuelve a publicar ese valor como versión nueva, de modo que el historial nunca se reescribe). Muestra «Usando el texto por defecto» si la clave nunca se publicó.",
+    "Permisos y revalidación: Publicar y Restaurar solo aparecen para el owner (useAdminSession). El operator ve la pantalla en solo lectura, porque el backend ya devuelve 403. Tras publicar, si la respuesta trae meta.revalidated (A7.3), confirma «Publicado y visible en el sitio»; si no, «se verá en ≤60 s». Añade { href: '/admin/content', label: 'Contenido' } a la navegación en admin-shell.tsx. A7.3 es una dependencia blanda: sin ella lo publicado se ve en ≤60 s.",
+    "Cierre: añade un «Registro A5.4» en docs/admin-console-execution-plan.md, marca A5 como ejecutada en la tabla, actualiza docs/frontend.md y haz el recorrido en el navegador a 375, 768 y 1440 px.",
+    "Verificación: npm run lint --workspace=frontend · npx --workspace=frontend tsc --noEmit · npm run test:backend (paridad de esquemas) · npm run build · Recorrido manual en /admin/content con sesión de owner y de operator"
+  ],
+  "acceptance": [
+    "El owner cambia una pregunta de la FAQ en /admin/content, la publica y la ve en la portada al recargar, sin desplegar (con A7.3; sin A7.3, en ≤60 s).",
+    "Un texto que supera el máximo del esquema muestra el error en su campo y no deja publicar. El backend nunca recibe un valor inválido desde la UI.",
+    "«Restaurar» sobre la versión N crea la versión N+1 con el valor de N, y el historial conserva todas las versiones.",
+    "El operator ve el contenido y el historial, pero no los botones de publicar ni de restaurar.",
+    "La vista previa de hero, trust-band y faq usa los mismos componentes que el sitio, y la portada pública no cambia visualmente tras separar las vistas.",
+    "La banda de confianza no permite añadir ni quitar tarjetas (exactamente 3)."
+  ],
+  "risks": [
+    "Separar Hero, TrustBand y Footer en vistas puede alterar el marcado de la portada. Hay que comparar visualmente antes y después.",
+    "Si los esquemas espejo y los del backend divergen, la validación en vivo aceptaría algo que el backend rechaza. La prueba de paridad lo cubre mientras se mantenga.",
+    "El SEO (title, keywords) queda en manos de la consola: un cambio impulsivo afecta al posicionamiento. Los límites de longitud ayudan, pero no garantizan calidad.",
+    "Las pantallas de la consola aún no se han revisado en navegador (pendiente del plan de diseño). Esta tiene los formularios más largos."
+  ],
+  "claudeNote": "Plan 2026-11-18: La dependencia de a7-revalidacion-on-demand es blanda: sin A7.3, lo publicado se ve en ≤60 s, que ya es «sin desplegar». a7-contenido-editable sigue en_curso, sin fusionar. El prompt habla de «formularios generados desde los esquemas»: con estructuras fijas (3 tarjetas, listas reordenables) conviene un editor por clave. La clave es 'contact', no 'contacto'. El hero solo tiene label y tagline, sin titular ni CTA. GET /:key/versions y el PUT solo para owner ya existen en backend/src/routes/admin/content.routes.ts. admin-api.ts todavía no tiene métodos de contenido."
 }

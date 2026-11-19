@@ -1,0 +1,31 @@
+{
+  "title": "Revalidación: qué cambios refrescan el sitio al instante",
+  "status": "decision",
+  "priority": "media",
+  "area": "backend",
+  "summary": "La tarjeta del producto muestra «N disponibles» y «AGOTADO». Si no refrescas al vender, durante un máximo de 60 s alguien puede pedir algo que ya se agotó. Refrescar en cada venta regenera la portada más veces en una instancia de 1 GB, aunque con el volumen actual el costo es despreciable.",
+  "question": "¿Quieres que también cada movimiento de stock (venta, ingreso, ajuste) refresque el sitio al momento, o basta con que lo hagan las publicaciones de catálogo y contenido?",
+  "options": [
+    {
+      "label": "Catálogo, contenido y stock",
+      "detail": "El disponible y el agotado se ven al instante. Hay más regeneraciones, pero solo ocurren cuando alguien visita.",
+      "prompt": "Decisión A7.3: refrescan al instante el catálogo, el contenido y los movimientos de stock. Lee docs/admin-console-execution-plan.md (A7.3 y Registro A7), ADR-002 §7 y el plan del item a7-revalidacion-on-demand. Implementa frontend/src/app/internal/revalidate/route.ts y backend/src/services/site-revalidation.service.ts, e invoca el servicio después de PUT /api/admin/content/:key, de las escrituras de marcas, líneas y variantes, y de POST /api/admin/stock/movements, sin que falle la escritura si la revalidación falla. Añade el secreto en infra (Secrets Manager + write-env.mjs + frontend.env) y bloquea /internal/ en nginx. Criterio: registrar una venta que deja una variante en 0 y ver «AGOTADO» al recargar. Ejecuta npm run test:backend, npm run lint --workspace=frontend, npm run build y npm run typecheck --workspace=infra, y actualiza el Registro A7.",
+      "recommended": true
+    },
+    {
+      "label": "Solo catálogo y contenido",
+      "detail": "El stock tarda hasta 60 s en verse. Hay menos tráfico interno.",
+      "prompt": "Decisión A7.3: refrescan al instante el catálogo (marcas, líneas, variantes) y el contenido. Los movimientos de stock siguen con el ISR de 60 s. Lee docs/admin-console-execution-plan.md (A7.3) y ADR-002 §7, e implementa la ruta interna /internal/revalidate, el servicio del backend y el secreto en infra, como describe el plan del item. Documenta en el Registro A7 que el stock tarda hasta 60 s. Ejecuta npm run test:backend, npm run lint --workspace=frontend, npm run build y npm run typecheck --workspace=infra."
+    },
+    {
+      "label": "Todo al instante y ISR más largo",
+      "detail": "Igual que la primera opción, pero el ISR sube a 1 h: menos carga en el backend, a cambio de depender de que la revalidación nunca falle.",
+      "prompt": "Decisión A7.3: revalidación al instante del catálogo, el contenido y el stock, y REVALIDATE_SECONDS sube a 3600 en frontend/src/lib/api.ts, en frontend/src/lib/content.ts y en las páginas con revalidate. Implementa lo descrito en el plan del item. Además, en la consola, si meta.revalidated es false, muestra el aviso «el sitio puede tardar hasta 1 h» y añade un botón «Refrescar sitio» para el owner (POST /api/admin/site/revalidate). Ejecuta npm run test:backend, npm run lint --workspace=frontend, npm run build y npm run typecheck --workspace=infra."
+    }
+  ],
+  "parent": "a7-revalidacion-on-demand",
+  "source": "Plan de desarrollo 2026-11-18 (a7-revalidacion-on-demand)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:58:52.620Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}

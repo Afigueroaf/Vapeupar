@@ -1,0 +1,26 @@
+{
+  "title": "Revisión visual: alcance",
+  "status": "decision",
+  "priority": "media",
+  "area": "diseño",
+  "summary": "La consola tiene los formularios más largos del proyecto y la usan solo tú y tus operadores. Meterla duplica el trabajo; sacarla deja abiertos los «No verificado» de A5.",
+  "question": "¿Incluyo la consola /admin en la revisión visual o la dejo para otra?",
+  "options": [
+    {
+      "label": "Tienda y consola juntas",
+      "detail": "Cierra el pendiente #1 y los «No verificado» de A5 de una vez.",
+      "prompt": "Ejecuta la revisión visual completa de revision-visual-breakpoints sobre la tienda pública y sobre /admin (login, stock, brands, suppliers, products, showcase, users) a 375, 768 y 1440 px, con recorrido de Tab, objetivos táctiles de 44 px y contraste AA. Marca los «No verificado en navegador» de A5 en docs/admin-console-execution-plan.md. Lint y build.",
+      "recommended": true
+    },
+    {
+      "label": "Solo la tienda pública",
+      "detail": "Más rápido; la consola queda como item aparte del Deathnote.",
+      "prompt": "Ejecuta la revisión visual de revision-visual-breakpoints solo sobre las rutas públicas a 375, 768 y 1440 px, con Tab, 44 px y contraste AA, y crea un item del Deathnote «revision-visual-admin» con lo que falta. Lint y build."
+    }
+  ],
+  "parent": "revision-visual-breakpoints",
+  "source": "Plan de desarrollo 2026-11-18 (revision-visual-breakpoints)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.641Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}

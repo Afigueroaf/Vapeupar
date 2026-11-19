@@ -1,0 +1,31 @@
+{
+  "title": "Datos reales: quién cuenta y cuándo",
+  "status": "decision",
+  "priority": "alta",
+  "area": "datos",
+  "summary": "El libro de stock es solo de inserción: si se cuenta mientras se vende por WhatsApp (las ventas se descuentan a mano, registro-ventas sigue pendiente), el stock arranca descuadrado y solo se corrige con ajustes. Mientras tanto ONE sale como agotada porque tiene stock 0.",
+  "question": "¿Quién hace el conteo físico y en qué momento se congela la venta?",
+  "options": [
+    {
+      "label": "Tú, de una vez, con la tienda cerrada",
+      "detail": "Conteo en una noche o un domingo, sin ventas en medio; el stock arranca exacto",
+      "prompt": "Requiere el importador de la opción recomendada de dec-formato-del-conteo-fisico; si se eligió el registro manual en /admin, adapta el procedimiento a /admin/stock. Prepara la operación del conteo inicial: genera la plantilla con npm run db:count-template --workspace=backend (túnel abierto con npm run infra:db-tunnel) en una ruta fuera del repo y escribe en docs/backend.md el procedimiento del día (sin ventas entre el conteo y el --apply, dry-run, apply, segunda ejecución con 0 creados y revisión de image-alerts). Aceptación: la plantilla existe con una fila por variante activa y el procedimiento está documentado. No ejecutes --apply sin la confirmación del dueño.",
+      "recommended": true
+    },
+    {
+      "label": "Por líneas en varios días",
+      "detail": "Menos esfuerzo de golpe, pero cada lote necesita su propio --batch y las ventas de esos días se cuadran con ajustes",
+      "prompt": "Requiere el importador de la opción recomendada de dec-formato-del-conteo-fisico; si se eligió el registro manual en /admin, adapta el procedimiento a /admin/stock. Ajusta backend/scripts/import-initial-stock.ts para filtrar por --line <lineSlug>, de modo que cada día se importe solo la línea contada con su --batch propio. Añade el test correspondiente y documenta en docs/backend.md cómo registrar las ventas del intervalo como movimientos sale antes de importar cada línea. Aceptación: npm run test:backend en verde."
+    },
+    {
+      "label": "Lo hace un operador y tú validas",
+      "detail": "El operador llena la planilla y tú revisas el dry-run antes de aplicar; el movimiento queda firmado por quien pongas en --user-email",
+      "prompt": "Requiere el importador de la opción recomendada de dec-formato-del-conteo-fisico; si se eligió el registro manual en /admin, adapta el procedimiento a /admin/stock. Documenta en docs/backend.md el flujo con operador: el operador llena la plantilla, el dueño revisa la salida del --dry-run y el --apply se firma con --user-email del dueño. Si el operador debe firmar, cambia la comprobación del script para aceptar User activo con rol owner u operator y cubre el caso con un test. Aceptación: npm run test:backend en verde."
+    }
+  ],
+  "parent": "carga-datos-reales",
+  "source": "Plan de desarrollo 2026-11-18 (carga-datos-reales)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.748Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}

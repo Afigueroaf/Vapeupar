@@ -1,0 +1,31 @@
+{
+  "title": "Seguridad: cómo rotar la contraseña maestra de RDS",
+  "status": "decision",
+  "priority": "media",
+  "area": "seguridad",
+  "summary": "La contraseña maestra solo la leen la instancia (para migraciones) y tu portátil, y nunca sale de AWS. Rotarla reduce el daño si se filtra. La rotación nativa de RDS es gratis. Con una Lambda en la VPC hace falta un endpoint de Secrets Manager, unos 7–15 USD/mes, porque la VPC no tiene NAT.",
+  "question": "¿Rotamos la contraseña maestra con la gestión nativa de RDS, con una Lambda de rotación o no la rotamos?",
+  "options": [
+    {
+      "label": "Contraseña gestionada por RDS",
+      "detail": "0 USD extra y rotación automática cada 7 días. Cambia el ARN del secreto (migrate.mjs ya lo lee de SSM).",
+      "prompt": "Lee infra/lib/data-stack.ts, infra/lib/app-stack.ts, infra/deploy/migrate.mjs, infra/scripts/write-backend-env.mjs y docs/infrastructure-aws.md §8.3. Pasa vapeupar-dev-db a manageMasterUserPassword (escape hatch sobre CfnDBInstance), haz que DB_SECRET_ARN apunte a attrMasterUserSecretSecretArn y ajusta el permiso del rol de la app al ARN exacto, sin comodines. Ejecuta `npm run typecheck --workspace=infra` y `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff` y muéstrame el diff de Data y App: la instancia NO puede reemplazarse. NO despliegues sin mi aprobación. Antes del despliegue, snapshot manual. Aceptación: RotationEnabled true, mismo endpoint y una release con migraciones en verde.",
+      "recommended": true
+    },
+    {
+      "label": "Lambda de rotación gestionada cada 30 días",
+      "detail": "El secreto conserva su nombre, pero necesita un endpoint de Secrets Manager en la VPC: unos 7–15 USD/mes.",
+      "prompt": "Lee infra/lib/data-stack.ts, infra/lib/network-stack.ts e infra/deploy/migrate.mjs. Añade db.addRotationSingleUser({ automaticallyAfter: Duration.days(30) }) y el endpoint de interfaz de Secrets Manager que necesita en la VPC (una sola AZ para abaratar). Calcula el costo mensual exacto y anótalo en docs/infrastructure-aws.md §6. Ejecuta `npm run typecheck --workspace=infra` y `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff` y muéstrame el diff. NO despliegues sin mi aprobación. Aceptación: el diff añade la Lambda, el endpoint y el schedule, sin tocar la instancia."
+    },
+    {
+      "label": "No rotar y aceptar el riesgo",
+      "detail": "0 USD y sin cambios. Si la contraseña se filtra, sigue sirviendo hasta que la cambies a mano.",
+      "prompt": "Decisión: no se rota el secreto maestro de RDS. Documenta el riesgo aceptado y el procedimiento de rotación manual (aws secretsmanager put-secret-value + modify-db-instance --master-user-password) en docs/infrastructure-aws.md §8.3. Sin cambios en infra/lib/. Aceptación: `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff` sin cambios y el procedimiento queda escrito."
+    }
+  ],
+  "parent": "f7-endurecimiento-perimetral",
+  "source": "Plan de desarrollo 2026-11-18 (f7-endurecimiento-perimetral)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.854Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}

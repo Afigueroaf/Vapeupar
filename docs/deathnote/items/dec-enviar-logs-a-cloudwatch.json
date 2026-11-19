@@ -1,0 +1,26 @@
+{
+  "title": "Alarmas: enviar logs a CloudWatch",
+  "status": "decision",
+  "priority": "baja",
+  "area": "infra",
+  "summary": "En CloudWatch se pueden buscar sin entrar por SSM y sobreviven si la instancia se reemplaza. Cada GB ingerido cuesta 0,50 USD (los 5 primeros GB al mes son gratis, compartidos con DeliPan). Con el tráfico actual sería menos de 1 USD/mes, pero exige el agente de CloudWatch, que consume RAM en una máquina de 1 GB.",
+  "question": "¿Mandamos los logs del backend y de nginx a CloudWatch Logs, o se quedan solo en la instancia (journald con límite)?",
+  "options": [
+    {
+      "label": "Solo en la instancia",
+      "detail": "0 USD y sin otro proceso. Si se reemplaza la instancia, se pierden los logs.",
+      "prompt": "Decisión: los logs no se envían a CloudWatch. Deja configurados journald (SystemMaxUse=200M, MaxRetentionSec=14day) y logrotate de nginx en infra/deploy/ como dice el plan de f6-vigilancia-alarmas, y documenta en docs/infrastructure-aws.md §5 cómo leerlos por SSM (journalctl -u vapeupar-backend). Sin cambios de CDK aparte de F6. Aceptación: documentado y `journalctl --disk-usage` menor de 200 MB tras la release.",
+      "recommended": true
+    },
+    {
+      "label": "Backend y errores de nginx a CloudWatch, 14 días",
+      "detail": "Menos de 1 USD/mes hoy. El agente ocupa unos 30–50 MB de RAM.",
+      "prompt": "Añade al plan de F6 el agente de CloudWatch, instalado por activate.sh (dnf install amazon-cloudwatch-agent, de forma idempotente) con la configuración versionada en infra/deploy/cloudwatch/agent.json: solo journald de vapeupar-backend y /var/log/nginx/error.log, a grupos vapeupar-dev-* con 14 días de retención creados en monitoring-stack.ts. Da al rol de app-stack.ts solo logs:CreateLogStream y logs:PutLogEvents sobre esos grupos. Ejecuta `npm run typecheck --workspace=infra` y `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff` y muéstrame el diff. NO despliegues sin mi aprobación. Aceptación: los grupos aparecen con retención de 14 días y la política no lleva comodines de recurso."
+    }
+  ],
+  "parent": "f6-vigilancia-alarmas",
+  "source": "Plan de desarrollo 2026-11-18 (f6-vigilancia-alarmas)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.854Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}

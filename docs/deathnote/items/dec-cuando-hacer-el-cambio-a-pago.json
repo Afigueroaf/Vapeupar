@@ -1,0 +1,26 @@
+{
+  "title": "Plan de pago AWS: cuándo hacer el cambio a pago",
+  "status": "decision",
+  "priority": "alta",
+  "area": "infra",
+  "summary": "El ritmo medido (unos 37,5 USD/mes para toda la cuenta) hace llegar el crédito hasta finales de febrero de 2027, no a diciembre. Si se agota o vence (2027-03-12) sin el cambio, AWS cierra la cuenta con DeliPan dentro. Según la documentación de AWS, el crédito restante se sigue aplicando después del cambio (confírmalo en la consola). Si es así, cambiar antes no cuesta más y desbloquea ya los backups de 7 días.",
+  "question": "¿Pasas la cuenta a pago a principios de diciembre aunque quede crédito, o esperas a que el crédito esté casi agotado?",
+  "options": [
+    {
+      "label": "Cambiar a principios de diciembre",
+      "detail": "Backups de 7 días y presupuesto activos ya. El crédito que quede (si AWS lo conserva) sigue cubriendo unos 27,5 USD/mes de Vapeupar.",
+      "prompt": "Lee docs/infrastructure-aws.md §6.1 y, en la rama chore/aws-plan-pago, §6.2, infra/lib/config.ts e infra/lib/ops-stack.ts. No hagas nada hasta que `aws freetier get-account-plan-state` devuelva PAID; si no, para y avísame. Fusiona dev en chore/aws-plan-pago (quédate con la versión de dev en docs/deathnote/items/plan-pago-aws.json), ejecuta `npm run typecheck --workspace=infra` y `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff`, y muéstrame el diff. Esperado: solo BackupRetentionPeriod en Data y presupuesto más anomalías en Ops. NO despliegues sin mi aprobación. Cuando apruebe: snapshot manual, deploy de Vapeupar-dev-Data solo, comprobación del endpoint, y después Vapeupar-dev-Ops. Aceptación: retención según dec-cuanto-historial-de-la-base-guardar con el mismo endpoint, presupuesto y umbral según dec-presupuesto-y-avisos-de-costo, y monitor de anomalías creado.",
+      "recommended": true
+    },
+    {
+      "label": "Esperar hasta que queden menos de ~20 USD",
+      "detail": "Se exprime el plan gratuito, pero hay que vigilar el saldo cada semana y los backups siguen en 1 día hasta entonces.",
+      "prompt": "Decisión: el cambio a pago se hace cuando el crédito baje de 20 USD. Lee docs/infrastructure-aws.md §6.1. Documenta en §6.1 un control semanal con `aws freetier get-account-plan-state` y la regla de los 20 USD, y anótalo en el claudeNote de plan-pago-aws. No toques infra/ ni la rama chore/aws-plan-pago y no despliegues nada. Aceptación: el procedimiento y el umbral quedan escritos en §6.1."
+    }
+  ],
+  "parent": "plan-pago-aws",
+  "source": "Plan de desarrollo 2026-11-18 (plan-pago-aws)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.854Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}

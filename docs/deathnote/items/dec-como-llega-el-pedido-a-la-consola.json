@@ -1,0 +1,31 @@
+{
+  "title": "Ventas: cómo llega el pedido a la consola",
+  "status": "decision",
+  "priority": "alta",
+  "area": "producto",
+  "summary": "Es lo que más cambia el trabajo diario del operador. Elegir a mano no cambia nada técnico. Un enlace en el mensaje rellena el formulario sin guardar nada del cliente. Crear el pedido en el servidor al enviar da trazabilidad completa, pero abre un endpoint público que puede recibir spam y obliga a la entidad Order.",
+  "question": "Cuando un cliente manda su pedido por WhatsApp, ¿cómo quieres que pase a la consola para descontar el stock?",
+  "options": [
+    {
+      "label": "Enlace en el mensaje con el carrito",
+      "detail": "El operador abre el enlace del chat, ve el pedido relleno con el stock actual y confirma. No se guardan datos del cliente ni hay endpoint público.",
+      "prompt": "Decisión registro-ventas: el pedido llega a la consola por un enlace en el mensaje. Lee frontend/src/lib/order-message.ts, frontend/src/lib/cart.ts, backend/src/services/stock.service.ts y docs/admin-console-execution-plan.md (Alcance). Primero escribe docs/sales-flow-proposal.md con el flujo de cliente y operador, y espera mi visto bueno. Después añade al mensaje un enlace /admin/orders/new?ref=VP-XXXXXX&c=<variantId:cantidad,...> (sin precios; el backend los vuelve a calcular), crea esa pantalla, que muestra las líneas, el disponible y las diferencias de precio, y el endpoint POST /api/admin/stock/sales, transaccional e idempotente, que guarda la referencia en lot. Tests del endpoint. Ejecuta npm run test:backend, npm run lint --workspace=frontend y npm run build.",
+      "recommended": true
+    },
+    {
+      "label": "Selección manual en un formulario por lotes",
+      "detail": "El operador busca las variantes y registra todo el pedido de una vez con la referencia. Es lo más simple.",
+      "prompt": "Decisión registro-ventas: registro manual por lotes. Escribe primero docs/sales-flow-proposal.md y espera mi visto bueno. Después crea en /admin/stock una acción «Registrar pedido» con campo de referencia VP, buscador de variantes y cantidades, y el endpoint POST /api/admin/stock/sales, transaccional e idempotente, que guarda la referencia en lot. Sin cambios de esquema. Ejecuta npm run test:backend, npm run lint --workspace=frontend y npm run build."
+    },
+    {
+      "label": "Entidad Order creada al enviar",
+      "detail": "Cada pedido queda en la base con estados y se confirma desde la consola. Requiere ADR, migración, endpoint público con límite de peticiones y decidir qué datos guardar.",
+      "prompt": "Decisión registro-ventas: entidad de pedido. Lee ADR-001, ADR-002, docs/admin-console-execution-plan.md (Alcance) y la skill security. Escribe docs/sales-flow-proposal.md y redacta docs/decisions/003-pedidos.md con el modelo Order/OrderLine (referencia VP-XXXXXX, estados pendiente/confirmado/entregado/cancelado), POST /api/orders público con rate limit y validación de stock, el momento en que se descuenta el stock vía StockService y los datos personales que se guardan y su retención. No implementes nada hasta que apruebe el ADR."
+    }
+  ],
+  "parent": "registro-ventas",
+  "source": "Plan de desarrollo 2026-11-18 (registro-ventas)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:58:52.620Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}

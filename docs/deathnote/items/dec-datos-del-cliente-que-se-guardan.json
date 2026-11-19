@@ -1,0 +1,26 @@
+{
+  "title": "Ventas: datos del cliente que se guardan",
+  "status": "decision",
+  "priority": "alta",
+  "area": "producto",
+  "summary": "Guardar datos personales en Colombia obliga a cumplir la Ley 1581 de 2012: autorización, política de tratamiento y derecho de supresión. En una tienda +18, además, es información sensible. Sin datos, el historial del cliente queda solo en el chat de WhatsApp.",
+  "question": "¿Quieres guardar algún dato del cliente (nombre, teléfono, barrio) junto a la venta, o solo la referencia VP?",
+  "options": [
+    {
+      "label": "Solo la referencia VP",
+      "detail": "Sin obligaciones nuevas de habeas data. El chat de WhatsApp es el registro del cliente.",
+      "prompt": "Decisión: no se guardan datos personales del cliente. Solo la referencia VP-XXXXXX va asociada a los movimientos de venta. Documenta la regla en docs/security.md y en docs/sales-flow-proposal.md, y asegúrate de que ningún endpoint ni formulario de ventas acepta nombre, teléfono ni dirección. Ejecuta npm run test:backend.",
+      "recommended": true
+    },
+    {
+      "label": "Nombre, teléfono y barrio",
+      "detail": "Permite ver clientes recurrentes y hacer seguimiento. Exige política de datos, casilla de autorización y procedimiento de borrado.",
+      "prompt": "Decisión: se guardan nombre, teléfono y barrio del cliente. Lee la skill security. Redacta en docs/decisions/003-pedidos.md el tratamiento conforme a la Ley 1581 (finalidad, autorización explícita en el carrito, retención máxima, supresión a petición, acceso solo para owner y operator, cifrado en reposo de RDS) y una página de política de datos en el sitio. No implementes nada hasta que lo apruebe."
+    }
+  ],
+  "parent": "registro-ventas",
+  "source": "Plan de desarrollo 2026-11-18 (registro-ventas)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:58:52.620Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z"
+}
