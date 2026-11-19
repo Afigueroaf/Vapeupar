@@ -1,6 +1,6 @@
 {
   "title": "Ventas: cuándo se descuenta el stock",
-  "status": "decision",
+  "status": "hecho",
   "priority": "media",
   "area": "producto",
   "summary": "Descontar pronto evita vender dos veces la última unidad, pero obliga a devolver el stock si el cliente cancela. Descontar al entregar refleja la venta real, a cambio de que el sitio muestre unidades que ya están comprometidas.",
@@ -27,5 +27,11 @@
   "source": "Plan de desarrollo 2026-11-18 (registro-ventas)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:58:52.620Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:14:54.682Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:14:54.681Z",
+  "queued": false
 }

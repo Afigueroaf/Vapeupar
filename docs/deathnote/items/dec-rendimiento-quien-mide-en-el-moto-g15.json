@@ -1,6 +1,6 @@
 {
   "title": "Rendimiento: quién mide en el Moto G15",
-  "status": "decision",
+  "status": "hecho",
   "priority": "alta",
   "area": "rendimiento",
   "summary": "Sin medir en el teléfono el item no se cierra. Claude solo puede medir si el teléfono está conectado por USB con depuración activa y Chrome abierto en chrome://inspect; si no, mides tú con el guion.",
@@ -22,5 +22,11 @@
   "source": "Plan de desarrollo 2026-11-18 (perf-webgl-presupuesto)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.641Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:05:01.662Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:05:01.661Z",
+  "queued": false
 }

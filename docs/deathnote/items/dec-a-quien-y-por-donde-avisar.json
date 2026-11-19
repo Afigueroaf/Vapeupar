@@ -1,6 +1,6 @@
 {
   "title": "Alarmas: a quién y por dónde avisar",
-  "status": "decision",
+  "status": "hecho",
   "priority": "alta",
   "area": "infra",
   "summary": "Con un único servidor, si se cae la instancia se cae toda la tienda. Que alguien se entere a tiempo depende de que lea el aviso. El correo por SNS es gratis. El SMS a Colombia cuesta unos centavos de USD por mensaje y exige sacar SNS del sandbox de SMS.",
@@ -27,5 +27,11 @@
   "source": "Plan de desarrollo 2026-11-18 (f6-vigilancia-alarmas)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.854Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:01:34.144Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:01:34.143Z",
+  "queued": false
 }

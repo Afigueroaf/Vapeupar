@@ -1,6 +1,6 @@
 {
   "title": "Ventas: cómo llega el pedido a la consola",
-  "status": "decision",
+  "status": "hecho",
   "priority": "alta",
   "area": "producto",
   "summary": "Es lo que más cambia el trabajo diario del operador. Elegir a mano no cambia nada técnico. Un enlace en el mensaje rellena el formulario sin guardar nada del cliente. Crear el pedido en el servidor al enviar da trazabilidad completa, pero abre un endpoint público que puede recibir spam y obliga a la entidad Order.",
@@ -27,5 +27,11 @@
   "source": "Plan de desarrollo 2026-11-18 (registro-ventas)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:58:52.620Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:01:36.575Z",
+  "choice": {
+    "kind": "option",
+    "index": 2
+  },
+  "completedAt": "2026-11-19T06:01:36.574Z",
+  "queued": false
 }

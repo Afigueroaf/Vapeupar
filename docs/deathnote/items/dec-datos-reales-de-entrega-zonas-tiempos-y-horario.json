@@ -1,6 +1,6 @@
 {
   "title": "Datos reales de entrega: zonas, tiempos y horario",
-  "status": "decision",
+  "status": "pendiente",
   "priority": "alta",
   "area": "diseño",
   "summary": "Hoy el sitio se contradice: la FAQ dice 30–60 min y envíos nacionales; el pie, «Lunes a Sábado 10:00 AM - 10:00 PM» y «envíos a todo el Cesar», y el pendiente #7 del plan de diseño dice que nada está confirmado. Lo que respondas va a la tarjeta, la FAQ y el pie.",
@@ -22,5 +22,10 @@
   "source": "Plan de desarrollo 2026-11-18 (redisenar-las-tarjetas-del-panel-de-informacion-)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.641Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:05:03.725Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "claudeNote": "Elegido el 2026-11-19: me pasarás los datos reales. Falta que los escribas (zonas o barrios, tiempo de entrega, horario, cobertura fuera de Valledupar y si hay envíos nacionales) con: npm run deathnote -- prompt dec-datos-reales-de-entrega-zonas-tiempos-y-horario \"…\". Hasta entonces queda pendiente."
 }

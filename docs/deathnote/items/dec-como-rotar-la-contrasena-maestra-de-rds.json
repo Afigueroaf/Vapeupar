@@ -1,6 +1,6 @@
 {
   "title": "Seguridad: cómo rotar la contraseña maestra de RDS",
-  "status": "decision",
+  "status": "hecho",
   "priority": "media",
   "area": "seguridad",
   "summary": "La contraseña maestra solo la leen la instancia (para migraciones) y tu portátil, y nunca sale de AWS. Rotarla reduce el daño si se filtra. La rotación nativa de RDS es gratis. Con una Lambda en la VPC hace falta un endpoint de Secrets Manager, unos 7–15 USD/mes, porque la VPC no tiene NAT.",
@@ -27,5 +27,11 @@
   "source": "Plan de desarrollo 2026-11-18 (f7-endurecimiento-perimetral)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.854Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:14:52.599Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:14:52.597Z",
+  "queued": false
 }

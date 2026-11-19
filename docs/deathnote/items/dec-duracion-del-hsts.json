@@ -1,6 +1,6 @@
 {
   "title": "HTTPS: duración del HSTS",
-  "status": "decision",
+  "status": "pendiente",
   "priority": "media",
   "area": "infra",
   "summary": "Con HSTS activo, los navegadores no dejan entrar por http ni saltarse un error de certificado mientras dure el max-age. Si la renovación automática del certificado falla, quien ya visitó la tienda no podrá entrar ni aceptando el riesgo hasta que se arregle. Que el nombre de No-IP caduque tumba la tienda igual con o sin HSTS. Costo 0 USD.",
@@ -27,5 +27,7 @@
   "source": "Plan de desarrollo 2026-11-18 (f4-tls-no-ip)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.854Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:14:59.100Z",
+  "userPrompt": "Dejarlo como pendiente para cuando el sitio salga abierto al público; entonces volver a decidir la duración.",
+  "claudeNote": "Aplazado por el dueño el 2026-11-19: HSTS se decide cuando el sitio salga abierto al público. Hasta entonces no se activa."
 }

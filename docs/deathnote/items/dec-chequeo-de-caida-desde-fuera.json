@@ -1,6 +1,6 @@
 {
   "title": "Alarmas: chequeo de caída desde fuera",
-  "status": "decision",
+  "status": "hecho",
   "priority": "media",
   "area": "infra",
   "summary": "Las alarmas de EC2 no ven que nginx o Node estén caídos con la máquina encendida, ni que el nombre de No-IP haya caducado. Un health check de Route 53 sí lo ve y cuesta unos 0,50–1,50 USD/mes (HTTPS cuenta como opción extra). UptimeRobot lo hace gratis, pero queda fuera de AWS y de CDK.",
@@ -27,5 +27,11 @@
   "source": "Plan de desarrollo 2026-11-18 (f6-vigilancia-alarmas)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.854Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:08:59.135Z",
+  "choice": {
+    "kind": "option",
+    "index": 2
+  },
+  "completedAt": "2026-11-19T06:08:59.134Z",
+  "queued": false
 }

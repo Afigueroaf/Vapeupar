@@ -1,6 +1,6 @@
 {
   "title": "Revisión visual: quién revisa y en qué aparato",
-  "status": "decision",
+  "status": "hecho",
   "priority": "alta",
   "area": "diseño",
   "summary": "La emulación ve la maquetación y el foco, pero no la barra dinámica de Chrome en Android (que cambia --vp-screen), el tacto real ni el escenario 3D en el teléfono. Si pruebas tú en el Moto G15, tarda más pero cierra esos huecos.",
@@ -22,5 +22,11 @@
   "source": "Plan de desarrollo 2026-11-18 (revision-visual-breakpoints)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.641Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:08:52.792Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:08:52.791Z",
+  "queued": false
 }

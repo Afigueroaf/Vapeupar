@@ -1,6 +1,6 @@
 {
   "title": "Tarjetas de información: dirección del rediseño",
-  "status": "decision",
+  "status": "hecho",
   "priority": "alta",
   "area": "diseño",
   "summary": "Más información obliga a ampliar el esquema de contenido en los dos lados y a escribir copy real. Profundidad visual no toca el esquema ni el copy. Desplegables permiten más texto en móvil a cambio de un toque extra y de JS de cliente.",
@@ -27,5 +27,11 @@
   "source": "Plan de desarrollo 2026-11-18 (redisenar-las-tarjetas-del-panel-de-informacion-)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.641Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:08:54.891Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:08:54.890Z",
+  "queued": false
 }

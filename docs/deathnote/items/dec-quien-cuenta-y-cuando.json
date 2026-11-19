@@ -1,6 +1,6 @@
 {
   "title": "Datos reales: quién cuenta y cuándo",
-  "status": "decision",
+  "status": "hecho",
   "priority": "alta",
   "area": "datos",
   "summary": "El libro de stock es solo de inserción: si se cuenta mientras se vende por WhatsApp (las ventas se descuentan a mano, registro-ventas sigue pendiente), el stock arranca descuadrado y solo se corrige con ajustes. Mientras tanto ONE sale como agotada porque tiene stock 0.",
@@ -27,5 +27,11 @@
   "source": "Plan de desarrollo 2026-11-18 (carga-datos-reales)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.748Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:04:59.561Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:04:59.560Z",
+  "queued": false
 }

@@ -1,6 +1,6 @@
 {
   "title": "Datos reales: formato del conteo físico",
-  "status": "decision",
+  "status": "hecho",
   "priority": "alta",
   "area": "datos",
   "summary": "Decide si hace falta el importador. Con la planilla, las unidades entran por lote, sin errores de tecleo y sin duplicarse si se repite. Si lo registras tú en /admin, no se escribe código, pero son cerca de 80 variantes una a una.",
@@ -27,5 +27,11 @@
   "source": "Plan de desarrollo 2026-11-18 (carga-datos-reales)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.748Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:04:57.460Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:04:57.459Z",
+  "queued": false
 }

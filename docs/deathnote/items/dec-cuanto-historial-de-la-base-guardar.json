@@ -1,6 +1,6 @@
 {
   "title": "Backups: cuánto historial de la base guardar",
-  "status": "decision",
+  "status": "hecho",
   "priority": "media",
   "area": "infra",
   "summary": "Con 7 días, un dato roto o borrado que nadie note durante una semana ya no se puede recuperar, y eso importará más cuando haya registro de ventas. La base es pequeña: RDS no cobra los backups hasta 20 GB y una copia mensual en AWS Backup cuesta menos de 0,50 USD/mes.",
@@ -27,5 +27,11 @@
   "source": "Plan de desarrollo 2026-11-18 (endurecer-entorno-vivo)",
   "origin": "docs",
   "createdAt": "2026-11-19T02:56:10.854Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z"
+  "updatedAt": "2026-11-19T06:14:56.991Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:14:56.990Z",
+  "queued": false
 }
