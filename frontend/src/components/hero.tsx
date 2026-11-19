@@ -1,8 +1,12 @@
 import Image from "next/image";
 import { PixelLabel } from "@/components/ui/pixel-label";
 import { VAPORIZER_ANCHOR_ATTRIBUTE } from "@/components/vaporizer/anchor";
+import { getContent } from "@/lib/content";
 
-export function Hero() {
+/** Etiqueta y reclamo salen de la clave `hero` del contenido (A7.4). */
+export async function Hero() {
+  const content = await getContent("hero");
+
   return (
     <section
       aria-label="Bienvenida y propuesta de valor"
@@ -39,7 +43,7 @@ export function Hero() {
       <div className="mx-auto grid w-full max-w-vp items-center gap-12 px-inline py-section sm:py-24 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16 flex-1 portrait:grid-cols-1 portrait:grid-rows-[auto_minmax(0,1fr)] portrait:gap-8">
         {/* Columna de texto */}
         <div>
-          <PixelLabel variant="outline">[ SYSTEM ONLINE ]</PixelLabel>
+          <PixelLabel variant="outline">[ {content.label} ]</PixelLabel>
 
           {/*
             El logotipo hace de titular. El `alt` es el que le da nombre
@@ -91,7 +95,7 @@ export function Hero() {
                 lugar de pedir la familia por su cuenta; `vp-label-lead` solo le
                 sube el tamaño. En mayúsculas porque lo impone la clase. */}
             <p className="vp-label vp-label-lead mt-6 text-center text-action">
-              Virtual Vape Shop
+              {content.tagline}
             </p>
           </div>
         </div>

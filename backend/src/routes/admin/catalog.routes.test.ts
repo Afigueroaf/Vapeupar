@@ -384,21 +384,32 @@ describe('CRUD de /api/admin', () => {
       const { url } = await start();
 
       const publicada = await call(url, '/api/admin/content/hero', {
-        method: 'PUT', as: OWNER, body: { value: { title: 'Vapeá en Paraná' } }
+        method: 'PUT', as: OWNER, body: { value: { label: 'SYSTEM ONLINE', tagline: 'Vapeá en Valledupar' } }
       });
       expect(publicada.status).toBe(201);
       expect(data(publicada)).toMatchObject({ key: 'hero', version: 1, userId: OWNER });
 
       const leida = await call(url, '/api/admin/content/hero', { as: OWNER });
-      expect(data(leida).value).toEqual({ title: 'Vapeá en Paraná' });
+      expect(data(leida).value).toEqual({ label: 'SYSTEM ONLINE', tagline: 'Vapeá en Valledupar' });
 
       const segunda = await call(url, '/api/admin/content/hero', {
-        method: 'PUT', as: OWNER, body: { value: { title: 'Otro' } }
+        method: 'PUT', as: OWNER, body: { value: { label: 'SYSTEM ONLINE', tagline: 'Otro' } }
       });
       expect(data(segunda).version).toBe(2);
 
       const versiones = await call(url, '/api/admin/content/hero/versions', { as: OWNER });
       expect((versiones.body?.data as { version: number }[]).map(v => v.version)).toEqual([2, 1]);
+    });
+
+    it('400 con el campo culpable cuando el valor no cumple el esquema de la clave', async () => {
+      const { url, content } = await start();
+
+      const mala = await call(url, '/api/admin/content/hero', {
+        method: 'PUT', as: OWNER, body: { value: { title: 'forma de antes de A7.1' } }
+      });
+      expect(mala.status).toBe(400);
+      expect(String(mala.body?.message)).toContain('value.label');
+      expect(content.audits).toHaveLength(0);
     });
 
     it('solo owner publica, y la clave tiene que ser de la lista', async () => {

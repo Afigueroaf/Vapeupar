@@ -138,5 +138,12 @@
     "title": "Bucket del catálogo con RETAIN y versionado",
     "detail": "cdk deploy de Vapeupar-dev-Storage tras copiar los 88 objetos. Sin pérdida: 88 antes y después.",
     "ref": "cdk deploy Vapeupar-dev-Storage"
+  },
+  {
+    "id": "h20261118-1",
+    "date": "2026-11-18",
+    "title": "Contenido del sitio editable (A7.1, A7.2, A7.4)",
+    "detail": "Esquemas por clave, GET /api/content/:key y /api/brands/partners, y hero, banda de confianza, FAQ, pie y SEO leyendo de la API con respaldo en código. La FAQ ya no nombra marcas a mano.",
+    "ref": "feat/a7-contenido-editable"
   }
 ]

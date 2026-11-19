@@ -23,7 +23,7 @@ V4 y V5.
 | **A4** | Autenticación y superficie `/api/admin/*` | `backend/src/routes/admin/`, `backend/src/middleware/` | ✅ **Ejecutada** (2026-10-27): sesión, roles, endurecimiento, inventario y el CRUD completo. Solo queda fuera el puente AdminJS (A4.4), opcional y descartado |
 | **A5** | Consola `/admin` en Next | `frontend/src/app/(admin)/` | 🟡 **Parcial** (2026-10-27): A5.1 (stock), A5.2 (marcas y proveedores) y A5.3 (lineas y variantes), ejecutadas; falta A5.4, que depende de A7.1 |
 | **A6** | Catálogo público con variantes | `product-card.tsx`, `product-catalog.tsx`, tipos | ✅ **Ejecutada** (2026-11-17): contratos con `variants` y `brandSlug`, tarjeta «Ver N sabores» con la elección en la ficha, y filtros sobre variantes. Ver «Registro A6» |
-| **A7** | `SiteContent` + revalidación + barrido de textos | `faq.tsx`, `layout.tsx`, `trust-band.tsx` | ⬜ Pendiente |
+| **A7** | `SiteContent` + revalidación + barrido de textos | `faq.tsx`, `layout.tsx`, `trust-band.tsx` | 🟡 **Parcial** (2026-11-18): A7.1, A7.2 y A7.4 ejecutadas; falta A7.3 (revalidación on-demand). Ver «Registro A7» |
 | **A8** | Imágenes en S3 + CloudFront | `next.config.ts`, `storage.service.ts` | 🟡 **Parcial** (2026-10-27): código terminado y verificado de extremo a extremo —migración aplicada, subida real con URL prefirmada y lectura `200` por CloudFront—. Falta subir las imágenes del catálogo al bucket. Ver `docs/session-handoff-2026-10-27-inventory-images.md` |
 
 Orden recomendado de valor entregado: A1 → A2 → A3 → A4 → **A5.1 (pantalla de
@@ -1118,6 +1118,59 @@ desplegar; apagar el backend y comprobar que la FAQ sale con el texto por defect
 marcar una marca como no aliada y verla desaparecer del texto de autenticidad.
 
 ---
+
+### Registro A7 (2026-11-18) — A7.1, A7.2 y A7.4
+
+**Archivos**
+
+| Archivo | Rol |
+|---|---|
+| `backend/src/schemas/content/` | Un esquema Zod estricto por clave, con límites de longitud y su valor por defecto (el texto que había en los componentes) |
+| `backend/src/services/content.service.ts` | `publish` valida por clave (`400` con `value.<campo>`) y guarda el valor recortado; `getPublic` sirve la última versión o el valor por defecto |
+| `backend/src/routes/site.routes.ts` | `GET /api/content/:key` y `GET /api/brands/partners`, públicos |
+| `frontend/src/lib/content/schemas.ts` | Espejo de los esquemas; `content-parity.test.ts` falla si divergen |
+| `frontend/src/lib/content.ts` | `getContent` (etiqueta `contenido`, `safeParse`, respaldo), `getPartnerBrands`, `withPartnerBrands` |
+| `hero.tsx`, `trust-band.tsx`, `faq.tsx`, `footer.tsx`, `app/page.tsx`, `app/layout.tsx` | Leen su clave; `layout.tsx` pasa a `generateMetadata` |
+
+**Decisiones tomadas durante la ejecución**
+
+- **La clave es `contact`, no `contacto`**, como el resto del contrato en
+  inglés (ya lo era en la ruta de A4). Cubre el texto de marca, la ubicación,
+  el horario y las líneas de atención del pie. **El teléfono y el WhatsApp
+  quedan fuera**: siguen en variables de entorno (decisión V0.3), para que un
+  número no pueda cambiarse sin desplegar.
+- **El hero no tiene titular ni CTA de texto**: el titular es el logotipo. Lo
+  editable es la etiqueta pixel (`label`, sin corchetes) y el reclamo
+  (`tagline`).
+- **La banda de confianza exige exactamente tres tarjetas**, porque el panel
+  está maquetado para tres apiladas en un teléfono en vertical.
+- **Marcas aliadas por marcador**: la respuesta de autenticidad lleva
+  `{marcas}`, que el sitio sustituye con `GET /api/brands/partners`. Sin lista,
+  «nuestras marcas aliadas». Con esto la FAQ deja de nombrar Lost Mary,
+  Geekvape, OXVA, Elf Bar y Nasty Juice, que no se venden; y las keywords de
+  SEO pierden `lost mary`, `geekvape` y `oxva` sin poner otra marca a mano.
+  El marcador solo se admite en la FAQ (en cualquiera de sus textos); en otra
+  clave, publicar es `400`.
+- **Lectura con tope de 3 s** (`AbortSignal.timeout`): un backend colgado no
+  cuelga la página, sirve el valor por defecto. Los fetch del catálogo llevan
+  ya la etiqueta `catalogo` para A7.3.
+- **Esquemas duplicados con prueba de paridad** en vez de un paquete
+  compartido, que es el item `tipos-compartidos` y toca el empaquetado de la
+  release. La prueba compara JSON Schema y valores por defecto.
+- **Lectura pública sin 404**: una clave nunca publicada, o cuya última fila no
+  cumple el esquema (anterior a A7.1), devuelve el valor por defecto con
+  `source: "default"`.
+
+**Verificación**
+
+- `npm run test:backend`: esquemas por clave, lectura pública, rutas públicas
+  y paridad.
+- `npm run build` con el backend apagado: la portada se genera con los textos
+  por defecto y la FAQ dice «distribuidores autorizados de nuestras marcas
+  aliadas».
+- **Pendiente con el entorno vivo**: publicar una FAQ desde la API y verla en el
+  sitio (hasta 60 s sin A7.3), y marcar una marca como no aliada y verla
+  desaparecer del texto de autenticidad.
 
 ## Fase A8 — Imágenes en S3 + CloudFront
 

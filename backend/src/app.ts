@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { productRouter } from './routes/product.routes.js';
 import { createAdminRouter } from './routes/admin/index.js';
+import { createBrandsPublicRouter, createContentPublicRouter } from './routes/site.routes.js';
 
 /**
  * Armado de la aplicación, separado de `index.ts` para poder levantarla en un
@@ -13,6 +14,9 @@ import { createAdminRouter } from './routes/admin/index.js';
 export interface AppOptions {
   /** Se sustituye en los tests por un router con dependencias en memoria. */
   adminRouter?: Router;
+  /** Lectura pública de contenido y marcas aliadas; en los tests, en memoria. */
+  contentRouter?: Router;
+  brandsRouter?: Router;
   /** Límites por ventana; los valores por defecto son los de producción. */
   rateLimits?: { publicMax?: number; adminMax?: number; loginMax?: number };
 }
@@ -109,6 +113,8 @@ export function createApp(options: AppOptions = {}): Express {
   });
 
   app.use('/api/products', productRouter);
+  app.use('/api/content', options.contentRouter ?? createContentPublicRouter());
+  app.use('/api/brands', options.brandsRouter ?? createBrandsPublicRouter());
   app.use('/api/admin', options.adminRouter ?? createAdminRouter());
 
   app.use((_req: Request, res: Response) => {
