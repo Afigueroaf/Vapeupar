@@ -4,6 +4,7 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { EnvConfig, paramName, resourceName } from './config.js';
@@ -139,7 +140,28 @@ export class AppStack extends Stack {
       }),
     );
 
-    // Los tres secretos del entorno, por nombre. Secrets Manager añade seis
+    // Secreto compartido entre backend y frontend para la revalidación
+    // on-demand (A7.3): el backend lo manda como Bearer a
+    // `/internal/revalidate` y Next lo comprueba. Vive aquí, con quien lo usa:
+    // lo leen los dos procesos de esta instancia y nadie más.
+    // `infra/deploy/write-env.mjs` lo escribe en backend.env y en
+    // frontend.env desde la misma lectura, para que nunca difieran.
+    // Se puede borrar con el stack: no protege datos, se regenera y los dos
+    // lados lo vuelven a leer en el siguiente arranque.
+    const revalidateSecret = new secretsmanager.Secret(this, 'RevalidateSecret', {
+      secretName: `vapeupar/${config.envName}/revalidate`,
+      description: 'Secreto de la revalidacion on-demand del sitio (backend -> /internal/revalidate)',
+      generateSecretString: {
+        // 64 caracteres alfanuméricos (~380 bits). Sin puntuación: va en una
+        // cabecera HTTP y en un EnvironmentFile de systemd.
+        passwordLength: 64,
+        excludePunctuation: true,
+        includeSpace: false,
+      },
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    // Los secretos del entorno, por nombre. Secrets Manager añade seis
     // caracteres aleatorios al ARN, de ahí el `-??????`: así no hace falta
     // importar los ARN de otros stacks, y el comodín no alcanza a ningún otro
     // secreto. El maestro de RDS está porque las migraciones se ejecutan desde
@@ -148,7 +170,7 @@ export class AppStack extends Stack {
     role.addToPolicy(
       new iam.PolicyStatement({
         actions: ['secretsmanager:GetSecretValue'],
-        resources: ['rds-app', 'rds-master', 'cognito-backend-client'].map((name) =>
+        resources: ['rds-app', 'rds-master', 'cognito-backend-client', 'revalidate'].map((name) =>
           this.formatArn({
             service: 'secretsmanager',
             resource: 'secret',
@@ -364,6 +386,10 @@ export class AppStack extends Stack {
       // Lo lee `infra/deploy/write-env.mjs` en la instancia para el CORS del
       // backend. Ver `config.app.publicOrigin`.
       PUBLIC_ORIGIN: config.app.publicOrigin ?? `http://${eip.attrPublicIp}`,
+      // Lo lee `infra/deploy/write-env.mjs` (A7.3). Si aún no existe —una
+      // instancia con una release nueva antes de desplegar este stack—, el
+      // script sigue sin él y el sitio refresca solo por ISR.
+      REVALIDATE_SECRET_ARN: revalidateSecret.secretArn,
     };
     for (const [key, value] of Object.entries(params)) {
       new ssm.StringParameter(this, `Param${key}`, {

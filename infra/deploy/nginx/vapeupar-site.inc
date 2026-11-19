@@ -4,6 +4,7 @@
 # lo cargue por su cuenta como si fuera un sitio.
 #
 #   /api/*            -> backend  127.0.0.1:4000
+#   /internal/*       -> 404 (solo el backend llega, por loopback)
 #   /_next/static/*   -> disco, directamente (sin pasar por Node)
 #   resto             -> frontend 127.0.0.1:3000
 
@@ -42,6 +43,14 @@ location /api/ {
     proxy_buffer_size 16k;
     proxy_buffers 8 16k;
     proxy_busy_buffers_size 32k;
+}
+
+# Rutas internas de Next (A7.3): `/internal/revalidate` la llama SOLO el
+# backend, directo a 127.0.0.1:3000. Desde fuera no existe, aunque el secreto
+# la proteja igual. `^~` para que ninguna location con expresión regular que
+# se añada después pueda adelantarse a esta.
+location ^~ /internal/ {
+    return 404;
 }
 
 # Recursos con hash en el nombre: inmutables por definición. Se sirven

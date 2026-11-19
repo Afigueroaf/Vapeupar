@@ -11,13 +11,18 @@
 //
 //   DATABASE_URL          rol vapeupar_app: lo usa el backend en runtime.
 //   MIGRATE_DATABASE_URL  usuario maestro: solo migraciones y db:sync-app-role.
+//   REVALIDATE_SECRET     se genera aquí una vez y se copia a frontend/.env.local
+//                         (A7.3): en local, backend y Next comparten este, no el
+//                         de AWS, que es el de la instancia.
 import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { envName, getParam, getSecretJson, getSecretString, localDbPort } from './aws.mjs';
 
-const envPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../backend/.env');
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+const envPath = resolve(root, 'backend/.env');
+const frontendEnvPath = resolve(root, 'frontend/.env.local');
 const localPort = localDbPort;
 const MARKER_PREFIX = '# --- Generado por infra/scripts/write-backend-env.mjs';
 const marker = `${MARKER_PREFIX} (${envName}); no editar a mano ---`;
@@ -60,4 +65,19 @@ writeFileSync(envPath, [...kept, '', marker, ...block, ''].join('\n'));
 
 console.log(`backend/.env actualizado para el entorno ${envName}:`);
 for (const key of Object.keys(managed)) console.log(`  ${key}`);
+
+// El mismo REVALIDATE_SECRET en frontend/.env.local, para que la ruta
+// /internal/revalidate de Next acepte los avisos del backend (A7.3). Se
+// sustituye solo esa línea; el resto del archivo se conserva.
+const revalidateSecret =
+  managed.REVALIDATE_SECRET ??
+  current.get('REVALIDATE_SECRET').slice('REVALIDATE_SECRET='.length).replace(/^"(.*)"$/, '$1');
+if (revalidateSecret) {
+  const frontLines = existsSync(frontendEnvPath)
+    ? readFileSync(frontendEnvPath, 'utf8').split(/\r?\n/).filter((l) => !l.startsWith('REVALIDATE_SECRET='))
+    : [];
+  while (frontLines.length && frontLines[frontLines.length - 1] === '') frontLines.pop();
+  writeFileSync(frontendEnvPath, [...frontLines, `REVALIDATE_SECRET="${revalidateSecret}"`, ''].join('\n'));
+  console.log('frontend/.env.local actualizado:\n  REVALIDATE_SECRET');
+}
 console.log(`Recuerda abrir el túnel antes de usar DATABASE_URL: npm run infra:db-tunnel`);
