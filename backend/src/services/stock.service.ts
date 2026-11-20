@@ -10,7 +10,7 @@ import { Kardex, LowStockVariant, StockMovement, StockMovementType } from '../ty
  * caché se mantiene en la misma transacción y `reconcile()` la repara.
  */
 
-export type StockErrorCode = 'VALIDATION' | 'NOT_FOUND' | 'INSUFFICIENT_STOCK' | 'OPERATION_KEY_CONFLICT';
+export type StockErrorCode = 'VALIDATION' | 'NOT_FOUND' | 'INSUFFICIENT_STOCK' | 'OPERATION_KEY_CONFLICT' | 'STOCK_CHANGED';
 
 /** Error de dominio; la capa HTTP (A4) lo traduce a 400 / 404 / 409. */
 export class StockError extends Error {
@@ -41,7 +41,9 @@ const RecordMovementSchema = z.object({
   unitCost: z.number().int().nonnegative().optional(),
   lot: optionalText(100),
   userId: z.string().trim().min(1),
-  operationKey: z.string().trim().min(8).max(100)
+  operationKey: z.string().trim().min(8).max(100),
+  /** Disponible con el que se calculó el movimiento: si al bloquear la variante es otro, aborta con `STOCK_CHANGED`. */
+  expectedStock: z.number().int().optional()
 }).superRefine((input, ctx) => {
   if (input.type === 'adjustment') {
     if (!input.reason) {
@@ -126,6 +128,15 @@ export class StockService {
         if (existing) {
           if (!sameOperation(existing, candidate)) throw conflict(candidate.operationKey);
           return { movement: existing, stock: variant.stockCache, replayed: true };
+        }
+
+        // Comprobado bajo el bloqueo: una venta entre la lectura de quien llama y
+        // esta escritura no puede quedar tapada por un ajuste calculado con el valor viejo.
+        if (data.expectedStock !== undefined && variant.stockCache !== data.expectedStock) {
+          throw new StockError(
+            'STOCK_CHANGED',
+            `El stock cambió: se esperaba ${data.expectedStock} y hay ${variant.stockCache}`
+          );
         }
 
         const stock = variant.stockCache + candidate.quantity;

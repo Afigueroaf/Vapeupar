@@ -212,3 +212,24 @@ describe('StockService: consultas y reconciliación', () => {
     await expectStockError(service.findLowStock(-1), 'VALIDATION');
   });
 });
+
+describe('StockService.recordMovement: expectedStock', () => {
+  it('aborta con STOCK_CHANGED si el disponible bajo bloqueo no es el esperado, sin escribir', async () => {
+    await service.recordMovement(movement({ quantity: 5 }));
+    await service.recordMovement(movement({ type: 'sale', quantity: 1 }));
+    await expectStockError(
+      service.recordMovement(movement({ type: 'adjustment', quantity: -1, reason: 'Conteo', expectedStock: 5 })),
+      'STOCK_CHANGED'
+    );
+    expect(repo.movements).toHaveLength(2);
+    const ok = await service.recordMovement(movement({ type: 'adjustment', quantity: -1, reason: 'Conteo', expectedStock: 4 }));
+    expect(ok.stock).toBe(3);
+  });
+
+  it('un reintento con la misma clave es replay aunque el stock ya no sea el esperado', async () => {
+    const first = movement({ quantity: 5, expectedStock: 0 });
+    await service.recordMovement(first);
+    const again = await service.recordMovement(first);
+    expect(again.replayed).toBe(true);
+  });
+});
