@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import { productRouter } from './routes/product.routes.js';
 import { createAdminRouter } from './routes/admin/index.js';
 import { createBrandsPublicRouter, createContentPublicRouter } from './routes/site.routes.js';
+import { createOrdersPublicRouter } from './routes/order.routes.js';
 
 /**
  * Armado de la aplicación, separado de `index.ts` para poder levantarla en un
@@ -17,8 +18,10 @@ export interface AppOptions {
   /** Lectura pública de contenido y marcas aliadas; en los tests, en memoria. */
   contentRouter?: Router;
   brandsRouter?: Router;
+  /** Pedidos públicos (ADR-003); en los tests, en memoria. */
+  ordersRouter?: Router;
   /** Límites por ventana; los valores por defecto son los de producción. */
-  rateLimits?: { publicMax?: number; adminMax?: number; loginMax?: number };
+  rateLimits?: { publicMax?: number; adminMax?: number; loginMax?: number; ordersMax?: number };
 }
 
 /** Cuerpo máximo del público. La edición de contenido del admin necesita más. */
@@ -45,7 +48,7 @@ export function createApp(options: AppOptions = {}): Express {
   // --- Límite de peticiones, del más estricto al más laxo ---
   // El orden importa: el primero que coincide es el primero que corta, así que
   // una ráfaga contra el login se detiene por el límite del login y no por el
-  // general. Los tres se aplican, y por eso el del admin salta antes que el
+  // general. Todos los que coinciden se aplican, y por eso el del admin salta antes que el
   // público aunque la ruta esté bajo `/api`.
   app.use('/api/admin/auth/login', rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -55,6 +58,18 @@ export function createApp(options: AppOptions = {}): Express {
     // Contar solo los intentos fallidos: a quien acierta no se le penaliza.
     skipSuccessfulRequests: true,
     message: rateLimitMessage('Demasiados intentos de inicio de sesión. Espera unos minutos.')
+  }));
+
+  // Crear pedidos es la única escritura pública (ADR-003 §5): unos pocos por
+  // IP y ventana bastan a un cliente real y frenan el spam. Solo cuenta POST:
+  // la comprobación previa de CORS (OPTIONS) no es un pedido.
+  app.use('/api/orders', rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: limits.ordersMax ?? 5,
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: req => req.method !== 'POST',
+    message: rateLimitMessage('Demasiados pedidos seguidos desde esta conexión. Escríbenos por WhatsApp o espera unos minutos.')
   }));
 
   app.use('/api/admin', rateLimit({
@@ -115,6 +130,7 @@ export function createApp(options: AppOptions = {}): Express {
   app.use('/api/products', productRouter);
   app.use('/api/content', options.contentRouter ?? createContentPublicRouter());
   app.use('/api/brands', options.brandsRouter ?? createBrandsPublicRouter());
+  app.use('/api/orders', options.ordersRouter ?? createOrdersPublicRouter());
   app.use('/api/admin', options.adminRouter ?? createAdminRouter());
 
   app.use((_req: Request, res: Response) => {

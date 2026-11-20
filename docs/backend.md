@@ -5,8 +5,8 @@ El backend de Vapeupar es un servicio REST desarrollado en **TypeScript** con **
 
 ## Seguridad y Resiliencia
 - **Cabeceras de Seguridad (Helmet)**: Configurado para proteger la API contra ataques de scripting entre sitios (XSS), sniffing de tipo MIME y clickjacking.
-- **Limitación de Tasa (Rate Limiting)**: Tres límites, del más estricto al más laxo, y los tres se aplican: 10 intentos fallidos por 15 minutos en `/api/admin/auth/login`, 30 peticiones por minuto en `/api/admin` y 100 por minuto en `/api/*`. Por eso una ráfaga contra la consola se corta antes que la del público.
-- **Validación con Esquemas Zod 4**: Toda entrada de parámetros de consulta (`query`), de ruta (`params`) y de cuerpo se somete a validación estricta en tiempo de ejecución. Las claves desconocidas se descartan en lugar de rechazar la petición, de modo que un campo colado en un cuerpo no llega nunca al servicio.
+- **Limitación de Tasa (Rate Limiting)**: Cuatro límites, del más estricto al más laxo, y todos los que coinciden se aplican: 10 intentos fallidos por 15 minutos en `/api/admin/auth/login`, 5 pedidos (`POST`) por 15 minutos en `/api/orders`, 30 peticiones por minuto en `/api/admin` y 100 por minuto en `/api/*`. Por eso una ráfaga contra la consola se corta antes que la del público.
+- **Validación con Esquemas Zod 4**: Toda entrada de parámetros de consulta (`query`), de ruta (`params`) y de cuerpo se somete a validación estricta en tiempo de ejecución. Las claves desconocidas se descartan en lugar de rechazar la petición, de modo que un campo colado en un cuerpo no llega nunca al servicio. **Excepción: los pedidos** (`POST /api/orders` y las transiciones de `/api/admin/orders`) usan objetos estrictos y responden `400` a un campo de más, para que un precio enviado por el cliente se rechace en vez de ignorarse en silencio.
 - **Manejo Centralizado de Errores**: Middleware global que captura excepciones no controladas y enmascara detalles técnicos internos en entornos de producción.
 - **Cierre Elegante (Graceful Shutdown)**: Captura de señales `SIGINT` y `SIGTERM` para finalizar conexiones HTTP de manera ordenada.
 
@@ -543,3 +543,34 @@ Solo nombre y slug:
 ```json
 { "success": true, "data": [{ "name": "LifePod", "slug": "lifepod" }] }
 ```
+
+### 8. `POST /api/orders` (ADR-003)
+
+El sitio registra el pedido antes de abrir WhatsApp. Público, con límite propio
+de **5 pedidos por IP cada 15 minutos** (`rateLimits.ordersMax`) además del
+general, y cuerpo **estricto** (`schemas/order.schema.ts`):
+
+```json
+{
+  "submissionKey": "UUID generado por el navegador una vez por envío",
+  "customer": { "name": "Ana Pérez", "phone": "300 123 4567", "neighborhood": "Novalito" },
+  "consent": { "accepted": true, "policyVersion": "borrador-2026-11-20" },
+  "lines": [{ "variantId": "uuid", "quantity": 2 }]
+}
+```
+
+- **No hay precio en el cuerpo**: el servidor lo toma del catálogo (línea
+  publicada con precio, variante activa). Un campo de más es `400`.
+- El teléfono se normaliza a `+573XXXXXXXXX` (móvil colombiano); nombre y barrio,
+  2–80 caracteres sin marcas. Hasta 20 líneas de 1–10 unidades, sin variantes
+  repetidas.
+- `consent.policyVersion` tiene que ser la vigente (`DATA_POLICY_VERSION`); la
+  política es un **borrador pendiente de revisión legal**. Se guarda versión,
+  finalidad y fecha del servidor en `order_consents`.
+- La referencia `VP-XXXXXX` la genera el servidor. Un pedido recibido **no
+  reserva stock**; si una línea no se puede pedir o no alcanza el disponible,
+  `409 UNAVAILABLE` con `lines: [{ variantId, reason, available? }]` y no se crea
+  nada.
+- Respuesta mínima: `201 { "success": true, "data": { "reference": "VP-…", "subtotal": 90000 } }`.
+  Un reintento con la misma `submissionKey` responde `200` con lo mismo; con otras
+  líneas, `409 CONFLICT`. No existe ninguna lectura pública de pedidos.
