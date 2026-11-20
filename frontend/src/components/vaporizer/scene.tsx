@@ -503,6 +503,8 @@ export function Scene({ cloud, pointer, anchor, ...config }: SceneProps) {
     // La señal es la misma que mueve el filtro RGB del resto de la portada, de
     // modo que la nube se rompe en el mismo instante y con la misma fuerza. En
     // píxeles CSS; aquí se pasa a unidades de mundo con el factor del encuadre.
+    // Llega a saltos de 3 px (ver `lib/glitch.ts`), así que el desgarro salta
+    // con el filtro en vez de crecer suave.
     const shift = Math.min(readGlitchShift(), GLITCH_MAX_SHIFT);
     const perPixel = height > 0 ? framing.worldPerCanvasHeight / height : 0;
     const tear = shift * GLITCH_TEAR * perPixel;

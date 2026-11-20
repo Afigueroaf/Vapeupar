@@ -324,7 +324,9 @@ html {
    scanlines fijo sobre el viewport acompaña el burst.
 
    `<PageGlitch />` marca `html.glitch-ready` mientras está montado, escribe
-   `--glitch-shift` (0–17, sin unidad) y alterna `html.glitch-active`.
+   `--glitch-shift` (múltiplos de 3 de 0 a 15, sin unidad: el desplazamiento va
+   a saltos, ver `SHIFT_STEP` en `page-glitch.tsx`) y alterna
+   `html.glitch-active`.
 
    EL FILTRO SOLO SE APLICA MIENTRAS DURA LA RÁFAGA, Y SOLO A LO QUE ESTÁ EN
    PANTALLA. Dos condiciones, y las dos las pone `<PageGlitch />`:
@@ -382,19 +384,22 @@ html {
 
    Tres variantes, que solo se diferencian en el margen de la región del filtro.
    La región se mide en porcentaje de la caja y tiene que dar de sí más que el
-   desplazamiento máximo —17px: 14 de `GLITCH_MAX_SHIFT` más 3 de jitter—, o
-   las copias de color se cortan contra el borde:
+   desplazamiento máximo —15px: 14 de `GLITCH_MAX_SHIFT` más 3 de jitter,
+   cuantizado a múltiplos de 3—, o las copias de color se cortan contra el
+   borde. Y no mucho más, porque la región entera se rasteriza:
 
-     .vp-glitch       franja  (8%, sirve de 210px de ancho para arriba) — nav,
-                      intro, banda, cabecera del catálogo, FAQ, pie, lienzo 3D
-     .vp-glitch-card  tarjeta (15%, desde 115px) — tarjeta de producto y
-                      tarjetas de la banda de confianza
-     .vp-glitch-chip  pieza   (40%, desde 45px)  — botón flotante de WhatsApp
+     .vp-glitch       franja  (8%, sirve de 190px de ancho para arriba) — nav,
+                      intro, cabecera del catálogo, FAQ, pie, páginas interiores
+     .vp-glitch-card  tarjeta (12%, desde 125px) — tarjeta de producto y
+                      tarjetas de información de la banda de confianza
+     .vp-glitch-chip  pieza   (30%, desde 50px)  — botón flotante de WhatsApp
 
    La rejilla del catálogo no se filtra como bloque —crece con el catálogo, no
-   tiene techo de altura—: la lleva cada tarjeta. Las `.vp-card` de la banda
-   de confianza también la llevan cada una: la sección no se filtra porque
-   tiene dentro el lienzo 3D (ver `trust-band.tsx`).
+   tiene techo de altura—: la lleva cada tarjeta. Las tarjetas de información
+   de la banda de confianza (`trust-band-view.tsx`) también la llevan cada
+   una: la sección no se filtra porque tiene dentro el lienzo del prisma (ver
+   `trust-band.tsx`), que glitchea en su propio shader. Ningún lienzo WebGL
+   queda dentro de un bloque filtrado: la nube del hero tampoco (`page.tsx`).
 
    El modal +18 queda FUERA de los tres a propósito: `filter` sobre un ancestro
    lo convierte en bloque contenedor de sus descendientes `position: fixed`, lo

@@ -157,9 +157,15 @@ con el hero en pantalla.
 
 ### Fase 2 — WebGL con presupuesto · 1–2 días
 
-1. **Un solo bucle activo a la vez**: cuando la banda esté en el centro del
+1. ~~**Un solo bucle activo a la vez**: cuando la banda esté en el centro del
    viewport, bajar la nube a `frameloop="demand"` (o pausarla) y viceversa; hoy las
-   dos animan a la vez mientras ambas intersectan.
+   dos animan a la vez mientras ambas intersectan.~~ **Descartado por decisión del
+   dueño (2026-11-19, Deathnote `dec-rendimiento-un-solo-bucle-webgl-a-la-vez`):**
+   que animen los dos. Pausar la nube ahorra GPU en el teléfono, pero si queda
+   asomando por el borde de la pantalla se la vería congelarse, y eso choca con la
+   regla de la §3 quater (ninguna optimización puede pausar una animación
+   principal). Por eso el presupuesto de `docs/frontend.md` no incluye «un bucle
+   WebGL a la vez».
 2. Prisma: `antialias: false` en `pointer: coarse` o con DPR ≥ 2 (el DPR alto ya
    suaviza), y `powerPreference: "default"` en táctil para no forzar la GPU
    dedicada en portátiles.
@@ -208,10 +214,13 @@ con el hero en pantalla.
 ### Fase 5 — Guardas para no volver atrás · ½ día
 
 1. Documentar en `docs/frontend.md` un presupuesto: máximo un filtro SVG activo
-   fuera de *bursts* (cero), un bucle WebGL a la vez, nº de capas objetivo.
+   fuera de *bursts* (cero), ~~un bucle WebGL a la vez~~ (descartado, ver fase 2
+   punto 1), nº de capas objetivo.
 2. Añadir `@next/bundle-analyzer` o revisar `next build` para vigilar que three.js
    siga fuera del chunk inicial.
 3. Repetir el protocolo de la fase 0 y registrar los números aquí.
+
+Resultado en «Fase 5 — guardas y glitch a saltos», al final de la §3.
 
 ---
 
@@ -335,9 +344,10 @@ visibles. Como solo vive el 8 % del tiempo, el promedio penaliza más de lo espe
 apunta a que un *burst* concreto sigue siendo caro. Candidatos, por orden:
 
 - cuantizar `dx` en saltos de 3 px (hoy cambia casi cada fotograma: ~25
-  invalidaciones por ráfaga, frente a ~6);
+  invalidaciones por ráfaga, frente a ~6); *hecho en la fase 5: medido, eran ~13
+  y no ~25 —las escrituras repetidas ya se saltaban—, y bajan a 4*;
 - recortar los márgenes de región de los filtros, sobre todo el 40 % de
-  `.vp-glitch-chip`;
+  `.vp-glitch-chip`; *hecho en la fase 5: 30 % y 12 % en la tarjeta*;
 - llevar el desgarro al shader del prisma y sacar también su lienzo del filtro.
 
 ### Lo que NO mejoró
@@ -774,6 +784,72 @@ GPGPU parada en reposo). **El número de partículas no se ha tocado.**
    Para verlo, un `console.log` temporal en `onSlow`.
 3. Fotograma medio y p95 con el cursor quieto sobre el prisma, antes y después
    del raycast espaciado.
+
+### Fase 5 — guardas y glitch a saltos (2026-11-20, Deathnote `perf-guardas`)
+
+Rama `perf/glitch-saltos-guardas`, sin fusionar.
+
+**Objetivo fijado por el dueño** (Deathnote `dec-objetivo-de-rendimiento-en-el-moto-g15`):
+en el Moto G15 en caliente, scroll completo de la portada a **≥55 fps de media, p95
+≤17 ms y menos de 10 fotogramas >33 ms en 12 s**, con el protocolo de «AVISO DE
+MÉTODO». Está escrito como presupuesto, con las reglas, en `docs/frontend.md`
+(«Presupuesto de rendimiento»): todo efecto nuevo de la portada se mide contra él.
+
+**Glitch cuantizado** (Deathnote `dec-glitch-cuantizado-a-pasos-de-3-px`, opción 2:
+todo a 3 px). `apply()` en `page-glitch.tsx` redondea el desplazamiento a múltiplos
+de 3 con tope 15 (antes, entero de 0 a 17), y esa misma señal va a los `feOffset` y
+a `--glitch-shift`: scanlines, nube y prisma saltan igual. Con el máximo en 15 px los
+márgenes de región bajan: `.vp-glitch-card` 15 % → 12 % y `.vp-glitch-chip` 40 % →
+30 % (el botón filtraba 3,2 veces su área; ahora 2,6). Va en un commit aislado.
+
+Cambios de `dx` (cada uno reescribe seis `feOffset`, `--glitch-shift` y la clase, e
+invalida el filtrado de todo lo armado), contados con un contador temporal en
+`apply()` ya retirado, en Chrome 158 de escritorio *headless* sobre `next dev`
+(1280×800, ~36–42 rAF/s porque la nube se dibuja por software), y con la misma
+fórmula simulada a 60 Hz:
+
+| | Por ráfaga (headless) | Por ráfaga (60 Hz simulado) | Entrada (headless) | Valores en ráfaga |
+|---|---|---|---|---|
+| Continuo (antes) | 9,9 y 9,4 (n = 9 y 5) | 12,8 (11–14) | 23 y 19 | 0–7 |
+| A saltos de 3 px | **4,0** (n = 7, todas 4) | **4,0** | **6** | 0, 3, 6 |
+
+O sea: el «~25 por ráfaga» de la fase 1 eran fotogramas, no escrituras (las
+repetidas ya se saltaban); las reales eran ~13 y bajan a 4, por debajo del ≤8 que
+pedía el criterio. Una ráfaga queda en 0 → 3 → 6 → 3 → 0.
+
+**Guardas.**
+
+- `npm run check:bundle` (`scripts/check-bundle.mjs`), tras `npm run build`: lee el
+  HTML prerenderizado de la portada y falla si algún chunk que referencia contiene
+  `WebGLRenderer` (firma de three.js) o si su JS inicial pasa de 290 KB gzip. Hoy:
+  13 chunks, 248,7 KB, sin three (que vive en dos chunks diferidos). Si la firma
+  desaparece de todo el build, falla en vez de aprobar en vacío. Está en el CI tras
+  el build; tarda <1 s. Comprobado que salta inyectando un chunk de three en el HTML.
+- `npm run analyze --workspace=frontend`: el analizador de Turbopack que trae Next
+  16.4.6 (`next analyze`). `@next/bundle-analyzer` no se instala: solo ve builds de
+  webpack, que no es lo que se despliega.
+
+**PENDIENTE: medición en el Moto G15** (Deathnote `dec-rendimiento-quien-mide-en-el-moto-g15`:
+mide Claude por USB; el teléfono no estaba conectado el 2026-11-20). Procedimiento:
+
+1. Dos builds de producción servidos en la red local: **A** = el commit anterior al
+   del glitch a saltos (dx continuo), **B** = esta rama. Mismas guardas y mismo
+   contenido; solo cambia el glitch.
+2. Moto G15 por USB con depuración activa, Chrome en el teléfono y
+   `chrome://inspect` en el PC (CDP, como en la fase 0). Pantalla encendida, sin
+   ahorro de batería.
+3. Pasada de calentamiento de la portada que se descarta. Después **A, B, A, B**:
+   12 s de scroll completo de la portada con ráfagas por medio (al menos una por
+   pasada; vuelven cada 5–9 s), anotando FPS medio, p95 y fotogramas >33 ms.
+4. Grabación del glitch en A y en B (entrada y una ráfaga, sobre el hero y la
+   banda) para que el dueño compare el aspecto.
+5. Tabla aquí, contra el objetivo de arriba.
+
+**Criterio de reversión:** si B no mejora a A en FPS o p95 en caliente, o si al
+dueño no le gusta cómo se ve el glitch a saltos, se revierte el commit `54edf7a`
+`perf(glitch): desplazamiento a saltos de 3 px…` (solo ese; las guardas y la
+documentación se quedan, corrigiendo aquí y en `docs/frontend.md` la línea del
+glitch a saltos).
 
 ## 4. Orden recomendado y estimación
 

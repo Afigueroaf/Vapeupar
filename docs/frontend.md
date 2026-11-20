@@ -355,6 +355,54 @@ toques sintéticos del protocolo (ver el aviso de `globals.css` §LÁMINA
 HOLOGRÁFICA). Lo comprobado hasta ahora es la compilación del CSS —las ramas
 `.vp-hot` se emiten— y la curva de velocidad, no el gesto.
 
+## Presupuesto de rendimiento
+
+Reglas que el código cumple hoy y que ningún cambio de la portada puede romper
+sin permiso del dueño. El porqué y las mediciones están en
+`docs/performance-optimization-plan.md`.
+
+**Objetivo (decisión del dueño, 2026-11-19).** En el Moto G15 en caliente, el
+scroll completo de la portada va a **≥55 fps de media, p95 ≤17 ms y menos de
+10 fotogramas de más de 33 ms en 12 s**, medido con el protocolo de «AVISO DE
+MÉTODO» del plan: una pasada de calentamiento que se descarta y después las
+variantes alternadas, A, B, A, B, nunca una sola vez cada una. Cualquier efecto
+nuevo en la portada se mide contra esta cifra antes de fusionarse; si la empeora,
+no entra sin permiso. Las cifras en frío (40–48 fps) no cuentan ni a favor ni en
+contra.
+
+**Glitch.**
+
+- Cero filtros SVG fuera de ráfaga: el filtro RGB solo se aplica mientras
+  `html.glitch-armed` (entrada, ráfaga y ~120 ms de precalentado) y solo en los
+  bloques que estaban a la vista al armarse (`.vp-glitch-on`).
+- El desplazamiento va a saltos de 3 px (0–15): 4 escrituras de `dx` por
+  ráfaga, no una por fotograma (`SHIFT_STEP` en `page-glitch.tsx`).
+- Ningún `filter` ni `backdrop-filter` sobre un lienzo WebGL ni sobre un bloque
+  que lo contenga. La nube y el prisma glitchean en su propio shader, leyendo
+  `--glitch-shift`.
+- Bajo `prefers-reduced-motion: reduce` no hay glitch: `PageGlitch` no monta.
+
+**WebGL.**
+
+- La nube dibuja como mucho `MAX_DRAW_PIXELS` = 2,6 M píxeles en escritorio y
+  `MAX_DRAW_PIXELS_COARSE` = 1,4 M en táctil (`vaporizer-point-cloud.tsx`), y
+  baja la resolución ×0,75 una sola vez si los primeros 2 s pasan de 22 ms por
+  fotograma (`FrameBudget` en `vaporizer/canvas.tsx`).
+- El raycast del prisma solo corre tras `pointermove`, y cada 0,1 s con el
+  puntero quieto (`PICK_IDLE_INTERVAL` en `prism/scene.ts`).
+- Los dos lienzos pueden animar a la vez cuando los dos asoman: **no** se pausa
+  la nube con el prisma en el centro (decisión del dueño: se vería congelarse
+  en el borde). No es una regla «un bucle WebGL a la vez».
+
+**Tarjetas.** El 3D y la lámina holográfica solo los lleva la tarjeta activa
+(bajo el puntero, `.vp-hot` o con foco); el resto, ni `will-change` ni capas.
+
+**Bundle.** three.js y @react-three/fiber no entran en el JS inicial de la
+portada, que además no pasa de 290 KB gzip (248,7 KB a 2026-11-20). Lo
+comprueba `npm run check:bundle` tras `npm run build` (también en el CI). Para
+ver qué pesa, `npm run analyze --workspace=frontend` (el analizador de
+Turbopack; `-- -o` lo escribe en `.next/diagnostics/analyze` sin servidor).
+
 ## Ejecución Local
 ```bash
 npm run dev:frontend
