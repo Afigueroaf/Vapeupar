@@ -29,7 +29,12 @@ export const metadata: Metadata = {
   description: DESCRIPTION,
   alternates: { canonical: "/privacidad" },
   openGraph: { title: "Política de tratamiento de datos | Vapeupar", description: DESCRIPTION },
+  // Un borrador sin revisión legal no debe aparecer en buscadores.
+  ...(isDraftPolicy(DATA_POLICY_VERSION) && { robots: { index: false, follow: true } }),
 };
+
+/** Días que nginx conserva sus registros (`infra/deploy/nginx/logrotate`, `rotate 14`). */
+const SERVER_LOG_DAYS = 14;
 
 /** Plazos de `RETENTION` en el backend (ADR-003 §4). */
 const RETENTION_CLOSED_DAYS = 365;
@@ -131,8 +136,14 @@ export default function PrivacyPage() {
             <p>
               <strong>No guardamos</strong> tu dirección exacta (la acordamos por WhatsApp), tu número
               de cédula (la revisamos al entregar para comprobar que eres mayor de edad, pero no la
-              anotamos) ni tu dirección IP. No tratamos datos sensibles ni datos de menores de edad:
-              solo vendemos a mayores de 18 años.
+              anotamos). No tratamos datos sensibles ni datos de menores de edad: solo vendemos a
+              mayores de 18 años.
+            </p>
+            <p>
+              <strong>Tu dirección IP no se asocia al pedido</strong>, pero, como en cualquier sitio
+              web, el servidor la anota en sus registros técnicos de acceso (junto con la página
+              pedida, la fecha y el navegador) para su funcionamiento y seguridad. Esos registros se
+              borran solos a los {SERVER_LOG_DAYS} días como máximo.
             </p>
           </Section>
 
@@ -173,24 +184,35 @@ export default function PrivacyPage() {
           </Section>
 
           <Section id="conservacion" title="6. Cuánto tiempo los conservamos">
+            <p>Estos son plazos máximos:</p>
             <ul className="list-disc space-y-1 pl-5">
               <li>
-                Pedidos entregados o cancelados: anonimizamos tu nombre, celular y barrio a los{" "}
-                <strong>{RETENTION_CLOSED_DAYS} días</strong> de cerrarse.
+                Pedidos entregados o cancelados: anonimizamos tu nombre, celular y barrio como
+                máximo a los <strong>{RETENTION_CLOSED_DAYS} días</strong> de cerrarse.
               </li>
               <li>
-                Pedidos que nunca se confirmaron: se cancelan y se anonimizan a los{" "}
-                <strong>{RETENTION_RECEIVED_DAYS} días</strong>.
+                Pedidos que nunca se confirmaron: se cancelan como caducados y se anonimizan como
+                máximo a los <strong>{RETENTION_RECEIVED_DAYS} días</strong> de recibirse.
+              </li>
+              <li>
+                Pedidos confirmados que no llegan a entregarse (por ejemplo, si no logramos
+                contactarte): los cancelamos, y desde ese momento corre el plazo de{" "}
+                {RETENTION_CLOSED_DAYS} días.
               </li>
               <li>
                 Si nos pides suprimir tus datos, los anonimizamos en cuanto el pedido esté cerrado
-                (entregado o cancelado).
+                (entregado o cancelado); si sigue abierto, primero lo cancelamos.
               </li>
             </ul>
             <p>
+              El responsable revisa periódicamente los pedidos y aplica estos plazos.{" "}
+              <Pending>frecuencia de la revisión; antes de abrir los pedidos, este paso quedará automatizado</Pending>
+            </p>
+            <p>
               Anonimizar es borrar los datos personales del pedido. Los productos, las cantidades y
               los precios se conservan porque son registros contables, pero ya no se pueden asociar a
-              ti. Las copias de seguridad automáticas caducan solas en pocos días.
+              ti. Las copias de seguridad automáticas de la base caducan solas a los 7 días como
+              máximo.
             </p>
           </Section>
 

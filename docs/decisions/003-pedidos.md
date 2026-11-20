@@ -129,7 +129,11 @@ enviar, o registra la diferencia a mano.
 ### 4. Datos personales (Ley 1581 de 2012)
 
 - **Qué se guarda**: nombre, teléfono móvil colombiano y barrio. Nada más: ni
-  dirección exacta, ni cédula (se verifica en la entrega y no se anota), ni IP.
+  dirección exacta, ni cédula (se verifica en la entrega y no se anota). La IP
+  **no se asocia al pedido**, pero nginx la anota (`$remote_addr`) en sus
+  registros de acceso, que rota a los 14 días (`infra/deploy/nginx/logrotate`,
+  instalado solo si el paquete no trae el suyo: hay que confirmar la rotación
+  efectiva en la instancia). La política lo dice así.
 - **Finalidad limitada**: gestionar el pedido (confirmar disponibilidad,
   domicilio y entrega) y reconocer al cliente recurrente en la consola. No
   publicidad, no cesión a terceros.
@@ -145,13 +149,18 @@ enviar, o registra la diferencia a mano.
   nulo y queda `anonymized_at`. Si el pedido sigue abierto, primero se cancela.
   El pedido, sus líneas y sus movimientos se conservan: son contabilidad, no dato
   personal.
-- **Plazo de conservación** (propuesto, ajustable tras la revisión legal):
+- **Plazo de conservación** (propuesto, ajustable tras la revisión legal). Son
+  plazos **máximos**:
   - pedidos entregados o cancelados: datos personales anonimizados a los
     **365 días** de cerrarse;
   - pedidos recibidos que nunca se confirmaron: se cancelan como caducados y se
-    anonimizan a los **30 días**.
-  Lo aplica `POST /api/admin/orders/retention` (owner); en la parte 2 se decide
-  si se programa.
+    anonimizan a los **30 días**;
+  - un pedido confirmado que no llega a entregarse no caduca solo: el
+    responsable lo cancela (devuelve el stock) y desde ahí corren los 365 días.
+  Hoy lo aplica a mano el owner con `POST /api/admin/orders/retention` (botón
+  «Plazo de conservación» de `/admin/orders`) en una revisión periódica.
+  **Antes de abrir los pedidos hay que programarlo**, o un olvido del
+  responsable incumple el plazo publicado.
 - **Cifrado en reposo**: la base es RDS con `storageEncrypted: true`
   (`infra/lib/data-stack.ts`). Las copias automáticas conservan los datos
   anonimizados durante su retención (1 día en dev, 7 en prod) y caducan solas.

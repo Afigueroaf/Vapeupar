@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ContactView } from "@/components/contact-view";
 import { PixelLabel } from "@/components/ui/pixel-label";
 import { getContent } from "@/lib/content";
+import { ordersEnabled } from "@/lib/order-submit";
 
 /**
  * Pie de página del sistema VP (fase V6).
@@ -48,12 +49,15 @@ export async function Footer() {
       <div className="mx-auto mt-6 flex max-w-vp flex-col items-center justify-between gap-3 px-inline text-sm text-muted sm:flex-row">
         <p>© {currentYear} Vapeupar. Todos los derechos reservados. Valledupar, Colombia.</p>
         <p>Solo para mayores de 18 años (+18). Consume con responsabilidad.</p>
-        <Link
-          href="/privacidad"
-          className="inline-flex min-h-[44px] items-center underline underline-offset-4 transition-colors hover:text-foreground"
-        >
-          Política de datos
-        </Link>
+        {/* Solo cuando el carrito puede pedir datos: antes, la política no aplica a nada. */}
+        {ordersEnabled() && (
+          <Link
+            href="/privacidad"
+            className="inline-flex min-h-[44px] items-center underline underline-offset-4 transition-colors hover:text-foreground"
+          >
+            Política de datos
+          </Link>
+        )}
       </div>
     </footer>
   );
