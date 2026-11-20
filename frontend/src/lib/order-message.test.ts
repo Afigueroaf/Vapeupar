@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CartLine } from "@/lib/cart";
-import { orderMessage, orderReference } from "@/lib/order-message";
+import { orderMessage, orderReference, registeredOrderMessage } from "@/lib/order-message";
+import { formatPriceCOP } from "@/lib/utils";
 
 function line(overrides: Partial<CartLine>): CartLine {
   return {
@@ -77,5 +78,37 @@ describe("orderMessage", () => {
       "VP-XYZ789",
     );
     expect(message).not.toContain("Mango");
+  });
+});
+
+describe("registeredOrderMessage", () => {
+  const lines = [
+    line({ key: "p1:v1", name: "ECO PRO", variantName: "Mango", variantKind: "flavor", quantity: 2, price: 30_000 }),
+    line({ key: "p2:v2", name: "ONE", variantName: "Negro", variantKind: "color", quantity: 1, price: 45_000 }),
+  ];
+
+  it("usa la referencia y el subtotal del servidor", () => {
+    expect(registeredOrderMessage(lines, { reference: "VP-SRV234", subtotal: 105_000 })).toMatchInlineSnapshot(`
+      "Hola Vapeupar! Acabo de hacer el pedido *VP-SRV234* en la web:
+
+      • 2 × *ECO PRO* — Sabor: Mango — $ 60.000
+      • 1 × *ONE* — Color: Negro — $ 45.000
+
+      *Subtotal: $ 105.000*
+      Pago contra entrega.
+      ¿Me confirman disponibilidad y el valor del domicilio en Valledupar?"
+    `);
+  });
+
+  it("omite los importes por línea si el precio del servidor es otro", () => {
+    const message = registeredOrderMessage(lines, { reference: "VP-SRV234", subtotal: 110_000 });
+    expect(message).toContain("• 2 × *ECO PRO* — Sabor: Mango\n");
+    expect(message).not.toContain(formatPriceCOP(60_000));
+    expect(message).toContain(`*Subtotal: ${formatPriceCOP(110_000)}*`);
+  });
+
+  it("no lleva datos del cliente", () => {
+    const message = registeredOrderMessage(lines, { reference: "VP-SRV234", subtotal: 105_000 });
+    expect(message).not.toMatch(/\+57|barrio|nombre/i);
   });
 });

@@ -209,6 +209,23 @@ export function setLineQuantity(key: string, quantity: number) {
   );
 }
 
+/**
+ * Baja el máximo de una línea al disponible que dio el servidor al registrar
+ * el pedido (`409 UNAVAILABLE`), y la cantidad con él. Con 0, la quita.
+ */
+export function limitLine(key: string, max: number) {
+  ensureLoaded();
+  const limit = Math.min(Math.max(0, Math.floor(max)), MAX_PER_LINE);
+  if (limit === 0) return removeLine(key);
+  update(
+    state.lines.map((line) =>
+      line.key === key
+        ? { ...line, maxQuantity: limit, quantity: Math.min(line.quantity, limit) }
+        : line,
+    ),
+  );
+}
+
 export function removeLine(key: string) {
   ensureLoaded();
   update(state.lines.filter((line) => line.key !== key));
