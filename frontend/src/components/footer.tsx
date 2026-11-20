@@ -1,8 +1,5 @@
-import Image from "next/image";
-import Link from "next/link";
+import { ContactView } from "@/components/contact-view";
 import { PixelLabel } from "@/components/ui/pixel-label";
-import { COLLECTIONS } from "@/lib/collections";
-import { formatPhoneCO, storePhone, telLink } from "@/lib/contact";
 import { getContent } from "@/lib/content";
 
 /**
@@ -20,14 +17,14 @@ import { getContent } from "@/lib/content";
  */
 
 const COL_HEADING = "text-[0.9375rem] font-bold uppercase tracking-[0.06em]";
-const COL_LIST = "mt-4 space-y-2 text-base text-muted";
-const LINK = "transition-colors hover:text-action";
 
-/** Texto de marca, horario y servicio: clave `contact` del contenido (A7.4). */
+/**
+ * Texto de marca, horario y servicio: clave `contact` del contenido (A7.4),
+ * pintado por `ContactView`, que la consola reutiliza para la vista previa.
+ */
 export async function Footer() {
   const contact = await getContent("contact");
   const currentYear = new Date().getFullYear();
-  const phoneHref = telLink();
 
   return (
     <footer className="vp-glitch border-t-2 border-line pb-10 pt-12">
@@ -44,65 +41,8 @@ export async function Footer() {
         </div>
       </div>
 
-      <div className="mx-auto mt-12 grid max-w-vp grid-cols-1 gap-block border-b-2 border-muted px-inline pb-10 md:grid-cols-4">
-        {/* Col 1: marca. Era el destino de «Nosotros» hasta V8; el id se
-            conserva para los enlaces `/#nosotros` ya compartidos. */}
-        <div id="nosotros" className="scroll-mt-24">
-          <Image
-            src="/logo-detalle.svg"
-            alt="Vapeupar"
-            width={1319}
-            height={786}
-            className="h-9 w-auto"
-          />
-
-          <p className="mt-4 text-base leading-relaxed text-muted">
-            {contact.about}
-          </p>
-        </div>
-
-        {/* Col 2: Location & Hours */}
-        <div>
-          <h3 className={COL_HEADING}>Ubicación y cobertura</h3>
-          <ul className={COL_LIST}>
-            <li>{contact.location}</li>
-            {contact.hours.map((line, index) => (
-              <li key={index}>{line}</li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Col 3: Customer Care & Ordering */}
-        <div>
-          <h3 className={COL_HEADING}>Atención al cliente</h3>
-          <ul className={COL_LIST}>
-            {/* Sin teléfono configurado, la fila no se inventa (decisión V0.3) */}
-            {phoneHref && storePhone && (
-              <li>
-                <a href={phoneHref} className={`${LINK} underline decoration-2 underline-offset-4`}>
-                  Llamadas: {formatPhoneCO(storePhone)}
-                </a>
-              </li>
-            )}
-            {contact.service.map((line, index) => (
-              <li key={index}>{line}</li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Col 4: Quick Links */}
-        <div>
-          <h3 className={COL_HEADING}>Categorías rápidas</h3>
-          <ul className={COL_LIST}>
-            {COLLECTIONS.slice(0, 3).map((c) => (
-              <li key={c.slug}><Link href={`/coleccion/${c.slug}`} className={LINK}>{c.label}</Link></li>
-            ))}
-            <li><Link href="/nosotros" className={LINK}>Nosotros</Link></li>
-            {/* `/#faq` y no `#faq`: el pie sale también en la ficha, la colección y nosotros. */}
-            <li><Link href="/#faq" className={LINK}>Preguntas frecuentes</Link></li>
-          </ul>
-        </div>
-      </div>
+      {/* Marca, horario, atención y enlaces: la misma vista que la previa de /admin/content. */}
+      <ContactView contact={contact} />
 
       <div className="mx-auto mt-6 flex max-w-vp flex-col items-center justify-between gap-3 px-inline text-sm text-muted sm:flex-row">
         <p>© {currentYear} Vapeupar. Todos los derechos reservados. Valledupar, Colombia.</p>

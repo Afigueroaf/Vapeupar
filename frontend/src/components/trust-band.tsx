@@ -1,5 +1,4 @@
-import { PixelLabel } from "@/components/ui/pixel-label";
-import { Surface } from "@/components/ui/surface";
+import { TrustBandCards } from "@/components/trust-band-view";
 import { SHOWCASE_TITLE_ID, TrustStage } from "@/components/trust-stage";
 import { getContent } from "@/lib/content";
 import type { Product } from "@/types/product";
@@ -14,7 +13,8 @@ import type { Product } from "@/types/product";
  * decorativos se sustituyen por etiquetas pixel (§4.6).
  *
  * Sus textos salen de la clave `trust-band` del contenido (A7.4); sin API,
- * del valor por defecto en `lib/content/schemas.ts`.
+ * del valor por defecto en `lib/content/schemas.ts`. Las pinta
+ * `TrustBandCards`, que la consola reutiliza para la vista previa (A5.4).
  */
 
 interface TrustBandProps {
@@ -67,21 +67,7 @@ export async function TrustBand({ showcase }: TrustBandProps) {
           Las tres tarjetas comparten un campo de fondo continuo y reaccionan al
           puntero. Ver `.vp-card` en `globals.css` y `ui/card-field.tsx`. */}
       <TrustStage showcase={showcase}>
-        {items.map((item, index) => (
-          /* Más apretadas por debajo de `lg`: apiladas en un teléfono en
-             vertical, las tres tienen que caber en el alto del escenario. */
-          /* `vp-glitch-card`: antes estas tarjetas no lo llevaban porque iban
-             dentro de una franja filtrada, y anidar un filtro dentro de otro
-             separaría los canales dos veces. Al quitarle el filtro a la
-             sección, pasan a llevarlo ellas. */
-          <Surface key={index} className="vp-card vp-glitch-card p-3 sm:p-4 lg:p-5">
-            <PixelLabel variant="lime">{item.label}</PixelLabel>
-            <h3 className="mt-2 text-base font-bold leading-tight sm:mt-3 sm:text-lg lg:mt-4 lg:text-xl">
-              {item.title}
-            </h3>
-            <p className="mt-1 text-sm text-muted sm:text-base">{item.detail}</p>
-          </Surface>
-        ))}
+        <TrustBandCards items={items} />
       </TrustStage>
     </section>
   );
