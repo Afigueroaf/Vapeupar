@@ -8,9 +8,11 @@ import type { Product, ProductVariant, VariantKind } from "@/types/product";
  *
  * QUÉ ES Y QUÉ NO. Es una lista de intención de compra que vive en el
  * navegador; el pedido se cierra por WhatsApp (ADR-001 §3: las pasarelas de
- * pago rechazan los productos con nicotina en Colombia). No reserva stock ni
- * crea nada en el backend: la tienda confirma disponibilidad y domicilio al
- * recibir el mensaje. Por eso no hay tabla de pedidos.
+ * pago rechazan los productos con nicotina en Colombia). No reserva stock: la
+ * tienda confirma disponibilidad y domicilio al recibir el mensaje. Con
+ * `NEXT_PUBLIC_ORDERS_ENABLED`, el cajón registra además el pedido en el
+ * backend antes de abrir WhatsApp (ADR-003, `lib/order-submit.ts`); el
+ * carrito en sí sigue viviendo solo aquí y no guarda datos del cliente.
  *
  * POR QUÉ UN ALMACÉN EXTERNO Y NO UN CONTEXTO. El estado lo comparten piezas
  * que no tienen un padre común cómodo —la barra de navegación, la ficha de
@@ -205,6 +207,23 @@ export function setLineQuantity(key: string, quantity: number) {
   update(
     state.lines.map((line) =>
       line.key === key ? { ...line, quantity: Math.min(quantity, line.maxQuantity) } : line,
+    ),
+  );
+}
+
+/**
+ * Baja el máximo de una línea al disponible que dio el servidor al registrar
+ * el pedido (`409 UNAVAILABLE`), y la cantidad con él. Con 0, la quita.
+ */
+export function limitLine(key: string, max: number) {
+  ensureLoaded();
+  const limit = Math.min(Math.max(0, Math.floor(max)), MAX_PER_LINE);
+  if (limit === 0) return removeLine(key);
+  update(
+    state.lines.map((line) =>
+      line.key === key
+        ? { ...line, maxQuantity: limit, quantity: Math.min(line.quantity, limit) }
+        : line,
     ),
   );
 }

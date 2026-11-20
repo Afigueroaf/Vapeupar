@@ -251,3 +251,29 @@ describe("lectura defensiva de localStorage", () => {
     expect(stored()?.lines[0].quantity).toBe(10);
   });
 });
+
+describe("limitLine", () => {
+  it("baja el máximo y la cantidad al disponible del servidor", async () => {
+    const cart = await loadCart();
+    cart.addToCart(product(), null, 5);
+    cart.limitLine("p1:", 2);
+    expect(stored()?.lines[0]).toMatchObject({ quantity: 2, maxQuantity: 2 });
+    // El paso a paso ya no deja volver a subir.
+    cart.setLineQuantity("p1:", 5);
+    expect(stored()?.lines[0].quantity).toBe(2);
+  });
+
+  it("no sube una cantidad menor que el nuevo máximo", async () => {
+    const cart = await loadCart();
+    cart.addToCart(product(), null, 1);
+    cart.limitLine("p1:", 3);
+    expect(stored()?.lines[0]).toMatchObject({ quantity: 1, maxQuantity: 3 });
+  });
+
+  it("con 0 quita la línea", async () => {
+    const cart = await loadCart();
+    cart.addToCart(product(), null, 1);
+    cart.limitLine("p1:", 0);
+    expect(stored()?.lines).toEqual([]);
+  });
+});

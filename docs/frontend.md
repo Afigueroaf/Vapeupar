@@ -96,6 +96,7 @@ bordes del sistema; se convierte en un `path` con `shape-rendering: crispEdges`.
 | `/producto/[slug]` | Ficha de una línea; `?sabor=` preselecciona la variante | `fetchProductBySlug` |
 | `/coleccion/[categoria]` | Las líneas de una categoría | `fetchProducts(?category=…)`, ISR 60 s |
 | `/nosotros` | Autenticidad, entrega y +18 | Estática; **copy provisional** |
+| `/privacidad` | Política de tratamiento de datos (Ley 1581 de 2012). **Borrador pendiente de revisión legal**: lo avisa arriba mientras `DATA_POLICY_VERSION` empiece por «borrador»; los datos del responsable van como `[PENDIENTE: …]` | Estática; versión de `lib/order-form.ts`. Enlazada desde el pie |
 
 Las colecciones salen de `lib/collections.ts`: slug en español (`desechables`,
 `pods`, `sales-de-nicotina`, `freebase`, `mods-y-tanques`, `resistencias`) para
@@ -108,6 +109,53 @@ primeras colecciones. «Tienda» y «Colecciones» siguen apuntando a la portada
 (`/#catalogo`, `/#colecciones`), y las anclas antiguas (`#desechables`,
 `#pods`, `#liquidos`, `#nosotros`) se conservan por los enlaces ya
 compartidos. La ficha vuelve a la colección de su línea.
+
+## Pedidos registrados (ADR-003, parte 2)
+
+El cajón del carrito (`components/cart/cart-drawer.tsx`) tiene **dos modos**,
+y el primero es el de siempre:
+
+- **Solo WhatsApp** (por defecto). «Pedir por WhatsApp» genera la referencia
+  en el navegador (`orderReference()`), abre WhatsApp con `orderMessage` y no
+  pide ningún dato. Es también el modo de respaldo: si el servidor no responde
+  en 8 s, falla la red, responde 404 (backend con `ORDERS_ENABLED` apagado) o
+  5xx, o el carrito no se puede registrar (una línea sin variante, que es lo
+  que tienen los productos de respaldo, o más de 20 líneas), el pedido sale
+  así.
+- **Registrado**, con `NEXT_PUBLIC_ORDERS_ENABLED=true` **y** `ORDERS_ENABLED=true`
+  en el backend: **las dos se encienden juntas**. Antes de abrir WhatsApp, el
+  cajón pide nombre, celular colombiano y barrio (`components/cart/checkout-form.tsx`)
+  con una casilla de autorización **sin marcar** y un enlace a `/privacidad`,
+  hace `POST /api/orders` y abre WhatsApp con la referencia y el subtotal **del
+  servidor** (`registeredOrderMessage`). Después muestra la pantalla de pedido
+  registrado: referencia para copiar, qué pasa ahora y un enlace «Abrir
+  WhatsApp», porque tras la espera de la petición el navegador puede bloquear
+  la ventana nueva.
+
+La variable pública es de build: en local va en `frontend/.env.local`; al
+desplegar, en SSM (`/vapeupar/<env>/web/NEXT_PUBLIC_ORDERS_ENABLED`), que
+`deploy-app.mjs` ya lee con el resto de `NEXT_PUBLIC_*`. Nadie la enciende sin
+la revisión legal de `/privacidad` y la aprobación del dueño.
+
+Lógica pura en `lib/order-form.ts` (validación, espejo de
+`backend/src/schemas/order.schema.ts`, y `DATA_POLICY_VERSION`) y
+`lib/order-submit.ts` (interruptor, cuerpo, respuesta, ajustes):
+
+- **`submissionKey`**: un UUID por huella del envío (datos + líneas). Repetir el
+  mismo envío reutiliza la clave y el backend devuelve el mismo pedido; editar
+  un dato o el carrito estrena clave. Un `409 CONFLICT` estrena clave y
+  reintenta una vez.
+- **`409 UNAVAILABLE`**: cada línea señalada se limita al disponible
+  (`limitLine` en `cart.ts`) o se quita, y el cajón dice cuáles.
+- **`429`**: muestra el mensaje del limitador y ofrece «Enviar solo por WhatsApp».
+- **`400`**: cada error vuelve a su campo; una versión de política distinta pide recargar.
+- **Datos del cliente solo en memoria**, en el estado del cajón: nunca en
+  `localStorage`, que dura meses y lo lee cualquier script del origen. El coste
+  es reescribirlos tras recargar.
+
+Cambiar el texto de `/privacidad` obliga a subir `DATA_POLICY_VERSION` en
+`lib/order-form.ts` **y** en el backend; `backend/src/schemas/order-parity.test.ts`
+falla si difieren o si las validaciones del formulario y del esquema divergen.
 
 ## Contenido editable (A7)
 
@@ -228,6 +276,7 @@ con `robots: noindex, nofollow`: es una herramienta interna.
 | `/admin/brands` | Marcas (A5.2): alta y edición, orden de aparición y marca aliada |
 | `/admin/suppliers` | Proveedores (A5.2): ficha con las marcas que trae, variantes abastecidas y último ingreso; edición con el vínculo N↔N |
 | `/admin/content` | Contenido del sitio (A5.4): un editor por clave con validación en vivo (esquema espejo, `lib/content-form.ts`), vista previa con los componentes del sitio, historial con Ver y Restaurar. Publicación directa, sin borradores; solo el owner publica |
+| `/admin/orders` | Pedidos (ADR-003): filtros por estado, búsqueda (referencia, nombre o celular) y fechas; ficha con líneas, totales, cliente, autorización e historial; confirmar (domicilio y, solo el owner, precio cobrado por línea), entregar, cancelar con motivo, anonimizar (owner, cerrados) y plazo de conservación (owner). Cada acción se confirma en la fila; un `409` con líneas dice cuáles no tienen stock; si `meta.revalidated` es `false`, avisa de que el sitio tardará ≤60 s |
 
 **Las peticiones salen del navegador, no del servidor de Next.** Es la
 desviación más importante respecto del plan, que preveía un `proxy.ts` (el
@@ -434,9 +483,12 @@ Lo que cubren:
 | Módulo | Qué fija |
 |---|---|
 | `lib/age-gate.ts` | El TTL de 30 días de la puerta +18 (29 días vigente, 30 exactos caduca) y los valores inválidos |
-| `lib/order-message.ts` | El formato de la referencia `VP-XXXXXX` y el mensaje de WhatsApp completo (snapshot en línea) |
+| `lib/order-message.ts` | El formato de la referencia `VP-XXXXXX` y los dos mensajes de WhatsApp (snapshot en línea): el de siempre y el del pedido registrado, que omite los importes por línea si no cuadran con el subtotal del servidor y no lleva datos del cliente |
+| `lib/order-form.ts` | Validación de nombre, celular y barrio (errores por campo), la casilla obligatoria y la versión borrador de la política |
+| `lib/order-submit.ts` | Interruptor apagado por defecto, carritos registrables, cuerpo sin precio, `submissionKey` por huella, traducción de 201/200/409/429/400/404/5xx, red caída y tiempo agotado, y los ajustes de un `409 UNAVAILABLE` |
+| `lib/admin-orders.ts` | Fechas del filtro como principio y fin del día local, pesos escritos a mano, cuerpo de «Confirmar» (solo líneas con otro precio, nada para el operador), acciones por estado y rol, mensajes con el aviso de ≤60 s |
 | `lib/contact.ts` | Sin número no hay enlace (no se inventan números), la codificación del mensaje y `formatPhoneCO` |
-| `lib/cart.ts` | El tope por línea, la suma a la línea existente, las cantidades y la lectura defensiva de `localStorage` |
+| `lib/cart.ts` | El tope por línea, la suma a la línea existente, las cantidades, `limitLine` y la lectura defensiva de `localStorage` |
 | `lib/content.ts` | `formatBrandList` y `withPartnerBrands` |
 | `lib/revalidate-auth.ts` | `isRevalidateAuthorized`; el backend conserva la suya, que prueba el contrato entre los dos lados |
 

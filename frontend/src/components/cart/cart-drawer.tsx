@@ -3,13 +3,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import { CloseIcon, TrashIcon } from "@/components/ui/icons";
-import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { Button, buttonStyles } from "@/components/ui/button";
+import { CheckoutForm, type CheckoutFormHandle } from "@/components/cart/checkout-form";
 import { PixelLabel } from "@/components/ui/pixel-label";
 import { QuantityStepper } from "@/components/ui/quantity-stepper";
 import {
   clearCart,
+  limitLine,
   removeLine,
   setCartOpen,
   setLineQuantity,
@@ -18,7 +20,25 @@ import {
   type CartLine,
 } from "@/lib/cart";
 import { waLink, whatsappNumber } from "@/lib/contact";
-import { orderMessage, orderReference } from "@/lib/order-message";
+import { orderMessage, orderReference, registeredOrderMessage } from "@/lib/order-message";
+import {
+  EMPTY_CUSTOMER,
+  firstInvalidField,
+  validateCustomer,
+  type CustomerDraft,
+  type CustomerErrors,
+} from "@/lib/order-form";
+import {
+  adjustmentsFor,
+  bodyFingerprint,
+  buildOrderBody,
+  canRegister,
+  nextSubmissionKey,
+  ordersEnabled,
+  submitOrder,
+  type OrderOutcome,
+  type SubmissionKeyState,
+} from "@/lib/order-submit";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 import { cn, formatPriceCOP } from "@/lib/utils";
 
@@ -26,6 +46,24 @@ import { cn, formatPriceCOP } from "@/lib/utils";
 const SLIDE_MS = 420;
 
 const TITLE_ID = "vp-carrito-titulo";
+
+/**
+ * Pedidos registrados en el backend (ADR-003). Se lee al compilar: con la
+ * variable apagada, el cajón se comporta exactamente como antes.
+ */
+const REGISTER_ORDERS = ordersEnabled();
+
+/** Qué muestra el cuerpo del cajón. */
+type View = "cart" | "details" | "sent";
+
+/** El último pedido enviado a WhatsApp. */
+interface SentOrder {
+  reference: string;
+  /** Enlace de WhatsApp, por si el navegador bloqueó la ventana. */
+  href: string;
+  /** Del servidor si se registró; el del carrito si no. */
+  subtotal: number;
+}
 
 /** `true` solo en el cliente: el portal necesita `document`. */
 function useIsClient() {
@@ -53,6 +91,13 @@ function useIsClient() {
  * Diálogo modal en lo que importa para el teclado: foco al abrir, foco
  * atrapado dentro, Escape cierra y al cerrar el foco vuelve a donde estaba.
  * La página de detrás no se desplaza (`useScrollLock`).
+ *
+ * DOS MODOS DE ENVÍO (`lib/order-submit.ts`). Con `NEXT_PUBLIC_ORDERS_ENABLED`
+ * apagado —el valor por defecto— «Pedir por WhatsApp» hace lo de siempre:
+ * referencia del navegador y WhatsApp, sin pedir datos. Encendido, abre la
+ * vista de datos (nombre, celular, barrio y autorización), registra el pedido
+ * con `POST /api/orders` y abre WhatsApp con la referencia del servidor. Si el
+ * servidor no lo registra (caído, apagado, sin red), vuelve al modo de siempre.
  */
 export function CartDrawer() {
   const isClient = useIsClient();
@@ -63,8 +108,25 @@ export function CartDrawer() {
   const closeRef = useRef<HTMLButtonElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
 
-  /** Referencia del último pedido enviado, para el aviso de confirmación. */
-  const [sentRef, setSentRef] = useState<string | null>(null);
+  /** El último pedido enviado, para el aviso o la pantalla de confirmación. */
+  const [sent, setSent] = useState<SentOrder | null>(null);
+  const [view, setView] = useState<View>("cart");
+
+  // Datos del cliente: solo en memoria, nunca en `localStorage` (ver `lib/order-form.ts`).
+  const [draft, setDraft] = useState<CustomerDraft>(EMPTY_CUSTOMER);
+  const [errors, setErrors] = useState<CustomerErrors>({});
+  const [formMessage, setFormMessage] = useState<string | null>(null);
+  /** Tras un 429: se ofrece mandar el pedido solo por WhatsApp. */
+  const [rateLimited, setRateLimited] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  /** Líneas que el servidor ajustó o quitó (`409 UNAVAILABLE`). */
+  const [adjusted, setAdjusted] = useState<string[]>([]);
+  const [copied, setCopied] = useState(false);
+
+  const keyRef = useRef<SubmissionKeyState | null>(null);
+  const formRef = useRef<CheckoutFormHandle>(null);
+  const viewHeadingRef = useRef<HTMLHeadingElement>(null);
+  const adjustedRef = useRef<HTMLDivElement>(null);
 
   useScrollLock(open);
 
@@ -80,9 +142,23 @@ export function CartDrawer() {
     };
   }, [open]);
 
+  // Al cambiar de vista, el foco va a su título: quien usa lector de pantalla
+  // sabe dónde está, y el teclado no se queda en un botón que ya no existe.
+  useEffect(() => {
+    if (!open || view === "cart") return;
+    // Al título y no al primer campo: en el teléfono, enfocar un campo abre
+    // el teclado y tapa el formulario antes de que se haya leído.
+    const frame = requestAnimationFrame(() => viewHeadingRef.current?.focus({ preventScroll: true }));
+    return () => cancelAnimationFrame(frame);
+  }, [open, view]);
+
   const close = () => {
     setCartOpen(false);
-    setSentRef(null);
+    setSent(null);
+    setView("cart");
+    setAdjusted([]);
+    setFormMessage(null);
+    setRateLimited(false);
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -95,7 +171,7 @@ export function CartDrawer() {
 
     // Foco atrapado: de la última pieza enfocable se vuelve a la primera.
     const focusable = panelRef.current?.querySelectorAll<HTMLElement>(
-      'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
     );
     if (!focusable || focusable.length === 0) return;
     const first = focusable[0];
@@ -111,12 +187,133 @@ export function CartDrawer() {
 
   const canOrder = whatsappNumber !== null;
 
-  const sendOrder = () => {
+  /**
+   * El camino de siempre: referencia del navegador y WhatsApp, sin pedir datos.
+   * Es el único con la variable apagada, y el de respaldo si el servidor no
+   * registra el pedido.
+   */
+  const sendWhatsAppOnly = () => {
     const reference = orderReference();
     const href = waLink(orderMessage(lines, subtotal, reference));
     if (!href) return;
     window.open(href, "_blank", "noopener,noreferrer");
-    setSentRef(reference);
+    setSent({ reference, href, subtotal });
+    setView("cart");
+    setFormMessage(null);
+    setRateLimited(false);
+  };
+
+  const registers = REGISTER_ORDERS && canRegister(lines);
+
+  const startOrder = () => {
+    setSent(null);
+    setAdjusted([]);
+    if (!registers) {
+      sendWhatsAppOnly();
+      return;
+    }
+    setView("details");
+  };
+
+  const editDraft = (next: CustomerDraft) => {
+    setDraft(next);
+    // El error de un campo se va en cuanto se toca; los demás se quedan.
+    setErrors((current) => {
+      const changed = (Object.keys(next) as (keyof CustomerDraft)[]).filter((field) => next[field] !== draft[field]);
+      if (!changed.some((field) => current[field])) return current;
+      const rest = { ...current };
+      for (const field of changed) delete rest[field];
+      return rest;
+    });
+  };
+
+  const submitDetails = async (event: FormEvent) => {
+    event.preventDefault();
+    if (submitting) return;
+    setFormMessage(null);
+    setRateLimited(false);
+
+    // El carrito cambió (otra pestaña) y ya no se puede registrar: el camino de siempre.
+    if (!canRegister(lines)) {
+      sendWhatsAppOnly();
+      return;
+    }
+
+    const checked = validateCustomer(draft);
+    if (!checked.ok) {
+      setErrors(checked.errors);
+      const field = firstInvalidField(checked.errors);
+      if (field) formRef.current?.focus(field);
+      return;
+    }
+    setErrors({});
+
+    // Misma huella, misma clave: un doble toque o un reintento devuelven el
+    // mismo pedido. Otros datos u otro carrito estrenan clave.
+    const unsigned = buildOrderBody(lines, checked.value, "");
+    keyRef.current = nextSubmissionKey(keyRef.current, bodyFingerprint(unsigned));
+
+    setSubmitting(true);
+    let outcome: OrderOutcome = await submitOrder({ ...unsigned, submissionKey: keyRef.current.key });
+    if (outcome.kind === "conflict") {
+      // La clave ya se usó con otros datos (otra pestaña, un reintento cruzado): una nueva y otra vez.
+      keyRef.current = nextSubmissionKey(null, bodyFingerprint(unsigned));
+      outcome = await submitOrder({ ...unsigned, submissionKey: keyRef.current.key });
+    }
+    setSubmitting(false);
+
+    switch (outcome.kind) {
+      case "created": {
+        const href = waLink(registeredOrderMessage(lines, outcome));
+        if (!href) return;
+        // Puede bloquearlo el navegador (ya no es el toque directo); la
+        // pantalla de enviado lleva el mismo enlace.
+        window.open(href, "_blank", "noopener,noreferrer");
+        setSent({ reference: outcome.reference, href, subtotal: outcome.subtotal });
+        setCopied(false);
+        setView("sent");
+        return;
+      }
+      case "unavailable": {
+        const notes = adjustmentsFor(lines, outcome.lines).map((adjustment) => {
+          const line = lines.find((l) => l.key === adjustment.key);
+          limitLine(adjustment.key, adjustment.max);
+          const label = line ? `${line.name}${line.variantName ? ` · ${line.variantName}` : ""}` : "Un producto";
+          return `${label}: ${adjustment.message}`;
+        });
+        setAdjusted(notes.length > 0 ? notes : ["Algunos productos ya no están disponibles."]);
+        setView("cart");
+        requestAnimationFrame(() => adjustedRef.current?.focus({ preventScroll: false }));
+        return;
+      }
+      case "rate-limited":
+        setFormMessage(outcome.message);
+        setRateLimited(true);
+        return;
+      case "invalid":
+        setErrors(outcome.fields);
+        setFormMessage(outcome.message);
+        {
+          const field = firstInvalidField(outcome.fields);
+          if (field) formRef.current?.focus(field);
+        }
+        return;
+      case "conflict":
+      case "fallback":
+        // El servidor no registra el pedido: sale por WhatsApp como siempre.
+        sendWhatsAppOnly();
+        return;
+    }
+  };
+
+  const copyReference = async () => {
+    if (!sent) return;
+    try {
+      await navigator.clipboard.writeText(sent.reference);
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
   };
 
   if (!isClient) return null;
@@ -179,7 +376,15 @@ export function CartDrawer() {
           </button>
         </div>
 
-        {lines.length === 0 ? (
+        {view === "sent" && sent ? (
+          <OrderSent
+            sent={sent}
+            copied={copied}
+            headingRef={viewHeadingRef}
+            onCopy={copyReference}
+            onBack={() => setView("cart")}
+          />
+        ) : lines.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
             {/* Sin tilde a propósito: Press Start 2P no garantiza el glifo. */}
             <PixelLabel variant="violet">[ VACIO ]</PixelLabel>
@@ -195,6 +400,77 @@ export function CartDrawer() {
               Ver catálogo
             </Link>
           </div>
+        ) : view === "details" ? (
+          <form noValidate onSubmit={submitDetails} className="flex min-h-0 flex-1 flex-col">
+            <div
+              data-lenis-prevent=""
+              className="flex-1 overflow-y-auto overscroll-contain px-5 py-5"
+            >
+              <h3
+                ref={viewHeadingRef}
+                tabIndex={-1}
+                className="text-lg font-bold uppercase leading-tight outline-none"
+              >
+                Tus datos para el pedido
+              </h3>
+              <div className="mt-4">
+                <CheckoutForm
+                  ref={formRef}
+                  idPrefix="vp-pedido"
+                  draft={draft}
+                  errors={errors}
+                  disabled={submitting}
+                  onChange={editDraft}
+                />
+              </div>
+            </div>
+
+            <div className="border-t-2 border-line px-5 py-5">
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="text-sm font-semibold uppercase tracking-[0.04em] text-muted">
+                  Subtotal
+                </span>
+                <span className="text-2xl font-bold">{formatPriceCOP(subtotal)}</span>
+              </div>
+
+              {formMessage ? (
+                <p role="alert" className="mt-3 border-2 border-action p-3 text-sm">
+                  {formMessage}
+                </p>
+              ) : null}
+
+              <Button
+                type="submit"
+                variant="primary"
+                disabled={submitting || !canOrder}
+                aria-busy={submitting}
+                className="mt-4 w-full"
+              >
+                {submitting ? "Registrando…" : "Enviar pedido por WhatsApp"}
+              </Button>
+              {rateLimited ? (
+                <button
+                  type="button"
+                  onClick={sendWhatsAppOnly}
+                  className="mt-2 min-h-[44px] w-full text-sm font-semibold uppercase tracking-[0.04em] text-foreground underline underline-offset-4"
+                >
+                  Enviar solo por WhatsApp
+                </button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  setView("cart");
+                  setFormMessage(null);
+                  setRateLimited(false);
+                }}
+                disabled={submitting}
+                className="mt-2 min-h-[44px] w-full text-sm font-semibold uppercase tracking-[0.04em] text-muted transition-colors hover:text-foreground disabled:opacity-40"
+              >
+                Volver al carrito
+              </button>
+            </div>
+          </form>
         ) : (
           <>
             {/* `data-lenis-prevent`: sin él, Lenis se queda la rueda del ratón
@@ -221,10 +497,27 @@ export function CartDrawer() {
                 domicilio en Valledupar se confirman por WhatsApp antes de despachar.
               </p>
 
-              {sentRef ? (
+              {adjusted.length > 0 ? (
+                <div
+                  ref={adjustedRef}
+                  tabIndex={-1}
+                  role="alert"
+                  className="mt-4 border-2 border-action p-3 outline-none"
+                >
+                  <p className="text-sm font-semibold">Ajustamos tu pedido al disponible:</p>
+                  <ul className="mt-1 list-disc space-y-0.5 pl-5 text-sm">
+                    {adjusted.map((note) => (
+                      <li key={note}>{note}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-1 text-xs text-muted">Revísalo y vuelve a enviarlo.</p>
+                </div>
+              ) : null}
+
+              {sent ? (
                 <div className="mt-4 border-2 border-action p-3" role="status">
                   <p className="text-sm font-semibold">
-                    Pedido <span className="text-action">{sentRef}</span> enviado a WhatsApp.
+                    Pedido <span className="text-action">{sent.reference}</span> enviado a WhatsApp.
                   </p>
                   <p className="mt-1 text-xs text-muted">
                     Si no se abrió la conversación, vuelve a pulsar el botón.
@@ -234,7 +527,7 @@ export function CartDrawer() {
 
               <Button
                 variant="primary"
-                onClick={sendOrder}
+                onClick={startOrder}
                 disabled={!canOrder}
                 className="mt-4 w-full"
               >
@@ -250,7 +543,8 @@ export function CartDrawer() {
                 type="button"
                 onClick={() => {
                   clearCart();
-                  setSentRef(null);
+                  setSent(null);
+                  setAdjusted([]);
                 }}
                 className="mt-2 min-h-[44px] w-full text-sm font-semibold uppercase tracking-[0.04em] text-muted transition-colors hover:text-foreground"
               >
@@ -262,6 +556,81 @@ export function CartDrawer() {
       </div>
     </div>,
     document.body,
+  );
+}
+
+/**
+ * Pedido registrado: la referencia del servidor (con copiar), qué pasa ahora y
+ * el enlace a WhatsApp por si el navegador bloqueó la ventana. El carrito se
+ * conserva, como en el modo solo WhatsApp: volver a enviarlo con los mismos
+ * datos devuelve el mismo pedido, no uno nuevo.
+ */
+function OrderSent({
+  sent,
+  copied,
+  headingRef,
+  onCopy,
+  onBack,
+}: {
+  sent: SentOrder;
+  copied: boolean;
+  headingRef: React.Ref<HTMLHeadingElement>;
+  onCopy: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <div data-lenis-prevent="" className="flex-1 overflow-y-auto overscroll-contain px-5 py-6">
+      <PixelLabel variant="lime">[ ENVIADO ]</PixelLabel>
+      <h3
+        ref={headingRef}
+        tabIndex={-1}
+        className="mt-4 text-xl font-bold uppercase leading-tight outline-none"
+      >
+        Pedido registrado
+      </h3>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3 border-2 border-line p-3">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs uppercase tracking-[0.04em] text-muted">Tu referencia</p>
+          <p className="font-display text-2xl font-bold tracking-[0.06em] text-action">{sent.reference}</p>
+        </div>
+        <Button variant="secondary" onClick={onCopy} className="px-4">
+          {copied ? "Copiada" : "Copiar"}
+        </Button>
+      </div>
+      <p className="mt-2 text-sm text-muted" aria-live="polite">
+        {copied ? "Referencia copiada." : `Subtotal: ${formatPriceCOP(sent.subtotal)} (sin domicilio).`}
+      </p>
+
+      <h4 className="mt-6 text-sm font-semibold uppercase tracking-[0.04em]">Qué pasa ahora</h4>
+      <ol className="mt-2 list-decimal space-y-1.5 pl-5 text-sm leading-relaxed">
+        <li>Envía el mensaje que se abrió en WhatsApp: lleva tu referencia.</li>
+        <li>Te confirmamos disponibilidad y el valor del domicilio en Valledupar.</li>
+        <li>Pagas contra entrega.</li>
+        <li>Al recibir, muestra tu cédula: solo vendemos a mayores de 18 años.</li>
+      </ol>
+
+      <Button
+        href={sent.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        variant="primary"
+        className="mt-6 w-full"
+      >
+        Abrir WhatsApp
+      </Button>
+      <p className="mt-2 text-xs text-muted">
+        ¿No se abrió la conversación? Pulsa «Abrir WhatsApp», o escríbenos y dinos tu referencia.
+      </p>
+
+      <button
+        type="button"
+        onClick={onBack}
+        className="mt-4 min-h-[44px] w-full text-sm font-semibold uppercase tracking-[0.04em] text-muted transition-colors hover:text-foreground"
+      >
+        Volver al carrito
+      </button>
+    </div>
   );
 }
 

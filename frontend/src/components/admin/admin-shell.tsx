@@ -41,6 +41,7 @@ export function useAdminSession(): AdminSession {
 
 const NAV = [
   { href: "/admin/stock", label: "Inventario" },
+  { href: "/admin/orders", label: "Pedidos" },
   { href: "/admin/products", label: "Líneas" },
   { href: "/admin/showcase", label: "Vitrina" },
   { href: "/admin/brands", label: "Marcas" },
@@ -127,7 +128,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             <PixelLabel variant="outline">CONSOLA</PixelLabel>
           </Link>
 
-          <nav aria-label="Secciones de la consola" className="flex items-center gap-1">
+          <nav aria-label="Secciones de la consola" className="flex flex-wrap items-center gap-1">
             {NAV.filter((item) => !item.ownerOnly || identity.role === "owner").map((item) => {
               const current = pathname.startsWith(item.href);
               return (

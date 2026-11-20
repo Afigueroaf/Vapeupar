@@ -2,7 +2,10 @@
 
 ## Estado
 Aceptado — 2026-11-20. Parte 1 (este ADR, modelo, migración y API) en la rama
-`feat/pedidos-backend`.
+`feat/pedidos-backend`. Parte 2 (carrito con datos y autorización, borrador de
+`/privacidad` y pantalla `/admin/orders`) en `feat/pedidos-frontend`; el
+carrito tiene su propio interruptor, `NEXT_PUBLIC_ORDERS_ENABLED`, que se
+enciende junto con `ORDERS_ENABLED`.
 
 **Activación en dos pasos.** La migración se aplica con la release, como todas
 (`infra/deploy/migrate.mjs` ejecuta `prisma migrate deploy` al activar): es
