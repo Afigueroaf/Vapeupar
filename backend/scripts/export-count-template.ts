@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
-import { existsSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { relative, resolve } from 'node:path';
 import { rejectOutputPath } from '../src/catalog/initial-count.js';
 import { disconnectPrisma } from '../src/db/prisma.js';
 import { PrismaInitialCountSource } from '../src/repositories/prisma-initial-count.repository.js';
@@ -14,35 +14,41 @@ import { StockService } from '../src/services/stock.service.js';
  * con `cantidad`, `costoUnitario` y `proveedor` vacíos para que el dueño los
  * rellene en Excel (item `carga-datos-reales`). Solo lee la base.
  *
- *   npm run db:count-template --workspace=backend -- --out ../../conteo-2026-11.csv
+ *   npm run db:count-template --workspace=backend
+ *   npm run db:count-template --workspace=backend -- --out "%USERPROFILE%\Documents\conteo.csv"
  *
- * npm ejecuta el script desde `backend/`, así que `../../` es la carpeta que
- * contiene el repositorio. La planilla lleva costos: se niega a escribirla
- * dentro del repo (salvo en `backend/scripts/data/`, ignorada por git) y a
- * sobrescribir un archivo existente (podría ser una planilla ya rellenada)
- * salvo con `--force`.
+ * Sin `--out` escribe `backend/scripts/data/conteo-<fecha>.csv`, carpeta que
+ * git ignora. La planilla lleva costos: se niega a escribirla en otro sitio del
+ * repo y a sobrescribir un archivo existente (podría ser una planilla ya
+ * rellenada) salvo con `--force`.
  *
  * Necesita `backend/.env` (`npm run infra:env-backend`) y el túnel abierto
  * (`npm run infra:db-tunnel`).
  */
 
 const REPO_ROOT = resolve(__dirname, '../..');
-const USAGE = 'Uso: npm run db:count-template --workspace=backend -- --out ../../conteo-2026-11.csv [--force]';
+const DATA_DIR = resolve(__dirname, 'data');
 
 function flag(argv: string[], name: string): string | undefined {
   const inline = argv.find(a => a.startsWith(`--${name}=`));
   if (inline) return inline.slice(name.length + 3);
   const index = argv.indexOf(`--${name}`);
-  return index >= 0 ? argv[index + 1] : undefined;
+  const value = index >= 0 ? argv[index + 1] : undefined;
+  return value && !value.startsWith('--') ? value : undefined;
+}
+
+function today(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 async function main(): Promise<void> {
   dotenv.config();
   const argv = process.argv.slice(2);
+  if (argv.includes('--out') && !flag(argv, 'out')) throw new Error('--out necesita una ruta');
   const out = flag(argv, 'out');
-  if (!out || out.startsWith('--')) throw new Error(`Falta --out.\n${USAGE}`);
 
-  const target = resolve(out);
+  const target = out ? resolve(out) : resolve(DATA_DIR, `conteo-${today()}.csv`);
   const rejected = rejectOutputPath(target, REPO_ROOT);
   if (rejected) throw new Error(rejected);
   if (existsSync(target) && !argv.includes('--force')) {
@@ -57,12 +63,14 @@ async function main(): Promise<void> {
     new PrismaUserRepository()
   );
   const { csv, rows } = await service.exportTemplate();
+  if (!out) mkdirSync(DATA_DIR, { recursive: true });
   writeFileSync(target, csv, 'utf8');
 
   console.log(`Planilla escrita en ${target}: ${rows} variantes activas.`);
   console.log('Rellena cantidad (entero, 0 si no hay), costoUnitario (pesos por unidad, obligatorio si se cuenta algo');
   console.log('y la variante tenía stock 0) y, si quieres, proveedor (nombre exacto de uno creado en /admin).');
   console.log('No cambies variantId, lineSlug ni variantSlug ni borres filas. Guarda como CSV y pasa el --dry-run.');
+  console.log(`Dry-run: npm run db:import-stock --workspace=backend -- --file "${relative(process.cwd(), target)}" --user-email <owner> --batch <lote>`);
 }
 
 main()

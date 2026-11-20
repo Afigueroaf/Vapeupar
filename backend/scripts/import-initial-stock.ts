@@ -15,13 +15,15 @@ import { StockService } from '../src/services/stock.service.js';
  * como movimientos de stock: `inbound` con costo y proveedor si la variante
  * tenía stock 0, `adjustment` con motivo por la diferencia si ya tenía.
  *
- *   npm run db:import-stock --workspace=backend -- --file ../../conteo-2026-11.csv --user-email <owner> --batch 2026-11
- *   npm run db:import-stock --workspace=backend -- --file ../../conteo-2026-11.csv --user-email <owner> --batch 2026-11 --apply
+ *   npm run db:import-stock --workspace=backend -- --file scripts/data/conteo-2026-11-20.csv --user-email <owner> --batch 2026-11
+ *   npm run db:import-stock --workspace=backend -- --file scripts/data/conteo-2026-11-20.csv --user-email <owner> --batch 2026-11 --apply
  *
  * Sin `--apply` es un dry-run: lee la base, valida y muestra el plan sin
  * escribir nada. Con `--apply` vuelve a mostrar el plan y pide escribir el lote
- * para confirmar (`--yes` lo omite). Si hay cualquier error o una variante
- * activa sin fila, no escribe nada. Cada movimiento pasa por
+ * para confirmar (`--yes` lo omite; ejecutarlo desde PowerShell o cmd: en Git
+ * Bash la terminal no se detecta y la confirmación no llega). Si hay cualquier
+ * error o una variante activa sin fila, no escribe nada, y tampoco si el plan
+ * recalculado difiere de la vista previa confirmada. Cada movimiento pasa por
  * `stockService.recordMovement`, firmado por el owner de `--user-email`, con
  * `AuditLog` y `operationKey` `conteo-inicial:<lote>:<línea>/<variante>`:
  * repetir el mismo lote no duplica; para corregir, otro `--batch`.
@@ -42,7 +44,7 @@ function flag(argv: string[], name: string): string | undefined {
 
 async function confirm(batch: string): Promise<boolean> {
   if (!process.stdin.isTTY) {
-    console.error('Sin terminal interactiva: añade --yes para aplicar sin confirmación.');
+    console.error('Sin terminal interactiva (¿Git Bash?): ejecútalo desde PowerShell o cmd, o añade --yes.');
     return false;
   }
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -97,7 +99,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const result = await service.importCount({ csvText, batch, userEmail, apply: true });
+  const result = await service.importCount({ csvText, batch, userEmail, apply: true, confirmedPlan: preview.plan });
   if (!result.applied) {
     console.log('\nEl plan cambió desde la vista previa y ya no se puede aplicar:\n');
     console.log(formatPlan(result.plan));
