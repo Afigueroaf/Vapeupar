@@ -23,20 +23,25 @@ export const MAX_CANCEL_REASON = 300;
 
 const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
 
+/** La tienda está en Valledupar: Colombia es UTC-5 todo el año, sin horario de verano. */
+const COLOMBIA_OFFSET = "-05:00";
+
 /**
- * Un día del selector (`YYYY-MM-DD`, hora local de quien usa la consola)
- * como instante ISO: el principio del día para «desde» y el último
- * milisegundo para «hasta». El backend compara `createdAt` con `gte`/`lte`, y
- * mandar el día pelado lo leería como medianoche UTC: «hasta hoy» dejaría
- * fuera los pedidos de hoy.
+ * Un día del selector (`YYYY-MM-DD`) como instante ISO, **en hora de
+ * Colombia** sea cual sea la zona del equipo: el principio del día para
+ * «desde» y el último milisegundo para «hasta». El backend compara
+ * `createdAt` con `gte`/`lte`, y mandar el día pelado lo leería como
+ * medianoche UTC: «hasta hoy» dejaría fuera los pedidos de la tarde.
  */
 export function dayBoundary(day: string, edge: "start" | "end"): string | undefined {
   const match = DAY.exec(day);
   if (!match) return undefined;
-  const [, y, m, d] = match.map(Number);
-  const date =
-    edge === "start" ? new Date(y, m - 1, d, 0, 0, 0, 0) : new Date(y, m - 1, d, 23, 59, 59, 999);
-  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
+  const time = edge === "start" ? "00:00:00.000" : "23:59:59.999";
+  const date = new Date(`${day}T${time}${COLOMBIA_OFFSET}`);
+  // `new Date` acepta el 31 de febrero y lo pasa a marzo: se exige el mismo día.
+  if (Number.isNaN(date.getTime())) return undefined;
+  const local = new Date(date.getTime() - 5 * 3600_000).toISOString().slice(0, 10);
+  return local === day ? date.toISOString() : undefined;
 }
 
 /**

@@ -41,16 +41,17 @@ function order(overrides: Partial<Order> = {}): Order {
 }
 
 describe("dayBoundary", () => {
-  it("principio y fin del día local, en ISO", () => {
-    const start = new Date(dayBoundary("2026-11-20", "start")!);
-    const end = new Date(dayBoundary("2026-11-20", "end")!);
-    expect([start.getFullYear(), start.getMonth(), start.getDate(), start.getHours()]).toEqual([2026, 10, 20, 0]);
-    expect([end.getDate(), end.getHours(), end.getMinutes(), end.getMilliseconds()]).toEqual([20, 23, 59, 999]);
+  // Instantes exactos: no dependen de la zona horaria del equipo que corre la prueba.
+  it("principio y fin del día en hora de Colombia (UTC-5)", () => {
+    expect(dayBoundary("2026-11-20", "start")).toBe("2026-11-20T05:00:00.000Z");
+    expect(dayBoundary("2026-11-20", "end")).toBe("2026-11-21T04:59:59.999Z");
+    expect(dayBoundary("2026-12-31", "end")).toBe("2027-01-01T04:59:59.999Z");
   });
 
-  it("vacío o mal formado no filtra", () => {
+  it("vacío, mal formado o un día que no existe no filtra", () => {
     expect(dayBoundary("", "start")).toBeUndefined();
     expect(dayBoundary("20/11/2026", "end")).toBeUndefined();
+    expect(dayBoundary("2026-02-31", "start")).toBeUndefined();
   });
 });
 
