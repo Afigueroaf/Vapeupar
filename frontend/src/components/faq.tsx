@@ -40,7 +40,17 @@ import { withLegalFaqItem, type FaqContent } from "@/lib/content/schemas";
  * publicación desde la consola pueda quitarla. La vista previa de
  * `/admin/content` usa este mismo componente.
  */
-export function FAQ({ content }: { content: FaqContent }) {
+export function FAQ({
+  content,
+  preview = false,
+}: {
+  content: FaqContent;
+  /**
+   * Vista previa de la consola: sin el ancla `#faq` y con otros ids de
+   * botón y panel, para no repetir los de la página.
+   */
+  preview?: boolean;
+}) {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
   const items = withLegalFaqItem(content.items);
@@ -51,7 +61,7 @@ export function FAQ({ content }: { content: FaqContent }) {
 
   return (
     <section
-      id="faq"
+      id={preview ? undefined : "faq"}
       aria-label="Preguntas Frecuentes"
       className="vp-glitch border-t-2 border-line scroll-mt-20"
     >
@@ -71,8 +81,9 @@ export function FAQ({ content }: { content: FaqContent }) {
         <div className="space-y-3">
           {items.map((item, index) => {
             const isOpen = openIndex === index;
-            const buttonId = `faq-button-${index}`;
-            const panelId = `faq-panel-${index}`;
+            const prefix = preview ? "faq-preview" : "faq";
+            const buttonId = `${prefix}-button-${index}`;
+            const panelId = `${prefix}-panel-${index}`;
 
             return (
               <Surface

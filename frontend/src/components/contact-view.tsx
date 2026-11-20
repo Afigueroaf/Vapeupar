@@ -15,14 +15,21 @@ const LINK = "transition-colors hover:text-action";
  * `/admin/content` (A5.4) use el mismo marcado. La advertencia legal +18 no
  * está aquí: no es contenido editable y se queda en `Footer`.
  */
-export function ContactView({ contact }: { contact: ContactContent }) {
+export function ContactView({
+  contact,
+  preview = false,
+}: {
+  contact: ContactContent;
+  /** Vista previa de la consola: sin el ancla `#nosotros` de la página. */
+  preview?: boolean;
+}) {
   const phoneHref = telLink();
 
   return (
     <div className="mx-auto mt-12 grid max-w-vp grid-cols-1 gap-block border-b-2 border-muted px-inline pb-10 md:grid-cols-4">
       {/* Col 1: marca. Era el destino de «Nosotros» hasta V8; el id se
           conserva para los enlaces `/#nosotros` ya compartidos. */}
-      <div id="nosotros" className="scroll-mt-24">
+      <div id={preview ? undefined : "nosotros"} className="scroll-mt-24">
         <Image
           src="/logo-detalle.svg"
           alt="Vapeupar"

@@ -7,7 +7,7 @@ import { TrustBandCards } from "@/components/trust-band-view";
 import { CardField } from "@/components/ui/card-field";
 import { Surface } from "@/components/ui/surface";
 import { withPartnerBrands } from "@/lib/content";
-import { truncateForPreview } from "@/lib/content-form";
+import { normalizeForRead, truncateForPreview } from "@/lib/content-form";
 import { siteUrl } from "@/lib/site-url";
 import type {
   ContactContent,
@@ -90,7 +90,7 @@ export function ContentPreview<K extends ContentKey>({
     case "hero":
       return (
         <div className="px-4 py-8">
-          <HeroView content={value as HeroContent} />
+          <HeroView content={value as HeroContent} preview />
         </div>
       );
     case "trust-band":
@@ -100,10 +100,13 @@ export function ContentPreview<K extends ContentKey>({
         </CardField>
       );
     case "faq": {
-      const faq = value as FaqContent;
+      // Como el sitio: sin la pregunta legal escrita a mano (FAQ ya pone la
+      // fija) y con una FAQ antigua recortada a 11.
+      const faq = normalizeForRead("faq", value) as FaqContent;
       const brands = (text: string) => withPartnerBrands(text, partners);
       return (
         <FAQ
+          preview
           content={{
             title: brands(faq.title),
             intro: brands(faq.intro),
@@ -121,7 +124,7 @@ export function ContentPreview<K extends ContentKey>({
     case "contact":
       return (
         <div className="pb-4">
-          <ContactView contact={value as ContactContent} />
+          <ContactView contact={value as ContactContent} preview />
         </div>
       );
     default:

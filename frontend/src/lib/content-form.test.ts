@@ -1,7 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   apiFieldErrors,
   editableValue,
+  isRestorable,
+  LEGAL_DUPLICATE_MESSAGE,
   itemsRangeAt,
   legalFaqSlot,
   maxLengthAt,
@@ -60,12 +62,18 @@ describe("validateContent", () => {
     expect(validateContent("faq", faq).errors).toEqual({});
   });
 
-  it("no cuenta la pregunta legal: se quita antes de validar", () => {
-    const items = Array.from({ length: 11 }, (_, i) => ({ question: `¿P${i}?`, answer: "Sí." }));
-    const conLegal = { ...FAQ_DEFAULT, items: [...items, LEGAL_FAQ_ITEM] };
-    const resultado = validateContent("faq", conLegal);
-    expect(resultado.errors).toEqual({});
-    expect(resultado.value?.items).toHaveLength(11);
+  it("marca la pregunta legal escrita a mano en su tarjeta, sin desplazar los índices", () => {
+    const items = [
+      { question: "¿Abren?", answer: "Sí." },
+      { question: "es obligatoria la cedula de ciudadania para recibir el pedido", answer: "otra" },
+      { question: "", answer: "Sí." },
+    ];
+    const resultado = validateContent("faq", { ...FAQ_DEFAULT, items });
+    expect(resultado.value).toBeNull();
+    expect(resultado.errors).toEqual({
+      "items.1.question": LEGAL_DUPLICATE_MESSAGE,
+      "items.2.question": "No puede quedar vacío",
+    });
   });
 });
 
@@ -91,9 +99,30 @@ describe("editableValue", () => {
     expect(editableValue("hero", { title: "viejo" })).toEqual({ value: HERO_DEFAULT, source: "invalid" });
   });
 
+  it("una FAQ antigua de 12 preguntas se carga recortada a 11, como la sirve el sitio", () => {
+    const doce = Array.from({ length: 12 }, (_, i) => ({ question: `¿P${i}?`, answer: "Sí." }));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const cargado = editableValue("faq", { ...FAQ_DEFAULT, items: doce });
+      expect(cargado.source).toBe("published");
+      expect(cargado.value.items).toEqual(doce.slice(0, 11));
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it("una FAQ antigua con la pregunta legal la pierde al cargar", () => {
     const antigua = { ...FAQ_DEFAULT, items: withLegalFaqItem(FAQ_DEFAULT.items) };
     expect(editableValue("faq", antigua)).toEqual({ value: FAQ_DEFAULT, source: "published" });
+  });
+});
+
+describe("isRestorable", () => {
+  it("acepta lo que el backend restauraría y rechaza lo que no", () => {
+    expect(isRestorable("faq", { ...FAQ_DEFAULT, items: withLegalFaqItem(FAQ_DEFAULT.items) })).toBe(true);
+    expect(isRestorable("hero", { title: "viejo" })).toBe(false);
+    const doce = Array.from({ length: 12 }, (_, i) => ({ question: `¿P${i}?`, answer: "Sí." }));
+    expect(isRestorable("faq", { ...FAQ_DEFAULT, items: doce })).toBe(false);
   });
 });
 

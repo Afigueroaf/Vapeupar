@@ -1,7 +1,9 @@
 import { z } from "zod";
 import {
   CONTENT_SCHEMAS,
+  isLegalFaqQuestion,
   LEGAL_FAQ_INDEX,
+  normalizeFaqForRead,
   PARTNER_BRANDS_TOKEN,
   stripLegalFaqItem,
   type ContentKey,
@@ -29,9 +31,27 @@ export const CONTENT_KEY_INFO: Record<ContentKey, { label: string; description: 
   contact: { label: "Pie", description: "Texto de marca, ubicación, horario y servicio del pie de página." },
 };
 
-/** Lo que se quita antes de validar: hoy, solo la pregunta legal de la FAQ (fija en código). */
-export function normalizeContent(key: ContentKey, value: unknown): unknown {
-  return key === "faq" ? stripLegalFaqItem(value) : value;
+/**
+ * Normalización de lectura, la misma que hacen el backend y el sitio: en la
+ * FAQ quita la pregunta legal (fija en código) y recorta a 11 una fila antigua
+ * más larga. Para cargar versiones publicadas y para la vista previa; **no**
+ * para validar lo que se escribe, que tiene que casar campo a campo.
+ */
+export function normalizeForRead(key: ContentKey, value: unknown): unknown {
+  return key === "faq" ? normalizeFaqForRead(value) : value;
+}
+
+/** Mensaje bajo una pregunta editable que repite la legal. */
+export const LEGAL_DUPLICATE_MESSAGE = "Esta pregunta ya la añade el sitio (aviso legal fijo)";
+
+/** Índices de las preguntas de un valor de FAQ que repiten la legal. */
+function legalDuplicates(value: unknown): number[] {
+  const items = (value as { items?: unknown } | null)?.items;
+  if (!Array.isArray(items)) return [];
+  return items.flatMap((item, index) => {
+    const question = (item as { question?: unknown } | null)?.question;
+    return typeof question === "string" && isLegalFaqQuestion(question) ? [index] : [];
+  });
 }
 
 type Issue = z.core.$ZodIssue;
@@ -72,10 +92,17 @@ export interface Validation<K extends ContentKey> {
 /**
  * Validación en vivo: la misma que hará el backend al publicar. El primer
  * error de cada ruta gana, que es el que se muestra bajo el campo.
+ *
+ * Se valida el valor tal cual, sin quitar la pregunta legal: así los índices
+ * de los errores casan con las tarjetas. Si una pregunta editable repite la
+ * legal, se marca en su campo; el backend la quitaría en silencio.
  */
 export function validateContent<K extends ContentKey>(key: K, value: unknown): Validation<K> {
-  const parsed = CONTENT_SCHEMAS[key].schema.safeParse(normalizeContent(key, value));
+  const parsed = CONTENT_SCHEMAS[key].schema.safeParse(value);
   const errors: FieldErrors = {};
+  if (key === "faq") {
+    for (const index of legalDuplicates(value)) errors[`items.${index}.question`] = LEGAL_DUPLICATE_MESSAGE;
+  }
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
       const path = issue.path.map(String).join(".");
@@ -83,6 +110,7 @@ export function validateContent<K extends ContentKey>(key: K, value: unknown): V
     }
     return { value: null, errors };
   }
+  if (Object.keys(errors).length > 0) return { value: null, errors };
   // El sitio solo sustituye `{marcas}` en la FAQ: en otra clave saldría literal.
   if (key !== "faq") {
     for (const path of tokenPaths(parsed.data)) {
@@ -116,10 +144,18 @@ export function editableValue<K extends ContentKey>(
   published: unknown | undefined,
 ): { value: ContentValue<K>; source: "published" | "default" | "invalid" } {
   if (published === undefined) return { value: CONTENT_SCHEMAS[key].defaults as ContentValue<K>, source: "default" };
-  const parsed = CONTENT_SCHEMAS[key].schema.safeParse(normalizeContent(key, published));
+  const parsed = CONTENT_SCHEMAS[key].schema.safeParse(normalizeForRead(key, published));
   return parsed.success
     ? { value: parsed.data as ContentValue<K>, source: "published" }
     : { value: CONTENT_SCHEMAS[key].defaults as ContentValue<K>, source: "invalid" };
+}
+
+/**
+ * `true` si el backend aceptaría restaurar esa versión: la valida como al
+ * publicar, quitando la pregunta legal pero sin recortar.
+ */
+export function isRestorable(key: ContentKey, value: unknown): boolean {
+  return validateContent(key, key === "faq" ? stripLegalFaqItem(value) : value).value !== null;
 }
 
 /** `true` si los dos valores publicarían lo mismo (tras recortar). */

@@ -9,7 +9,16 @@ import type { HeroContent } from "@/lib/content/schemas";
  * `/admin/content` (A5.4) pinte exactamente el mismo marcado con el valor que
  * se está editando. Sin estado ni datos propios: sirve en servidor y cliente.
  */
-export function HeroView({ content }: { content: HeroContent }) {
+export function HeroView({
+  content,
+  preview = false,
+}: {
+  content: HeroContent;
+  /** Vista previa de la consola: el logotipo va en `h2`, la página ya tiene su `h1`. */
+  preview?: boolean;
+}) {
+  const Heading = preview ? "h2" : "h1";
+
   return (
     <div>
       <PixelLabel variant="outline">[ {content.label} ]</PixelLabel>
@@ -48,7 +57,7 @@ export function HeroView({ content }: { content: HeroContent }) {
           variable, y de ahí que sus tarjetas caigan bajo el vaporizador.
           Cambiar el valor aquí a mano desalinearía la banda en silencio. */}
       <div className="mt-6 w-full max-w-[var(--vp-lead)] xl:w-[var(--vp-lead)] xl:max-w-none">
-        <h1>
+        <Heading>
           <Image
             src="/logo-completo-blanco.svg"
             alt="Vapeupar"
@@ -57,7 +66,7 @@ export function HeroView({ content }: { content: HeroContent }) {
             priority
             className="h-auto w-full"
           />
-        </h1>
+        </Heading>
 
         {/* Reclamo en Press Start 2P. La clase `vp-label` es el único sitio
             autorizado para esa fuente, así que el reclamo la reutiliza en
