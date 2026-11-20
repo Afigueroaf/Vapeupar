@@ -340,3 +340,43 @@ Acceso: `http://localhost:3000`, y la consola en `http://localhost:3000/admin`.
 Necesita el backend levantado (`npm run dev:backend`) con `NEXT_PUBLIC_API_URL`
 apuntando a él: sin backend, la consola muestra «Sesión no disponible» porque no
 puede comprobar la sesión.
+
+## Pruebas automáticas
+
+```bash
+npm test --workspace=frontend   # solo el frontend
+npm test                        # backend y frontend
+```
+
+Vitest (misma versión mayor que el backend) sobre la lógica pura de
+`src/lib`: sin React, sin red y sin backend. La configuración está en
+`frontend/vitest.config.mts` (alias `@` → `src`, entorno `node`). No hay jsdom:
+al instalarlo, npm se quedaba resolviendo sus dependencias. Lo que toca
+`localStorage` usa el doble en memoria `src/test/memory-storage.ts`, instalado
+con `vi.stubGlobal("localStorage", …)` y un `window` mínimo. Si un día hace
+falta renderizar componentes, ese es el momento de volver a intentar jsdom o
+happy-dom. Las pruebas van junto al módulo, como
+`src/lib/cart.test.ts`; Next no las mete en el bundle porque nada las importa.
+
+Lo que cubren:
+
+| Módulo | Qué fija |
+|---|---|
+| `lib/age-gate.ts` | El TTL de 30 días de la puerta +18 (29 días vigente, 30 exactos caduca) y los valores inválidos |
+| `lib/order-message.ts` | El formato de la referencia `VP-XXXXXX` y el mensaje de WhatsApp completo (snapshot en línea) |
+| `lib/contact.ts` | Sin número no hay enlace (no se inventan números), la codificación del mensaje y `formatPhoneCO` |
+| `lib/cart.ts` | El tope por línea, la suma a la línea existente, las cantidades y la lectura defensiva de `localStorage` |
+| `lib/content.ts` | `formatBrandList` y `withPartnerBrands` |
+| `lib/revalidate-auth.ts` | `isRevalidateAuthorized`; el backend conserva la suya, que prueba el contrato entre los dos lados |
+
+Dos trampas, porque los módulos leen estado al cargarse:
+
+- `cart.ts` guarda el carrito en el ámbito del módulo: cada prueba estrena
+  almacenamiento y vuelve a importar el módulo tras `vi.resetModules()`.
+- `contact.ts` lee `NEXT_PUBLIC_*` al importarse: `vi.stubEnv` va ANTES del
+  `import()` dinámico.
+
+El cálculo de caducidad de la puerta +18 vive en `lib/age-gate.ts` para poder
+probarlo; el componente solo lee `localStorage` y la hora y le pasa los dos
+datos. La paridad de esquemas de contenido sigue en el backend, porque lo que
+compara son los dos lados.
