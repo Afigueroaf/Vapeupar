@@ -35,17 +35,28 @@ function location(pattern: string): string {
 }
 
 /**
+ * Node 22 (el del CI y la instancia) no admite en RegExp los grupos `(?i:...)`
+ * de PCRE que usa site.inc: se traducen a clases de caracteres equivalentes.
+ */
+function toJsRegex(pattern: string): string {
+  return pattern.replace(/\(\?i:([^()]*)\)/g, (_m, body: string) =>
+    '(?:' + body.replace(/[a-z]/gi, (c) => `[${c.toLowerCase()}${c.toUpperCase()}]`) + ')',
+  );
+}
+
+/**
  * La location que elige nginx para una URI (sin `=`, que site.inc no usa): el
  * prefijo más largo; si es `^~`, ese; si no, la PRIMERA regex que coincida, y
- * si ninguna, el prefijo. Node 24 entiende `(?i:...)` igual que PCRE.
+ * si ninguna, el prefijo. Los grupos `(?i:...)` pasan por toJsRegex.
  */
+
 function pick(uri: string): string {
   const prefix = locations
     .filter((l) => (l.modifier === '' || l.modifier === '^~') && !l.pattern.startsWith('@') && uri.startsWith(l.pattern))
     .sort((a, b) => b.pattern.length - a.pattern.length)[0];
   if (prefix?.modifier !== '^~') {
     const regex = locations.find(
-      (l) => l.modifier.startsWith('~') && new RegExp(l.pattern, l.modifier === '~*' ? 'i' : '').test(uri),
+      (l) => l.modifier.startsWith('~') && new RegExp(toJsRegex(l.pattern), l.modifier === '~*' ? 'i' : '').test(uri),
     );
     if (regex) return regex.pattern;
   }
