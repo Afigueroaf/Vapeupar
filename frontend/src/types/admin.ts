@@ -298,3 +298,24 @@ export interface Readiness {
 }
 
 export type ReadinessGap = "price" | "imageKey" | "activeVariant";
+
+/**
+ * Una versión del contenido del sitio (`GET /api/admin/content/:key[/versions]`).
+ * `value` llega sin tipar: puede ser una fila antigua que ya no cumple el
+ * esquema, y la consola la valida antes de usarla (A5.4).
+ */
+export interface ContentVersionRow {
+  key: string;
+  value: unknown;
+  version: number;
+  publishedAt: string | null;
+  userId: string;
+  createdAt: string;
+}
+
+/** Resultado de publicar o restaurar: la versión nueva y si el sitio ya la ve (A7.3). */
+export interface ContentPublishResult {
+  version: ContentVersionRow;
+  /** `false`: el aviso al sitio falló y el cambio se verá en ≤60 s. */
+  revalidated: boolean;
+}
