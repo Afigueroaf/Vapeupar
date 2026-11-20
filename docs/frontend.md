@@ -128,7 +128,14 @@ etiqueta de caché `contenido` y ISR de 60 s.
 - Para cambiar un texto por defecto hay que cambiarlo **en los dos esquemas**
   (frontend y backend); si no, `npm run test:backend` falla en la prueba de
   paridad.
-- Lo que falta: la pantalla de edición en la consola (A5.4).
+- La pregunta legal +18 de la FAQ (cédula, Ley 1335) no viaja en el
+  contenido: `FAQ` la inserta siempre en la cuarta posición con
+  `withLegalFaqItem` (`LEGAL_FAQ_ITEM` en `lib/content/schemas.ts`).
+- La presentación de la intro, la banda y el pie está separada de la lectura:
+  `HeroView`, `TrustBandCards` y `ContactView` no piden datos, y `Hero`,
+  `TrustBand` y `Footer` los leen y las renderizan. La vista previa de
+  `/admin/content` usa esas mismas vistas y el mismo `FAQ`.
+- Se edita en `/admin/content` (A5.4).
 
 ### Revalidación on-demand (A7.3)
 
@@ -167,7 +174,7 @@ frontend/src/
 │   ├── coleccion/[categoria]/    # Colección por categoría: 6 rutas ISR (lib/collections.ts), 404 el resto
 │   ├── nosotros/                 # Quiénes somos (copy provisional)
 │   ├── globals.css               # Import Tailwind v4 y soporte prefers-reduced-motion
-│   └── (admin)/admin/            # Consola: layout propio, login y (panel)/{stock,products,brands,suppliers}
+│   └── (admin)/admin/            # Consola: layout propio, login y (panel)/{stock,products,showcase,brands,suppliers,users,content}
 ├── components/
 │   ├── age-verification-modal.tsx# Modal +18 con TTL de 30 días y accesibilidad ARIA
 │   ├── public-shell.tsx          # Armazón de ficha, colección y nosotros (+18, WhatsApp, barra, pie)
@@ -205,6 +212,7 @@ con `robots: noindex, nofollow`: es una herramienta interna.
 | `/admin/products` | Líneas y variantes (A5.3): filtros por marca, categoría y estado; alta y edición con **precio**; panel de variantes; aviso de qué falta para publicar |
 | `/admin/brands` | Marcas (A5.2): alta y edición, orden de aparición y marca aliada |
 | `/admin/suppliers` | Proveedores (A5.2): ficha con las marcas que trae, variantes abastecidas y último ingreso; edición con el vínculo N↔N |
+| `/admin/content` | Contenido del sitio (A5.4): un editor por clave con validación en vivo (esquema espejo, `lib/content-form.ts`), vista previa con los componentes del sitio, historial con Ver y Restaurar. Publicación directa, sin borradores; solo el owner publica |
 
 **Las peticiones salen del navegador, no del servidor de Next.** Es la
 desviación más importante respecto del plan, que preveía un `proxy.ts` (el

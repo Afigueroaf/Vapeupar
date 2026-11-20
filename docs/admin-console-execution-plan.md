@@ -21,7 +21,7 @@ V4 y V5.
 | **A2** | Desacoplar `ProductService` y reescribir sus tests | `backend/src/services/`, `*.test.ts` | ✅ **Ejecutada** (2026-10-26) |
 | **A3** | Dominio de inventario: movimientos, idempotencia, auditoría | `backend/src/services/stock.service.ts` | ✅ **Ejecutada** (2026-10-26) |
 | **A4** | Autenticación y superficie `/api/admin/*` | `backend/src/routes/admin/`, `backend/src/middleware/` | ✅ **Ejecutada** (2026-10-27): sesión, roles, endurecimiento, inventario y el CRUD completo. Solo queda fuera el puente AdminJS (A4.4), opcional y descartado |
-| **A5** | Consola `/admin` en Next | `frontend/src/app/(admin)/` | 🟡 **Parcial** (2026-10-27): A5.1 (stock), A5.2 (marcas y proveedores) y A5.3 (lineas y variantes), ejecutadas; falta A5.4, que depende de A7.1 |
+| **A5** | Consola `/admin` en Next | `frontend/src/app/(admin)/` | ✅ **Ejecutada** (2026-11-20): A5.1 (stock), A5.2 (marcas y proveedores), A5.3 (lineas y variantes) y A5.4 (contenido, en `feat/a5-4-consola-contenido`, sin fusionar). Falta la revisión en navegador. Ver «Registro A5.4» |
 | **A6** | Catálogo público con variantes | `product-card.tsx`, `product-catalog.tsx`, tipos | ✅ **Ejecutada** (2026-11-17): contratos con `variants` y `brandSlug`, tarjeta «Ver N sabores» con la elección en la ficha, y filtros sobre variantes. Ver «Registro A6» |
 | **A7** | `SiteContent` + revalidación + barrido de textos | `faq.tsx`, `layout.tsx`, `trust-band.tsx` | 🟡 **Parcial** (2026-11-19): A7.1, A7.2 y A7.4 ejecutadas; A7.3 implementada en `feat/a7-3-revalidacion`, sin desplegar. Ver «Registro A7» |
 | **A8** | Imágenes en S3 + CloudFront | `next.config.ts`, `storage.service.ts` | 🟡 **Parcial** (2026-10-27): código terminado y verificado de extremo a extremo —migración aplicada, subida real con URL prefirmada y lectura `200` por CloudFront—. Falta subir las imágenes del catálogo al bucket. Ver `docs/session-handoff-2026-10-27-inventory-images.md` |
@@ -1033,6 +1033,69 @@ desactivar la ultima variante activa de una linea publicada responde `409`.
   siguiente revalidacion ISR (60 s). La revalidacion inmediata al publicar es
   A7.3 y no esta hecha.
 
+### Registro A5.4 (2026-11-20) — Contenido del sitio
+
+Rama `feat/a5-4-consola-contenido`, **sin fusionar ni desplegar**. Decisiones
+del dueño: publicación directa con vista previa y «Restaurar», sin borradores
+(`dec-borrador-o-publicacion-directa`), y la pregunta legal +18 de la FAQ fija
+en código (`dec-texto-legal-de-mayoria-de-edad`).
+
+| Archivo | Rol |
+|---|---|
+| `backend/src/schemas/content/faq.ts` y `frontend/src/lib/content/schemas.ts` | `LEGAL_FAQ_ITEM`, `LEGAL_FAQ_INDEX` (3) y `stripLegalFaqItem`; `faq.items` 1–11; `FAQ_DEFAULT` sin la legal. El frontend añade `withLegalFaqItem` |
+| `backend/src/services/content.service.ts` | Quita la legal al publicar, restaurar y leer; `restore(key, version)`; `ContentError.fields` |
+| `backend/src/routes/admin/content.routes.ts` | `POST /:key/versions/:version/restore` (owner, `201`, `meta.revalidated`) |
+| `backend/src/repositories/*site-content*` | `findVersion(key, version)` (Prisma: índice único `key_version`) |
+| `frontend/src/components/{hero-view,trust-band-view,contact-view}.tsx` | Vistas sin datos; `Hero`, `TrustBand` y `Footer` las renderizan |
+| `frontend/src/components/faq.tsx` | Inserta siempre la pregunta legal |
+| `frontend/src/lib/admin-api.ts` | `adminApi.content`: `keys`, `get` (404 → `null`), `versions`, `publish`, `restore` |
+| `frontend/src/lib/content-form.ts` | Validación en vivo, errores del backend por campo, límites sacados del esquema (JSON Schema), listas, avisos |
+| `frontend/src/components/admin/content/` | `fields`, `editors` (uno por clave), `preview`, `history` |
+| `frontend/src/app/(admin)/admin/(panel)/content/page.tsx` | La pantalla; «Contenido» en la navegación |
+
+**Decisiones tomadas durante la ejecución**
+
+- **«Restaurar» tiene endpoint propio** en vez de reenviar el valor desde el
+  navegador con un `PUT`: el servidor toma el valor de su propio historial y la
+  auditoría lo distingue (`content.restore` con `restoredFrom`). No se ofrece
+  sobre la versión vigente ni sobre una que ya no cumple el esquema.
+- **La pregunta legal va en la cuarta posición**, donde estaba: con el texto por
+  defecto la portada no cambia. Con menos de tres preguntas editables va al
+  final. Se reconoce por la pregunta, sin mirar espacios ni mayúsculas; una
+  pregunta legal con la respuesta cambiada también se quita. Sin migración de
+  datos: el filtro al leer cubre las versiones ya publicadas.
+- **Los límites del formulario salen del esquema** (`z.toJSONSchema`), no de
+  constantes: contadores, mínimos y máximos de lista se mueven solos si cambia
+  el esquema.
+- **Los borradores son locales y por clave**: cambiar de pestaña no pierde lo
+  editado (la pestaña lleva una marca) y el navegador avisa al salir con cambios.
+  No se guardan en ningún sitio, coherente con «sin borradores».
+- **Los `VALIDATION` de contenido devuelven `errors[]`** además del mensaje, para
+  señalar el campo; si la validación en vivo funciona no deberían llegar nunca.
+- **El autor del historial** se muestra como «tú» o con el inicio de su id: la
+  lista de usuarios es solo para el owner y usa el `sub` de Cognito, no el id.
+- **Vista previa**: la banda se muestra sin el escenario 3D (solo las tarjetas
+  en su `CardField`), y el SEO como tarjeta de buscador y de enlace compartido.
+  En la consola el layout es de dos columnas desde `xl`; por debajo, la vista
+  previa va bajo el formulario. Los componentes del sitio responden al ancho de
+  la ventana, no al del panel, así que a 1280–1440 px la FAQ y el pie se ven
+  algo más apretados que en la portada.
+
+**Verificación**: `npm test` (backend 229, frontend 61, incluida la paridad y
+`content-form.test.ts`), `npm run lint --workspace=frontend`,
+`npx --workspace=frontend tsc --noEmit`, `npm run build`. El HTML prerenderizado
+de `/` conserva las cinco preguntas en el mismo orden.
+
+**No verificado**
+
+- **Nadie ha visto `/admin/content` en un navegador**: la consola necesita
+  Cognito y la base, así que no se arrancó. Falta el recorrido a 375, 768 y
+  1440 px con sesión de owner y de operator, y comparar la portada antes y
+  después de separar las vistas.
+- **La ruta de Prisma de `findVersion`** no se ha ejecutado contra la base.
+- **El criterio de punta a punta** (cambiar una FAQ y verla en la portada al
+  recargar) espera al despliegue de esta rama y de A7.3.
+
 ## Fase A6 — Catálogo público con variantes
 
 Intersección con el plan visual: se respetan las decisiones de V4 y V5
@@ -1238,7 +1301,7 @@ después la release; y comprobar en producción: `POST /internal/revalidate` des
 fuera da `404`, publicar una FAQ y registrar una venta que deja una variante en
 0 se ven al recargar, y `journalctl -u vapeupar-backend` sin avisos de
 revalidación. La consola todavía no muestra el aviso «se verá en ≤60 s» cuando
-`meta.revalidated` es `false`.
+`meta.revalidated` es `false` (la pantalla de contenido de A5.4 sí lo muestra).
 
 ## Fase A8 — Imágenes en S3 + CloudFront
 

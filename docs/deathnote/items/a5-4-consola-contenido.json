@@ -1,6 +1,6 @@
 {
   "title": "Pantalla de contenido del sitio en la consola (A5.4)",
-  "status": "pendiente",
+  "status": "en_curso",
   "priority": "media",
   "area": "admin",
   "summary": "Formularios generados desde los esquemas de contenido, con previsualización, historial de versiones y botón de publicar que dispara la revalidación.",
@@ -19,7 +19,7 @@
   "evidence": "No existe frontend/src/app/(admin)/admin/(panel)/content",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z",
+  "updatedAt": "2026-11-20T06:31:41.749Z",
   "plan": [
     "API de la consola: en frontend/src/lib/admin-api.ts añade adminApi.content con: listKeys() → GET /content, get(key) → GET /content/:key (un 404 se trata como «sin publicar» y se usan los defaults), versions(key, limit) → GET /content/:key/versions y publish(key, value) → PUT /content/:key. Los tipos ContentKey y ContentValue salen de frontend/src/lib/content/schemas.ts.",
     "Vistas reutilizables: separa la presentación de los componentes async del sitio para que la vista previa use exactamente el mismo marcado. Hero pasa a HeroView({content}), TrustBand a TrustBandView y Footer a un ContactView. FAQ ya recibe content por props. Los componentes async siguen leyendo con getContent y renderizan la vista, de modo que el sitio público no cambia.",
@@ -45,5 +45,5 @@
     "El SEO (title, keywords) queda en manos de la consola: un cambio impulsivo afecta al posicionamiento. Los límites de longitud ayudan, pero no garantizan calidad.",
     "Las pantallas de la consola aún no se han revisado en navegador (pendiente del plan de diseño). Esta tiene los formularios más largos."
   ],
-  "claudeNote": "Plan 2026-11-18: La dependencia de a7-revalidacion-on-demand es blanda: sin A7.3, lo publicado se ve en ≤60 s, que ya es «sin desplegar». a7-contenido-editable sigue en_curso, sin fusionar. El prompt habla de «formularios generados desde los esquemas»: con estructuras fijas (3 tarjetas, listas reordenables) conviene un editor por clave. La clave es 'contact', no 'contacto'. El hero solo tiene label y tagline, sin titular ni CTA. GET /:key/versions y el PUT solo para owner ya existen en backend/src/routes/admin/content.routes.ts. admin-api.ts todavía no tiene métodos de contenido."
+  "claudeNote": "Plan 2026-11-18: La dependencia de a7-revalidacion-on-demand es blanda: sin A7.3, lo publicado se ve en ≤60 s, que ya es «sin desplegar». a7-contenido-editable sigue en_curso, sin fusionar. El prompt habla de «formularios generados desde los esquemas»: con estructuras fijas (3 tarjetas, listas reordenables) conviene un editor por clave. La clave es 'contact', no 'contacto'. El hero solo tiene label y tagline, sin titular ni CTA. GET /:key/versions y el PUT solo para owner ya existen en backend/src/routes/admin/content.routes.ts. admin-api.ts todavía no tiene métodos de contenido.\n2026-11-20: implementado en la rama feat/a5-4-consola-contenido (sin fusionar). Falta: recorrido en navegador de /admin/content a 375/768/1440 px con owner y operator, comparar la portada antes/después de separar HeroView/TrustBandCards/ContactView, ejecutar findVersion contra la base y, tras desplegar con A7.3, cambiar una FAQ y verla en la portada al recargar. Restaurar usa un endpoint nuevo (POST /api/admin/content/:key/versions/:version/restore); la pregunta legal queda en LEGAL_FAQ_ITEM (faq.items 1–11), sin migración."
 }

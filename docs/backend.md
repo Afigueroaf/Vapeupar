@@ -115,7 +115,8 @@ nace protegida.
 | `GET /api/admin/content` | sesión | Las claves de contenido disponibles |
 | `GET /api/admin/content/:key` | sesión | Última versión publicada de la clave. `404` si nunca se publicó |
 | `GET /api/admin/content/:key/versions` | sesión | Historial para volver atrás. `?limit=` |
-| `PUT /api/admin/content/:key` | **owner** | Publica una **versión nueva**; no sobrescribe. `201`. El `value` se valida con el esquema de su clave (`schemas/content/`, A7.1): campos desconocidos, que falte uno o textos fuera de límite son `400` con el campo culpable (`value.items.0.title: …`) |
+| `PUT /api/admin/content/:key` | **owner** | Publica una **versión nueva**; no sobrescribe. `201`. El `value` se valida con el esquema de su clave (`schemas/content/`, A7.1): campos desconocidos, que falte uno o textos fuera de límite son `400` con el campo culpable en el mensaje (`value.items.0.title: …`) y en `errors[]` (`{ field, message }`, A5.4) |
+| `POST /api/admin/content/:key/versions/:version/restore` | **owner** | «Restaurar» de la consola (A5.4): vuelve a publicar el valor de la versión N como versión **nueva** (N+1); el historial no se reescribe. `201` con `meta.revalidated`; `404` si la versión no existe; `400` si ya no cumple el esquema. Auditado como `content.restore` con `after.restoredFrom` |
 | `GET /api/admin/audit` | **owner** | Registro de escrituras. `?entity=&entityId=&action=&userId=&from=&to=&page=&limit=` |
 | `GET /api/admin/users` | **owner** | Todas las cuentas de la consola, activas e inactivas, por correo |
 | `POST /api/admin/users/invite` | **owner** | Invita a la consola y crea la fila en `User` |
@@ -213,7 +214,7 @@ escritura que ya salió bien, el backend avisa a Next con
 
 | Escritura | Etiqueta |
 |---|---|
-| `PUT /api/admin/content/:key` | `contenido` |
+| `PUT /api/admin/content/:key` y `POST …/versions/:version/restore` | `contenido` |
 | `POST`/`PATCH` de marcas, líneas y variantes | `catalogo` (también basta para las marcas aliadas: `getPartnerBrands` lleva las dos) |
 | `POST /api/admin/stock/movements` (ventas, ingresos, ajustes; también un reintento) | `catalogo` |
 
@@ -409,7 +410,7 @@ longitud y objetos estrictos):
 |---|---|---|
 | `hero` | `label` (32), `tagline` (32) | Etiqueta pixel y reclamo de la intro |
 | `trust-band` | `items`: **exactamente 3** de `label` (16), `title` (48), `detail` (80) | Tarjetas del panel de información |
-| `faq` | `title` (60), `intro` (200), `items`: 1–12 de `question` (160), `answer` (800) | FAQ de la portada |
+| `faq` | `title` (60), `intro` (200), `items`: 1–11 de `question` (160), `answer` (800), **sin** la pregunta legal | FAQ de la portada |
 | `seo` | `title` (70), `description` (160), `keywords` 1–20 (40), `openGraph` y `twitter` con `title` (70) y `description` (200) | Metadatos de `layout.tsx` |
 | `contact` | `about` (240), `location` (80), `hours` 1–4 (60), `service` 1–6 (60) | Pie de página |
 
@@ -422,9 +423,19 @@ por «nuestras marcas aliadas» si no hay lista. Así la FAQ no nombra marcas qu
 ya no se venden (ADR-002 §5). El marcador solo vale en la FAQ: en cualquier
 otra clave, publicar es `400`.
 
+**La pregunta legal +18 de la FAQ no es contenido** (decisión
+`dec-texto-legal-de-mayoria-de-edad`, 2026-11-19): la de la cédula obligatoria
+(Ley 1335 de 2009) vive en código como `LEGAL_FAQ_ITEM` y el sitio la inserta
+siempre en la cuarta posición (`LEGAL_FAQ_INDEX`). `faq.items` guarda solo las
+editables, de ahí el máximo de 11. `stripLegalFaqItem` quita cualquier pregunta
+igual (sin mirar espacios ni mayúsculas) **al publicar, al restaurar y al leer**:
+una versión antigua que la lleve dentro no la duplica, y nadie puede quitarla ni
+cambiarla desde la consola. No hizo falta migración de datos.
+
 El frontend lleva un **espejo** de estos esquemas en
 `frontend/src/lib/content/schemas.ts`; `content-parity.test.ts` compara ambos
-(JSON Schema y valores por defecto) y falla si divergen.
+(JSON Schema, valores por defecto, la pregunta legal y su filtrado) y falla si
+divergen.
 
 ### 7. `GET /api/brands/partners` (A7.4)
 
