@@ -90,6 +90,21 @@ describe('StockService.recordMovement: reglas', () => {
     await expectStockError(service.recordMovement(movement({ type: 'return', quantity: 1, supplierId: 'sup-1' })), 'VALIDATION');
   });
 
+  it('el precio cobrado solo en ventas, y queda en el movimiento', async () => {
+    await service.recordMovement(movement({ quantity: 5 }));
+    const sale = await service.recordMovement(movement({ type: 'sale', quantity: 1, unitPrice: 45000 }));
+    expect(sale.movement.unitPrice).toBe(45000);
+    expect((await service.recordMovement(movement({ quantity: 1 }))).movement.unitPrice).toBeNull();
+    await expectStockError(service.recordMovement(movement({ type: 'return', quantity: 1, unitPrice: 45000 })), 'VALIDATION');
+  });
+
+  it('un reintento con otro precio cobrado es otra operación', async () => {
+    await service.recordMovement(movement({ quantity: 5 }));
+    const first = movement({ type: 'sale', quantity: 1, unitPrice: 45000 });
+    await service.recordMovement(first);
+    await expectStockError(service.recordMovement({ ...first, unitPrice: 40000 }), 'OPERATION_KEY_CONFLICT');
+  });
+
   it('rechaza una variante inexistente', async () => {
     await expectStockError(service.recordMovement(movement({ variantId: 'no-existe' })), 'NOT_FOUND');
   });

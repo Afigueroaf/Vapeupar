@@ -15,6 +15,7 @@ function toMovement(row: MovementRow): StockMovement {
     reason: row.reason,
     supplierId: row.supplierId,
     unitCost: row.unitCost,
+    unitPrice: row.unitPrice,
     lot: row.lot,
     userId: row.userId,
     operationKey: row.operationKey,
@@ -30,7 +31,8 @@ async function sumLedger(db: Db, variantId: string, before?: Date): Promise<numb
   return result._sum.quantity ?? 0;
 }
 
-function transactionOps(tx: Prisma.TransactionClient): StockTransaction {
+/** Operaciones del libro sobre una transacción abierta; las reusa el repositorio de pedidos. */
+export function stockTransactionOps(tx: Prisma.TransactionClient): StockTransaction {
   return {
     async lockVariant(variantId) {
       if (!isUuid(variantId)) return undefined;
@@ -70,7 +72,7 @@ export class PrismaStockRepository implements StockRepository {
   constructor(private readonly db: PrismaDbHandle = defaultDbHandle) {}
 
   public transaction<T>(work: (tx: StockTransaction) => Promise<T>): Promise<T> {
-    return this.db.transaction(tx => work(transactionOps(tx)));
+    return this.db.transaction(tx => work(stockTransactionOps(tx)));
   }
 
   public async getStockCache(variantId: string): Promise<number | undefined> {
