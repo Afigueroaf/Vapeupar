@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { CONTENT_KEYS, CONTENT_SCHEMAS, PARTNER_BRANDS_TOKEN } from './index.js';
+import {
+  CONTENT_KEYS, CONTENT_SCHEMAS, LEGAL_FAQ_INDEX, LEGAL_FAQ_ITEM, PARTNER_BRANDS_TOKEN, stripLegalFaqItem
+} from './index.js';
 import * as mirror from '../../../../frontend/src/lib/content/schemas.js';
 
 /**
@@ -39,5 +41,22 @@ describe('paridad con el espejo del frontend', () => {
 
   it('usa el mismo marcador de marcas aliadas', () => {
     expect(mirror.PARTNER_BRANDS_TOKEN).toBe(PARTNER_BRANDS_TOKEN);
+  });
+
+  // La pregunta legal +18 vive en código en los dos lados: si el texto o la
+  // posición cambian en uno solo, el sitio y el backend dejarían de reconocerla.
+  it('fija la misma pregunta legal, en la misma posición, y la quita igual', () => {
+    expect(mirror.LEGAL_FAQ_ITEM).toEqual(LEGAL_FAQ_ITEM);
+    expect(mirror.LEGAL_FAQ_INDEX).toBe(LEGAL_FAQ_INDEX);
+    const casos: unknown[] = [
+      { items: [LEGAL_FAQ_ITEM, { question: 'Otra', answer: 'x' }] },
+      { items: [{ question: `  ${LEGAL_FAQ_ITEM.question.toUpperCase()}  `, answer: 'cambiada' }] },
+      { items: 'no es lista' },
+      null,
+      [LEGAL_FAQ_ITEM]
+    ];
+    for (const caso of casos) {
+      expect(mirror.stripLegalFaqItem(caso)).toEqual(stripLegalFaqItem(caso));
+    }
   });
 });

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { ContentError, ContentService } from './content.service.js';
 import { InMemorySiteContentRepository } from '../repositories/in-memory-site-content.repository.js';
-import { CONTENT_KEYS, CONTENT_SCHEMAS, PARTNER_BRANDS_TOKEN } from '../schemas/content/index.js';
+import { CONTENT_KEYS, CONTENT_SCHEMAS, LEGAL_FAQ_ITEM, PARTNER_BRANDS_TOKEN } from '../schemas/content/index.js';
 import {
   ContentTransaction, ContentVersionConflictError, SiteContentRepository
 } from '../repositories/site-content.repository.js';
@@ -107,7 +107,12 @@ describe('esquema por clave (A7.1)', () => {
     await expect(service.publish('hero', { value: { ...hero('x'), extra: 'y' } }, AUTHOR))
       .rejects.toMatchObject({ code: 'VALIDATION' });
     await expect(service.publish('hero', { value: { label: 'x' } }, AUTHOR))
-      .rejects.toMatchObject({ code: 'VALIDATION', message: expect.stringContaining('value.tagline') });
+      .rejects.toMatchObject({
+        code: 'VALIDATION',
+        message: expect.stringContaining('value.tagline'),
+        // Cada campo por separado, para que la consola lo señale en su sitio.
+        fields: [expect.objectContaining({ field: 'value.tagline' })]
+      });
     await expect(service.publish('hero', { value: hero('x'.repeat(33)) }, AUTHOR))
       .rejects.toMatchObject({ code: 'VALIDATION' });
     await expect(service.publish('hero', { value: hero('   ') }, AUTHOR))
@@ -157,6 +162,86 @@ describe('lectura pública (A7.2)', () => {
   });
 });
 
+describe('pregunta legal +18 fija en código', () => {
+  const legalEditada = { question: `  ${LEGAL_FAQ_ITEM.question.toUpperCase()} `, answer: 'Ya no hace falta.' };
+
+  it('no forma parte del texto por defecto: la pinta el sitio desde LEGAL_FAQ_ITEM', () => {
+    const questions = CONTENT_SCHEMAS.faq.defaults.items.map(item => item.question);
+    expect(questions).not.toContain(LEGAL_FAQ_ITEM.question);
+  });
+
+  it('al publicar se quita aunque venga con otra respuesta o con otro formato', async () => {
+    const version = await service.publish('faq', {
+      value: { ...faq('¿Abren hoy?'), items: [{ question: '¿Abren hoy?', answer: 'Sí.' }, legalEditada] }
+    }, AUTHOR);
+    expect(version.value).toEqual(faq('¿Abren hoy?'));
+  });
+
+  it('admite 11 preguntas editables y rechaza 12', async () => {
+    const items = (n: number) => Array.from({ length: n }, (_, i) => ({ question: `¿Pregunta ${i}?`, answer: 'Sí.' }));
+    await expect(service.publish('faq', { value: { ...faq('x'), items: items(11) } }, AUTHOR))
+      .resolves.toMatchObject({ version: 1 });
+    await expect(service.publish('faq', { value: { ...faq('x'), items: items(12) } }, AUTHOR))
+      .rejects.toMatchObject({ code: 'VALIDATION', fields: [expect.objectContaining({ field: 'value.items' })] });
+  });
+
+  it('una FAQ con solo la pregunta legal se queda sin preguntas y no se publica', async () => {
+    await expect(service.publish('faq', { value: { ...faq('x'), items: [LEGAL_FAQ_ITEM] } }, AUTHOR))
+      .rejects.toMatchObject({ code: 'VALIDATION' });
+  });
+
+  it('una versión antigua que la lleva dentro se sirve sin duplicarla', async () => {
+    // Fila de antes de la regla: las 5 preguntas de entonces, legal incluida.
+    const antigua = {
+      ...CONTENT_SCHEMAS.faq.defaults,
+      items: [...CONTENT_SCHEMAS.faq.defaults.items.slice(0, 3), LEGAL_FAQ_ITEM, ...CONTENT_SCHEMAS.faq.defaults.items.slice(3)]
+    };
+    await repo.transaction(tx => tx.insert({
+      key: 'faq', value: antigua, version: 1, publishedAt: NOW, userId: AUTHOR.userId
+    }));
+    const leido = await service.getPublic('faq');
+    expect(leido).toMatchObject({ source: 'published', version: 1 });
+    expect(leido.value).toEqual(CONTENT_SCHEMAS.faq.defaults);
+  });
+});
+
+describe('restaurar (A5.4)', () => {
+  it('vuelve a publicar el valor de la versión N como N+1, sin tocar el historial', async () => {
+    await service.publish('hero', { value: hero('primero') }, AUTHOR);
+    await service.publish('hero', { value: hero('segundo') }, AUTHOR);
+
+    const restaurada = await service.restore('hero', 1, AUTHOR);
+    expect(restaurada).toMatchObject({ version: 3, value: hero('primero') });
+    expect((await service.listVersions('hero', 10)).map(v => [v.version, v.value])).toEqual([
+      [3, hero('primero')], [2, hero('segundo')], [1, hero('primero')]
+    ]);
+
+    expect(repo.audits[2]).toMatchObject({ action: 'content.restore', entityId: 'hero' });
+    expect(repo.audits[2]?.before).toEqual({ version: 2, value: hero('segundo') });
+    expect(repo.audits[2]?.after).toEqual({ version: 3, value: hero('primero'), restoredFrom: 1 });
+  });
+
+  it('NOT_FOUND si la versión no existe', async () => {
+    await expect(service.restore('hero', 7, AUTHOR)).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    expect(repo.audits).toHaveLength(0);
+  });
+
+  it('una versión que ya no cumple el esquema no se restaura', async () => {
+    await repo.transaction(tx => tx.insert({
+      key: 'hero', value: { title: 'viejo' }, version: 1, publishedAt: NOW, userId: AUTHOR.userId
+    }));
+    await expect(service.restore('hero', 1, AUTHOR)).rejects.toMatchObject({ code: 'VALIDATION' });
+  });
+
+  it('restaurar una FAQ antigua quita la pregunta legal', async () => {
+    await repo.transaction(tx => tx.insert({
+      key: 'faq', value: { ...faq('¿Abren?'), items: [{ question: '¿Abren?', answer: 'Sí.' }, LEGAL_FAQ_ITEM] },
+      version: 1, publishedAt: NOW, userId: AUTHOR.userId
+    }));
+    expect((await service.restore('faq', 1, AUTHOR)).value).toEqual(faq('¿Abren?'));
+  });
+});
+
 describe('lectura sin contenido', () => {
   it('lanza NOT_FOUND cuando la clave nunca se publicó', async () => {
     const error = await service.get('contact').then(() => undefined, (e: unknown) => e);
@@ -180,6 +265,7 @@ describe('carrera por el número de versión', () => {
       audit: { write: async () => undefined }
     } as ContentTransaction),
     findLatest: async () => undefined,
+    findVersion: async () => undefined,
     listVersions: async () => []
   };
 

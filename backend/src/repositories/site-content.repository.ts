@@ -45,6 +45,8 @@ export interface ContentTransaction {
 export interface SiteContentRepository {
   transaction<T>(work: (tx: ContentTransaction) => Promise<T>): Promise<T>;
   findLatest(key: string): Promise<ContentVersion | undefined>;
+  /** Una versión concreta, o `undefined` si no existe (para «Restaurar», A5.4). */
+  findVersion(key: string, version: number): Promise<ContentVersion | undefined>;
   /** De la más reciente a la más antigua. */
   listVersions(key: string, limit: number): Promise<ContentVersion[]>;
 }

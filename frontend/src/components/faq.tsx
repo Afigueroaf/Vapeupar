@@ -6,7 +6,7 @@ import { PixelLabel } from "@/components/ui/pixel-label";
 import { Surface } from "@/components/ui/surface";
 import { cn } from "@/lib/utils";
 
-import type { FaqContent } from "@/lib/content/schemas";
+import { withLegalFaqItem, type FaqContent } from "@/lib/content/schemas";
 
 /**
  * Acordeón de preguntas frecuentes del sistema VP (fase V6).
@@ -34,9 +34,16 @@ import type { FaqContent } from "@/lib/content/schemas";
  * El texto llega por props desde `app/page.tsx`, que lo lee de la API de
  * contenido (A7.2) con el marcador de marcas aliadas ya sustituido (A7.4).
  * Este componente es de cliente por el acordeón y no puede pedirlo él.
+ *
+ * La pregunta legal +18 no llega por props: la inserta aquí
+ * `withLegalFaqItem`, siempre en la misma posición, para que ninguna
+ * publicación desde la consola pueda quitarla. La vista previa de
+ * `/admin/content` usa este mismo componente.
  */
 export function FAQ({ content }: { content: FaqContent }) {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
+
+  const items = withLegalFaqItem(content.items);
 
   const toggle = (index: number) => {
     setOpenIndex(openIndex === index ? null : index);
@@ -62,7 +69,7 @@ export function FAQ({ content }: { content: FaqContent }) {
         </div>
 
         <div className="space-y-3">
-          {content.items.map((item, index) => {
+          {items.map((item, index) => {
             const isOpen = openIndex === index;
             const buttonId = `faq-button-${index}`;
             const panelId = `faq-panel-${index}`;

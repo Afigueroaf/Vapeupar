@@ -22,6 +22,10 @@ export const ContentBodySchema = z.object({
   value: jsonObject(64 * 1024)
 });
 
+export const ContentVersionParamSchema = ContentKeyParamSchema.extend({
+  version: z.coerce.number().int().positive()
+});
+
 export const ContentVersionsQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(50).default(10)
 });
