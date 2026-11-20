@@ -59,6 +59,11 @@ jobs:
           npx --workspace=frontend next typegen
           npx --workspace=frontend tsc --noEmit
 
+      # Lógica pura de src/lib (carrito, mensaje de WhatsApp, puerta +18...).
+      # Sin red ni backend: no necesita variables de entorno.
+      - name: Frontend · tests
+        run: npm run test --workspace=frontend
+
       # Mismo build que el de producción (API relativa), con datos de contacto
       # ficticios: aquí solo importa que compile.
       - name: Frontend · build
