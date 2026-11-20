@@ -201,8 +201,11 @@ monitoring() {
   fi
   command -v logrotate >/dev/null || log "AVISO: logrotate no está instalado"
 
-  # Métricas propias cada 5 minutos (vapeupar-metrics.timer).
+  # Métricas propias cada 5 minutos (vapeupar-metrics.timer). El script usa
+  # openssl para la caducidad del certificado; la AMI estándar de AL2023 lo
+  # suele traer, pero el user-data no lo instala: se garantiza aquí.
   if [ -f "$DEST/deploy/metrics/vapeupar-metrics.sh" ] && [ -f /etc/systemd/system/vapeupar-metrics.timer ]; then
+    command -v openssl >/dev/null || dnf install -y -q openssl || log "AVISO: no se pudo instalar openssl (sin CertDaysLeft)"
     install -m 755 "$DEST/deploy/metrics/vapeupar-metrics.sh" /usr/local/sbin/vapeupar-metrics
     systemctl daemon-reload
     systemctl enable --quiet vapeupar-metrics.timer

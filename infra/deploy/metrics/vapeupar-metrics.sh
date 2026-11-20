@@ -4,9 +4,13 @@
 # `vapeupar-metrics.timer`. docs/aws-full-deployment-plan.md F6.
 #
 #   MemUsedPercent       (MemTotal - MemAvailable) / MemTotal
-#   SwapUsedPercent      swap en uso (sin alarma: solo para mirar)
 #   RootDiskUsedPercent  ocupación de /
 #   CertDaysLeft         días hasta que caduca el certificado de Let's Encrypt
+#
+# SOLO LAS QUE TIENEN ALARMA: la capa gratuita da 10 métricas propias por
+# cuenta, compartidas con DeliPan (MAX_CUSTOM_METRICS en monitoring-stack.ts,
+# comprobado por infra/test/monitoring.test.ts, que cuenta las llamadas a
+# `datum` de este archivo). Añadir una métrica es subir ese techo a sabiendas.
 #
 # Dimensión `Environment=<entorno>` y NO el id de la instancia: así las
 # alarmas siguen valiendo si la EC2 se reemplaza. Si este script deja de
@@ -14,7 +18,12 @@
 # (treatMissingData BREACHING en monitoring-stack.ts): no hay alarma aparte
 # para el timer.
 #
-# Solo envía métricas: los registros se quedan en journald, en la instancia.
+# CADA MÉTRICA ES INDEPENDIENTE: si una no se puede calcular (certificado
+# corrupto, openssl ausente...), se omite con un aviso y las demás se envían.
+# La que falta la detecta su alarma por falta de datos.
+#
+# Necesita `openssl` (paquete openssl de AL2023); activate.sh lo instala si
+# falta. Solo envía métricas: los registros se quedan en journald.
 #
 # Prueba en local sin AWS: VAPEUPAR_METRICS_DRY_RUN=1 bash vapeupar-metrics.sh
 set -euo pipefail
@@ -27,33 +36,39 @@ REGION="${AWS_REGION:-us-east-1}"
 CERT="${VAPEUPAR_CERT:-/etc/letsencrypt/live/vapeupar/fullchain.pem}"
 NAMESPACE=Vapeupar
 
-# --- Memoria y swap -----------------------------------------------------------
-read -r MEM SWAP < <(awk '
+warn() { echo "AVISO: $*" >&2; }
+is_num() { [[ "${1:-}" =~ ^-?[0-9]+(\.[0-9]+)?$ ]]; }
+
+# --- Memoria ------------------------------------------------------------------
+MEM="$(awk '
   /^MemTotal:/     { mt = $2 }
   /^MemAvailable:/ { ma = $2; has = 1 }
   /^MemFree:/      { mf = $2 }
   /^Buffers:/      { bu = $2 }
   /^Cached:/       { ca = $2 }
-  /^SwapTotal:/    { st = $2 }
-  /^SwapFree:/     { sf = $2 }
   END {
     if (!has) ma = mf + bu + ca   # kernels sin MemAvailable
-    mem  = (mt > 0) ? (mt - ma) * 100 / mt : 0
-    swap = (st > 0) ? (st - sf) * 100 / st : 0
-    printf "%.1f %.1f\n", mem, swap
-  }' /proc/meminfo)
+    if (mt > 0) printf "%.1f\n", (mt - ma) * 100 / mt
+  }' /proc/meminfo 2>/dev/null)" || MEM=""
 
 # --- Disco raíz ---------------------------------------------------------------
-DISK="$(df -P / | awk 'NR == 2 { v = $(NF - 1); sub(/%/, "", v); print v }')"
+DISK="$(df -P / 2>/dev/null | awk 'NR == 2 { v = $(NF - 1); sub(/%/, "", v); print v }')" || DISK=""
 
-# --- Certificado --------------------------------------------------------------
-# Sin certificado (instancia aún sin TLS) no se envía: la alarma lo ve como
-# datos que faltan y avisa, que es lo correcto en producción.
+# --- Certificado (best-effort) ------------------------------------------------
+# Sin certificado (instancia aún sin TLS), corrupto o sin openssl no se envía:
+# la alarma lo ve como datos que faltan y avisa, que es lo correcto.
 CERT_DAYS=""
 if [ -r "$CERT" ]; then
-  END_DATE="$(openssl x509 -enddate -noout -in "$CERT" | cut -d= -f2)"
-  END_TS="$(date -d "$END_DATE" +%s)"
-  CERT_DAYS="$(awk -v e="$END_TS" -v n="$(date +%s)" 'BEGIN { printf "%.1f", (e - n) / 86400 }')"
+  END_DATE="$(openssl x509 -enddate -noout -in "$CERT" 2>/dev/null | cut -d= -f2)" || END_DATE=""
+  END_TS=""
+  [ -n "$END_DATE" ] && { END_TS="$(date -d "$END_DATE" +%s 2>/dev/null)" || END_TS=""; }
+  if is_num "$END_TS"; then
+    CERT_DAYS="$(awk -v e="$END_TS" -v n="$(date +%s)" 'BEGIN { printf "%.1f", (e - n) / 86400 }')"
+  else
+    warn "no se pudo leer la fecha de caducidad de $CERT"
+  fi
+else
+  warn "sin certificado en $CERT"
 fi
 
 datum() { # nombre valor unidad
@@ -61,9 +76,16 @@ datum() { # nombre valor unidad
     "$1" "$2" "$3" "$ENV_NAME"
 }
 
-DATA="[$(datum MemUsedPercent "$MEM" Percent),$(datum SwapUsedPercent "$SWAP" Percent),$(datum RootDiskUsedPercent "$DISK" Percent)"
-[ -n "$CERT_DAYS" ] && DATA="$DATA,$(datum CertDaysLeft "$CERT_DAYS" None)"
-DATA="$DATA]"
+ITEMS=()
+if is_num "$MEM"; then ITEMS+=("$(datum MemUsedPercent "$MEM" Percent)"); else warn "memoria no disponible"; fi
+if is_num "$DISK"; then ITEMS+=("$(datum RootDiskUsedPercent "$DISK" Percent)"); else warn "disco no disponible"; fi
+if is_num "$CERT_DAYS"; then ITEMS+=("$(datum CertDaysLeft "$CERT_DAYS" None)"); fi
+
+if [ "${#ITEMS[@]}" -eq 0 ]; then
+  warn "ninguna métrica que enviar"
+  exit 1
+fi
+DATA="[$(IFS=,; echo "${ITEMS[*]}")]"
 
 if [ "${VAPEUPAR_METRICS_DRY_RUN:-}" = "1" ]; then
   echo "$DATA"
@@ -71,4 +93,4 @@ if [ "${VAPEUPAR_METRICS_DRY_RUN:-}" = "1" ]; then
 fi
 
 aws cloudwatch put-metric-data --region "$REGION" --namespace "$NAMESPACE" --metric-data "$DATA"
-echo "mem=${MEM}% swap=${SWAP}% disco=${DISK}% cert=${CERT_DAYS:-sin certificado}d"
+echo "mem=${MEM:-?}% disco=${DISK:-?}% cert=${CERT_DAYS:-?}d"
