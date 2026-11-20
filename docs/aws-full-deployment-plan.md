@@ -154,7 +154,8 @@ Nuevo `infra/lib/app-stack.ts`, compuesto en `bin/vapeupar.ts` después de
    - `AmazonSSMManagedInstanceCore` (acceso sin SSH y ejecución de comandos).
    - `ssm:GetParameter(s)` sobre `/vapeupar/dev/*`.
    - `secretsmanager:GetSecretValue` sobre los tres secretos del entorno
-     (`rds-app`, `rds-master`, `cognito-backend-client`).
+     (`rds-app`, `rds-master`, `cognito-backend-client`). Desde F7 el maestro
+     es el que gestiona RDS y se concede por su ARN exacto.
    - `s3:PutObject` **limitado a los prefijos del catálogo** (`marcas/`,
      `proveedores/`, `productos/`) del bucket de catálogo.
    - `cloudfront:CreateInvalidation` **solo** sobre la distribución del
@@ -537,6 +538,61 @@ CloudFront delante de la aplicación reaprovechando el certificado de nginx como
 certificado de origen; WAF con reglas gestionadas y límite de tasa delante de
 CloudFront; rotación automática del secreto maestro de RDS; Multi-AZ; segunda
 instancia detrás de un ALB cuando el tráfico lo pida.
+
+**Estado (2026-11-20): implementado en la rama `infra/f7-perimetro`, sin
+desplegar.** Decisiones `dec-proteccion-perimetral` (opción 1) y
+`dec-como-rotar-la-contrasena-maestra-de-rds` (opción 1).
+
+- **Límite de peticiones en nginx, sin CloudFront ni WAF.** Zonas por
+  `$binary_remote_addr` en `infra/deploy/nginx/nginx.conf` (contexto `http`);
+  las usa `vapeupar-site.inc`:
+  - `/api/admin/auth/` (login, nueva contraseña, MFA, logout): 10/min, ráfaga
+    5, `nodelay`. Con 15 POST seguidos, 6 llegan al backend y del 7.º en
+    adelante responde nginx con 429.
+  - resto de `/api/admin/` (presign incluido): 60/min, ráfaga 60. Por encima
+    del límite de Express (30/min), que sigue siendo el que nota un
+    administrador; este solo frena inundaciones.
+  - `limit_conn` de 100 peticiones simultáneas por IP en todo el sitio.
+  - La tienda, `/api/` pública y `/_next/static/` sin `limit_req`: el ISR va
+    por loopback directo a `127.0.0.1:4000`, no pasa por nginx.
+  - Los 429 de nginx devuelven el mismo JSON `{ success, message }` que
+    Express, con `Retry-After: 60`.
+  - Riesgo aceptado: varios administradores detrás de una misma IP (oficina,
+    CGNAT) comparten el cupo del login.
+  - CloudFront y WAF quedan **aplazados hasta tener dominio propio** (ACM no
+    puede validar `vapeupar.ddns.net`; WAF no se conecta a una EC2). Cuando
+    llegue: `TRUST_PROXY=2`, `$proxy_add_x_forwarded_for` en site.inc y la
+    clave de las zonas pasa a la IP real del cliente (`realip`), no la de
+    CloudFront.
+- **Contraseña maestra gestionada por RDS** (`manageMasterUserPassword`):
+  RDS crea el secreto `rds!db-<id>` y lo rota cada 7 días, sin Lambda ni
+  endpoint de VPC (0 USD). En la DBInstance solo cambian `MasterUserPassword`
+  (se quita) y `ManageMasterUserPassword` (`true`), ambas sin interrupción:
+  **sin reemplazo** (lo fija `infra/test/data.test.ts`). Desaparecen
+  `vapeupar/dev/rds-master` y su `SecretTargetAttachment`; `DB_SECRET_ARN`
+  apunta a `MasterUserSecret.SecretArn` y el rol de la EC2 lo lee por ese ARN
+  exacto, resuelto del parámetro SSM en cada despliegue de App (nunca un
+  comodín `rds!db-*`, que alcanzaría a DeliPan). `vapeupar_app` no cambia.
+
+**Orden de despliegue de F7:**
+
+1. Snapshot manual de `vapeupar-dev-db`.
+2. `VAPEUPAR_ALERT_EMAIL=... npm run infra:diff`: en Data, la DBInstance debe
+   salir como modificación (`[~]`) de `MasterUserPassword` y
+   `ManageMasterUserPassword`, sin `replace`; en App, solo la política del rol
+   y el parámetro `DB_SECRET_ARN`.
+3. Desplegar **Data** en solitario. Comprobar `MasterUserSecret` y el mismo
+   endpoint con `aws rds describe-db-instances`.
+4. Desplegar **App** (toma el ARN nuevo del parámetro).
+5. Release normal (deploy-produccion): `migrate.mjs` con el secreto nuevo y
+   nginx con el límite. Prueba: `for i in $(seq 1 15); do curl -s -o /dev/null
+   -w '%{http_code}\n' -X POST https://vapeupar.ddns.net/api/admin/auth/login;
+   done` → seis respuestas del backend (400) y nueve 429; la portada en 200.
+6. En local, `npm run infra:env-backend` de nuevo: la contraseña cambia con
+   cada rotación.
+
+Pendiente aparte: usuario systemd propio `vapeupar-web` para el frontend
+(propuesta anotada en el Deathnote, no incluida aquí).
 
 ## 5. Riesgos y cómo se mitigan
 

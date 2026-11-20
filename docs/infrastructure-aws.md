@@ -63,7 +63,7 @@ Decisión de origen: [ADR-002](decisions/002-consola-de-administracion-y-persist
 |---|---|
 | `CDKToolkit-Vapeupar` | Toolkit de CDK propio (qualifier `vapeupar`): bucket de assets y roles `cdk-vapeupar-*` |
 | `Vapeupar-dev-Network` | VPC, 2 subredes públicas + 2 aisladas, Internet Gateway, endpoint S3, grupo de seguridad por defecto cerrado |
-| `Vapeupar-dev-Data` | RDS `vapeupar-dev-db` (protección de borrado, `RETAIN`), grupo de seguridad `vapeupar-dev-rds`, secretos `vapeupar/dev/rds-master` (maestro) y `vapeupar/dev/rds-app` (rol `vapeupar_app`) |
+| `Vapeupar-dev-Data` | RDS `vapeupar-dev-db` (protección de borrado, `RETAIN`), grupo de seguridad `vapeupar-dev-rds`, secreto `vapeupar/dev/rds-app` (rol `vapeupar_app`). El maestro: `vapeupar/dev/rds-master` hasta F7; con F7 desplegado, el que gestiona y rota RDS (`rds!db-<id>`, cada 7 días) |
 | `Vapeupar-dev-Storage` | Bucket `vapeupar-dev-catalog-342284838697`, distribución CloudFront con OAC |
 | `Vapeupar-dev-Auth` | User Pool `vapeupar-dev-admins`, cliente `vapeupar-dev-backend`, secreto `vapeupar/dev/cognito-backend-client` |
 | `Vapeupar-dev-Ops` | Presupuesto `vapeupar-dev-monthly` (30 USD), grupo de recursos `vapeupar-dev-resources` |
@@ -79,7 +79,7 @@ se actualiza solo.
 | Parámetro | Contenido |
 |---|---|
 | `DB_HOST`, `DB_PORT`, `DB_NAME` | Endpoint de RDS |
-| `DB_SECRET_ARN` | ARN del secreto con usuario y contraseña maestros (solo migraciones) |
+| `DB_SECRET_ARN` | ARN del secreto con usuario y contraseña maestros (solo migraciones). Con F7, `MasterUserSecret.SecretArn` de la instancia: rota cada 7 días, hay que releerlo (`npm run infra:env-backend`) |
 | `DB_APP_SECRET_ARN` | ARN del secreto del rol `vapeupar_app` (runtime del backend) |
 | `TUNNEL_INSTANCE_ID` | Instancia destino del túnel (hoy, la de la aplicación). Sustituye a `BASTION_INSTANCE_ID`, retirado el 2026-11-06 |
 | `APP_INSTANCE_ID`, `APP_PUBLIC_IP` | EC2 de la aplicación y su IP elástica |
@@ -405,8 +405,8 @@ la release y **antes** de cambiar `current`:
 - Instala en la instancia el CLI de Prisma de la versión exacta del lockfile
   (`/opt/vapeupar/tools/prisma-<versión>`, una vez por versión: el motor de
   migraciones es un binario nativo y no viaja en la release).
-- Se conecta con el usuario maestro (`vapeupar/dev/rds-master`, que solo puede
-  leer el rol de la instancia) y TLS verificado contra la CA de RDS
+- Se conecta con el usuario maestro (secreto `DB_SECRET_ARN`; desde F7 lo
+  gestiona y rota RDS, y solo puede leerlo el rol de la instancia) y TLS verificado contra la CA de RDS
   (`sslaccept=strict`, el equivalente de `verify-full`).
 - `prisma migrate deploy` aplica solo las pendientes; sin pendientes, no hace
   nada.
@@ -900,9 +900,9 @@ Lambda y su rol sí se borraron, así que no queda nada que limpiar a mano.
 | **Cómputo del backend** | ECS Fargate en esta VPC detrás de un Application Load Balancer | ~25 USD/mes (ALB ~16 + tarea 0.25 vCPU ~9). Tareas en subred pública con IP pública y grupo de seguridad que solo admite tráfico del ALB, para no pagar NAT. Lightsail Containers es más barato pero no encaja: solo hace peering con la VPC por defecto, no con la de Vapeupar |
 | **Frontend** | Vercel, o Amplify Hosting si se quiere todo en AWS | Requisito: soportar Next.js 16 con SSR y `revalidateTag` on-demand (ADR-002 §7). Verificar el soporte de Amplify para la versión de Next en uso antes de elegirlo |
 | **Rol de la aplicación en PostgreSQL** | `vapeupar_app` con permisos mínimos (plan A1.1) | El usuario maestro queda solo para migraciones |
-| **Rotación de secretos** | Rotación automática del secreto maestro de RDS | Secrets Manager con la Lambda de rotación gestionada |
+| **Rotación de secretos** | Contraseña maestra gestionada por RDS (`manageMasterUserPassword`), rotación cada 7 días | **Hecho en código (F7, rama `infra/f7-perimetro`), pendiente de desplegar.** Sin Lambda ni endpoint de VPC: 0 USD. Modificación in-place de la instancia, sin reemplazo. Orden en `aws-full-deployment-plan.md` F7 |
 | **Observabilidad** | En dev, las 10 alarmas de F6 (§5.6). En prod hará falta otro juego `vapeupar-prod-*`, que ya no cabe en la capa gratuita, y, si se pone un ALB, sus 5xx | Valorar VPC Flow Logs y un trail de CloudTrail si la cuenta no tiene uno |
-| **Protección perimetral** | AWS WAF delante de CloudFront y del ALB | Reglas gestionadas básicas y rate limit; complementa el rate limit de Express |
+| **Protección perimetral** | Hoy: límite de peticiones en nginx (F7) delante del de Express. Con dominio propio: AWS WAF delante de CloudFront | **nginx hecho en código (F7), pendiente de desplegar**: login 10/min ráfaga 5, resto de `/api/admin` 60/min, 100 simultáneas por IP; tienda sin límite. WAF (~8–10 USD/mes) aplazado hasta tener dominio: ACM no valida `vapeupar.ddns.net` y WAF no se conecta a una EC2 |
 | **Copias de seguridad** | Además de los backups de RDS, AWS Backup con copia a otra región si el negocio lo requiere | Decisión de negocio: cuánto dato se puede perder |
 
 ### 8.4 Habilitar prod en el código
