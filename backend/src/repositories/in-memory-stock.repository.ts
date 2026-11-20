@@ -50,6 +50,11 @@ export class InMemoryStockRepository implements StockRepository {
     if (variant) variant.stockCache = stockCache;
   }
 
+  /** Estado confirmado de una variante, para otros repositorios en memoria (pedidos). */
+  public variant(variantId: string): Readonly<VariantState> | undefined {
+    return this.state.variants.get(variantId);
+  }
+
   public get movements(): readonly StockMovement[] {
     return this.state.movements;
   }

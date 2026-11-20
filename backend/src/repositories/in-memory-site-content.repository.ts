@@ -64,6 +64,11 @@ export class InMemorySiteContentRepository implements SiteContentRepository {
     return row ? { ...row } : undefined;
   }
 
+  public async findVersion(key: string, version: number): Promise<ContentVersion | undefined> {
+    const row = this.rows.find(r => r.key === key && r.version === version);
+    return row ? { ...row } : undefined;
+  }
+
   public async listVersions(key: string, limit: number): Promise<ContentVersion[]> {
     return this.rows
       .filter(r => r.key === key)

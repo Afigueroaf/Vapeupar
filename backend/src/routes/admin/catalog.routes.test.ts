@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { RequestHandler } from 'express';
@@ -14,6 +14,7 @@ import { InMemoryInventoryNoteRepository } from '../../repositories/in-memory-in
 import { InventoryNoteService } from '../../services/inventory-note.service.js';
 import { ImageUploadService } from '../../services/image-upload.service.js';
 import { AdminUser } from '../../repositories/user.repository.js';
+import { SiteRevalidator, SiteTag } from '../../services/site-revalidation.service.js';
 
 /**
  * Verificación del CRUD de A4: códigos de estado, roles y forma de las
@@ -51,15 +52,18 @@ interface Harness {
   catalog: InMemoryCatalogRepository;
   content: InMemorySiteContentRepository;
   audit: InMemoryAuditViewRepository;
+  /** Cada llamada al revalidador, con sus etiquetas (A7.3). */
+  revalidate: ReturnType<typeof vi.fn<SiteRevalidator>>;
 }
 
 const servers: Server[] = [];
 
-async function start(): Promise<Harness> {
+async function start(options: { revalidate?: SiteRevalidator } = {}): Promise<Harness> {
   const catalog = new InMemoryCatalogRepository();
   const content = new InMemorySiteContentRepository();
   const audit = new InMemoryAuditViewRepository();
   const inventoryNotes = new InMemoryInventoryNoteRepository(SEED, catalog);
+  const revalidate = vi.fn<SiteRevalidator>(options.revalidate ?? (async () => true));
 
   const app = createApp({
     adminRouter: createAdminRouter({
@@ -74,7 +78,8 @@ async function start(): Promise<Harness> {
         catalog, bucket: 'catalog', sign: async () => 'https://upload.example/signed',
         distributionId: 'E123', invalidate: async () => 'I123'
       }),
-      auditView: audit
+      auditView: audit,
+      revalidate
     })
   });
 
@@ -83,7 +88,7 @@ async function start(): Promise<Harness> {
   });
   servers.push(server);
   const { port } = server.address() as AddressInfo;
-  return { url: `http://127.0.0.1:${port}`, catalog, content, audit };
+  return { url: `http://127.0.0.1:${port}`, catalog, content, audit, revalidate };
 }
 
 afterEach(async () => {
@@ -270,7 +275,7 @@ describe('CRUD de /api/admin', () => {
       });
       expect(publicada.status).toBe(200);
       expect(data(publicada)).toMatchObject({ status: 'published' });
-      expect(publicada.body?.meta).toEqual({ readiness: { canPublish: true, missing: [] } });
+      expect(publicada.body?.meta).toEqual({ readiness: { canPublish: true, missing: [] }, revalidated: true });
 
       const variantes = await call(url, `/api/admin/products/${productId}/variants`, { as: OWNER });
       expect((variantes.body?.data as unknown[]).length).toBe(1);
@@ -384,21 +389,33 @@ describe('CRUD de /api/admin', () => {
       const { url } = await start();
 
       const publicada = await call(url, '/api/admin/content/hero', {
-        method: 'PUT', as: OWNER, body: { value: { title: 'Vapeá en Paraná' } }
+        method: 'PUT', as: OWNER, body: { value: { label: 'SYSTEM ONLINE', tagline: 'Vapeá en Valledupar' } }
       });
       expect(publicada.status).toBe(201);
       expect(data(publicada)).toMatchObject({ key: 'hero', version: 1, userId: OWNER });
 
       const leida = await call(url, '/api/admin/content/hero', { as: OWNER });
-      expect(data(leida).value).toEqual({ title: 'Vapeá en Paraná' });
+      expect(data(leida).value).toEqual({ label: 'SYSTEM ONLINE', tagline: 'Vapeá en Valledupar' });
 
       const segunda = await call(url, '/api/admin/content/hero', {
-        method: 'PUT', as: OWNER, body: { value: { title: 'Otro' } }
+        method: 'PUT', as: OWNER, body: { value: { label: 'SYSTEM ONLINE', tagline: 'Otro' } }
       });
       expect(data(segunda).version).toBe(2);
 
       const versiones = await call(url, '/api/admin/content/hero/versions', { as: OWNER });
       expect((versiones.body?.data as { version: number }[]).map(v => v.version)).toEqual([2, 1]);
+    });
+
+    it('400 con el campo culpable cuando el valor no cumple el esquema de la clave', async () => {
+      const { url, content } = await start();
+
+      const mala = await call(url, '/api/admin/content/hero', {
+        method: 'PUT', as: OWNER, body: { value: { title: 'forma de antes de A7.1' } }
+      });
+      expect(mala.status).toBe(400);
+      expect(String(mala.body?.message)).toContain('value.label');
+      expect(mala.body?.errors).toEqual(expect.arrayContaining([expect.objectContaining({ field: 'value.label' })]));
+      expect(content.audits).toHaveLength(0);
     });
 
     it('solo owner publica, y la clave tiene que ser de la lista', async () => {
@@ -417,6 +434,30 @@ describe('CRUD de /api/admin', () => {
       // Las claves disponibles se pueden consultar.
       const claves = await call(url, '/api/admin/content', { as: OWNER });
       expect(claves.body?.data).toContain('hero');
+    });
+
+    it('restaurar publica la versión elegida como una nueva, y solo lo hace el owner', async () => {
+      const { url, content } = await start();
+      const hero = (tagline: string) => ({ label: 'SYSTEM ONLINE', tagline });
+      await call(url, '/api/admin/content/hero', { method: 'PUT', as: OWNER, body: { value: hero('uno') } });
+      await call(url, '/api/admin/content/hero', { method: 'PUT', as: OWNER, body: { value: hero('dos') } });
+
+      const operador = await call(url, '/api/admin/content/hero/versions/1/restore', { method: 'POST', as: OPERATOR });
+      expect(operador.status).toBe(403);
+
+      const restaurada = await call(url, '/api/admin/content/hero/versions/1/restore', { method: 'POST', as: OWNER });
+      expect(restaurada.status).toBe(201);
+      expect(data(restaurada)).toMatchObject({ version: 3, value: hero('uno'), userId: OWNER });
+      expect(restaurada.body?.meta).toEqual({ revalidated: true });
+      expect(content.audits.at(-1)).toMatchObject({ action: 'content.restore', after: { restoredFrom: 1 } });
+
+      const ausente = await call(url, '/api/admin/content/hero/versions/9/restore', { method: 'POST', as: OWNER });
+      expect(ausente.status).toBe(404);
+      const mala = await call(url, '/api/admin/content/hero/versions/cero/restore', { method: 'POST', as: OWNER });
+      expect(mala.status).toBe(400);
+      // Más allá del `Int` de PostgreSQL: 400, no un 500 de Prisma.
+      const enorme = await call(url, '/api/admin/content/hero/versions/99999999999/restore', { method: 'POST', as: OWNER });
+      expect(enorme.status).toBe(400);
     });
 
     it('404 en una clave sin publicar todavía', async () => {
@@ -580,5 +621,81 @@ describe('imágenes del catálogo', () => {
     })).status).toBe(200);
     expect((await call(url, `/api/admin/suppliers/${supplier.id}`, {
       method: 'PATCH', as: OPERATOR, body: { active: false } })).status).toBe(403);
+  });
+});
+
+describe('revalidación del sitio (A7.3)', () => {
+  /** Etiquetas de cada llamada, en orden. */
+  const tags = (h: Harness): SiteTag[][] => h.revalidate.mock.calls.map(([t]) => t);
+
+  it('publicar contenido refresca `contenido` y lo cuenta en meta', async () => {
+    const h = await start();
+    const publicada = await call(h.url, '/api/admin/content/hero', {
+      method: 'PUT', as: OWNER, body: { value: { label: 'SYSTEM ONLINE', tagline: 'Vapeá en Valledupar' } }
+    });
+    expect(publicada.status).toBe(201);
+    expect(publicada.body?.meta).toEqual({ revalidated: true });
+    expect(tags(h)).toEqual([['contenido']]);
+  });
+
+  it('cada escritura de marca, línea y variante refresca `catalogo`', async () => {
+    const h = await start();
+    const marca = await call(h.url, '/api/admin/brands', {
+      method: 'POST', as: OWNER, body: { name: 'LifePod', slug: 'lifepod', isPartner: true }
+    });
+    const brandId = data(marca).id as string;
+    await call(h.url, `/api/admin/brands/${brandId}`, { method: 'PATCH', as: OWNER, body: { isPartner: false } });
+    const linea = await call(h.url, '/api/admin/products', {
+      method: 'POST', as: OWNER, body: { slug: 'eco-3', brandId, category: 'disposables', name: 'ECO 3' }
+    });
+    const productId = data(linea).id as string;
+    const variante = await call(h.url, `/api/admin/products/${productId}/variants`, {
+      method: 'POST', as: OWNER, body: { kind: 'flavor', name: 'Uva', slug: 'uva' }
+    });
+    await call(h.url, `/api/admin/products/${productId}/variants/${data(variante).id as string}`, {
+      method: 'PATCH', as: OWNER, body: { name: 'Uva Ice' }
+    });
+    // Pasar a borrador la saca de la portada: también es un cambio de catálogo.
+    const borrador = await call(h.url, `/api/admin/products/${productId}`, {
+      method: 'PATCH', as: OWNER, body: { status: 'draft' }
+    });
+
+    expect(borrador.status).toBe(200);
+    expect(borrador.body?.meta).toMatchObject({ revalidated: true });
+    expect(tags(h)).toEqual(Array(6).fill(['catalogo']));
+  });
+
+  it('ni las lecturas ni las escrituras rechazadas avisan al sitio', async () => {
+    const h = await start();
+    await call(h.url, '/api/admin/brands', { as: OWNER });
+    await call(h.url, '/api/admin/content/hero', { as: OWNER });
+    await call(h.url, '/api/admin/brands', { method: 'POST', as: OPERATOR, body: { name: 'X', slug: 'x' } });
+    await call(h.url, '/api/admin/content/hero', { method: 'PUT', as: OWNER, body: { value: { label: '' } } });
+
+    expect(h.revalidate).not.toHaveBeenCalled();
+  });
+
+  it('si el aviso falla, la escritura responde igual y meta.revalidated es false', async () => {
+    const h = await start({ revalidate: async () => false });
+    const creada = await call(h.url, '/api/admin/brands', {
+      method: 'POST', as: OWNER, body: { name: 'LifePod', slug: 'lifepod' }
+    });
+    expect(creada.status).toBe(201);
+    expect(creada.body?.meta).toEqual({ revalidated: false });
+  });
+
+  it('un revalidador que lanza tampoco convierte la escritura en 500', async () => {
+    const h = await start({ revalidate: async () => { throw new Error('frontend caído'); } });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const publicada = await call(h.url, '/api/admin/content/hero', {
+        method: 'PUT', as: OWNER, body: { value: { label: 'SYSTEM ONLINE', tagline: 'Otra' } }
+      });
+      expect(publicada.status).toBe(201);
+      expect(publicada.body?.meta).toEqual({ revalidated: false });
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

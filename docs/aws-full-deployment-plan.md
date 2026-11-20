@@ -9,7 +9,7 @@ Decisión de origen: [ADR-002](decisions/002-consola-de-administracion-y-persist
 
 | | |
 |---|---|
-| Estado | ✅ **F1, F2 y F3 completadas** (2026-11-06). Tienda en **http://3.228.133.187** (`npm run app:deploy`). Siguiente: F4 (No-IP + TLS). Verificación en `infrastructure-aws.md` §7.0 y en F2/F3 |
+| Estado (2026-11-20) | ✅ **F1, F2 y F3 completadas** (2026-11-06). ✅ **F4**: TLS con Let's Encrypt en **https://vapeupar.ddns.net** desde el 2026-11-17; solo falta HSTS, aplazado (`dec-duracion-del-hsts`). 🟡 **F5**: migraciones automáticas en cada despliegue (`activate.sh`); los datos reales siguen en `carga-datos-reales`. 🟡 **F6**: versionado del bucket aplicado el 2026-11-17; alarmas en rama, sin desplegar. 🟡 **F7**: en rama, sin desplegar. Verificación en `infrastructure-aws.md` §7.0 y en cada fase |
 | Escrito | 2026-11-06 |
 | Revisado | 2026-11-06 — DeliPan detuvo su EC2 y liberó su IP elástica; el bastión se retira (§2.1, F1.7) |
 | Cuenta / región | `342284838697` / `us-east-1` (compartida con DeliPan) |
@@ -154,7 +154,8 @@ Nuevo `infra/lib/app-stack.ts`, compuesto en `bin/vapeupar.ts` después de
    - `AmazonSSMManagedInstanceCore` (acceso sin SSH y ejecución de comandos).
    - `ssm:GetParameter(s)` sobre `/vapeupar/dev/*`.
    - `secretsmanager:GetSecretValue` sobre los tres secretos del entorno
-     (`rds-app`, `rds-master`, `cognito-backend-client`).
+     (`rds-app`, `rds-master`, `cognito-backend-client`). Desde F7 el maestro
+     es el que gestiona RDS y se concede por su ARN exacto.
    - `s3:PutObject` **limitado a los prefijos del catálogo** (`marcas/`,
      `proveedores/`, `productos/`) del bucket de catálogo.
    - `cloudfront:CreateInvalidation` **solo** sobre la distribución del
@@ -324,8 +325,13 @@ Hallazgos que **condicionan F3**:
 4. **La consola `/admin` no funcionará por HTTP plano**: las cookies de sesión
    llevan `secure` en producción (`session-cookies.ts:31`). Es lo correcto. La
    tienda pública sí funciona desde F3; la consola, desde F4 (TLS).
-5. `REVALIDATE_SECRET` lo genera el script local pero nada en el código lo
-   usa: no se lleva a producción.
+5. ~~`REVALIDATE_SECRET` lo genera el script local pero nada en el código lo
+   usa: no se lleva a producción.~~ Resuelto en A7.3 (2026-11-19, sin
+   desplegar): el secreto `vapeupar/<env>/revalidate` lo crea el stack App y
+   `write-env.mjs` lo lleva a `backend.env` y a `frontend.env` (que solo lleva
+   ese valor). Si el parámetro aún no existe, el despliegue sigue sin
+   revalidación on-demand. Ver «Registro A7.3» en
+   `docs/admin-console-execution-plan.md`.
 
 ### F3 — Entrega: artefacto en S3 y despliegue por SSM ✅
 
@@ -513,13 +519,17 @@ Desde la instancia, que ya tiene ruta a RDS:
 
 ### F6 — Vigilancia y copias
 
+> **Vigilancia implementada el 2026-11-20 en la rama `infra/f6-alarmas`, sin
+> desplegar.** Detalle, alarmas y puesta en marcha en
+> [`infrastructure-aws.md`](infrastructure-aws.md) §5.6.
+
 | Pieza | Qué |
 |---|---|
-| Alarmas de la instancia | `StatusCheckFailed` y CPU sostenida. La memoria y el disco **no se ven desde CloudWatch sin agente**: instalar el agente en `user-data` y alarmar sobre memoria usada y disco libre |
-| Alarmas de RDS | CPU, almacenamiento libre y número de conexiones |
-| Notificación | Tema SNS al mismo correo del presupuesto |
+| Alarmas de la instancia | `StatusCheckFailed_System` (con recuperación), `StatusCheckFailed_Instance`, CPU > 80 % 15 min y créditos de CPU < 20. Memoria (> 90 %), disco (> 80 %) y días del certificado (< 20) **sin agente**: `vapeupar-metrics.timer` los envía cada 5 min con `put-metric-data` (namespace `Vapeupar`), instalado por `activate.sh` y no por `user-data` (no se repite). Si faltan datos, esas tres alarmas saltan |
+| Alarmas de RDS | Almacenamiento libre < 5 GB (10 % del techo de autoescalado; a 2 GB coincidiría con el propio autoescalado), conexiones > 60 y memoria libre < 100 MB. **Sin la de CPU**, para quedar en 10 alarmas (capa gratuita compartida con DeliPan; `infra/test/monitoring.test.ts`) |
+| Notificación | Tema SNS `vapeupar-dev-alerts` (stack `Vapeupar-dev-Monitoring`), solo al correo del presupuesto. Sin SMS ni chequeo externo (decisiones del 2026-11-19) |
 | Presupuesto | `vapeupar-dev-monthly` sube de 30 a 45 USD (§7) o deja de avisar de nada útil |
-| Logs | `journald` con límite de tamaño; los de nginx rotados. Enviar a CloudWatch Logs solo lo que se vaya a leer: cada GB ingerido se paga |
+| Logs | Solo en la instancia: `journald` a 200 MB y 14 días (`infra/deploy/journald/`), nginx rotado por logrotate. **No** se envían a CloudWatch Logs (decisión del 2026-11-19) |
 | Copias | Backups de RDS a 7 días (D1) y versionado del bucket de catálogo activado |
 
 ### F7 — Endurecimiento posterior (no bloquea nada)
@@ -529,12 +539,95 @@ certificado de origen; WAF con reglas gestionadas y límite de tasa delante de
 CloudFront; rotación automática del secreto maestro de RDS; Multi-AZ; segunda
 instancia detrás de un ALB cuando el tráfico lo pida.
 
+**Estado (2026-11-20): implementado en la rama `infra/f7-perimetro`, sin
+desplegar.** Decisiones `dec-proteccion-perimetral` (opción 1) y
+`dec-como-rotar-la-contrasena-maestra-de-rds` (opción 1).
+
+- **Límite de peticiones en nginx, sin CloudFront ni WAF.** Zonas por
+  `$binary_remote_addr` en `infra/deploy/nginx/nginx.conf` (contexto `http`);
+  las usa `vapeupar-site.inc`:
+  - `/api/admin/auth/` (login, nueva contraseña, MFA, logout): 10/min, ráfaga
+    5, `nodelay`. Con 15 POST seguidos, 6 llegan al backend y del 7.º en
+    adelante responde nginx con 429.
+  - resto de `/api/admin/` (presign incluido): 60/min, ráfaga 60. Por encima
+    del límite de Express (30/min), que sigue siendo el que nota un
+    administrador; este solo frena inundaciones.
+  - `limit_conn` de 100 peticiones simultáneas por IP en todo el sitio.
+  - La tienda, `/api/` pública y `/_next/static/` sin `limit_req`: el ISR va
+    por loopback directo a `127.0.0.1:4000`, no pasa por nginx.
+  - Los 429 de nginx devuelven el mismo JSON `{ success, message }` que
+    Express, con `Retry-After: 60`.
+  - Riesgo aceptado: varios administradores detrás de una misma IP (oficina,
+    CGNAT) comparten el cupo del login.
+  - CloudFront y WAF quedan **aplazados hasta tener dominio propio** (ACM no
+    puede validar `vapeupar.ddns.net`; WAF no se conecta a una EC2). Cuando
+    llegue: `TRUST_PROXY=2`, `$proxy_add_x_forwarded_for` en site.inc y la
+    clave de las zonas pasa a la IP real del cliente (`realip`), no la de
+    CloudFront.
+- **Contraseña maestra gestionada por RDS** (`manageMasterUserPassword`):
+  RDS crea el secreto `rds!db-<id>` y lo rota cada 7 días, sin Lambda ni
+  endpoint de VPC (0 USD). En la DBInstance solo cambian `MasterUserPassword`
+  (se quita) y `ManageMasterUserPassword` (`true`), ambas sin interrupción:
+  **sin reemplazo** (lo fija `infra/test/data.test.ts`). Desaparecen
+  `vapeupar/dev/rds-master` y su `SecretTargetAttachment`; `DB_SECRET_ARN`
+  apunta a `MasterUserSecret.SecretArn` y el rol de la EC2 lo lee por ese ARN
+  exacto, resuelto del parámetro SSM en cada despliegue de App (nunca un
+  comodín `rds!db-*`, que alcanzaría a DeliPan). `vapeupar_app` no cambia.
+
+**Orden de despliegue de F7:**
+
+1. Snapshot manual de `vapeupar-dev-db`.
+2. `VAPEUPAR_ALERT_EMAIL=... npm run infra:diff`: en Data, la DBInstance debe
+   salir como modificación (`[~]`) de `MasterUserPassword` y
+   `ManageMasterUserPassword`, sin `replace`; en App, solo la política del rol
+   y el parámetro `DB_SECRET_ARN`.
+3. Desplegar **Data** en solitario. Comprobar `MasterUserSecret` y el mismo
+   endpoint con `aws rds describe-db-instances`.
+4. Desplegar **App** (toma el ARN nuevo del parámetro).
+5. Release normal (deploy-produccion): `migrate.mjs` con el secreto nuevo y
+   nginx con el límite. Prueba, con las 15 peticiones **en paralelo** (la zona
+   repone una cada 6 s; en serie y lentas, alguna más llegaría al backend):
+   `seq 15 | xargs -P15 -I{} curl -s -o /dev/null -w '%{http_code}\n' -X POST
+   https://vapeupar.ddns.net/api/admin/auth/login | sort | uniq -c` → seis
+   respuestas del backend (400) y nueve 429; la portada en 200. **Gasta cupo
+   de Express**: las seis que llegan cuentan como intentos fallidos del login
+   de tu IP (10 cada 15 min; cualquier respuesta no 2xx cuenta, también el 400
+   de un cuerpo vacío, así que no hay forma de evitarlo). No repitas la prueba
+   seguida ni la hagas justo antes de entrar a la consola desde la misma IP:
+   espera 15 minutos o hazla desde otra red. Repetirla también con
+   `/api/admin/AUTH/login` (mismo resultado: el límite no distingue
+   mayúsculas tras `/api/`).
+6. En local, `npm run infra:env-backend` de nuevo: la contraseña cambia con
+   cada rotación.
+
+**Volver atrás la rotación** (revertir el commit de RDS y desplegar Data):
+CloudFormation tendría que crear de nuevo el secreto `vapeupar/dev/rds-master`,
+y la creación falla si ese nombre sigue existiendo, también si está
+**programado para borrado** tras el despliegue de F7. Antes de revertir:
+
+```bash
+aws secretsmanager describe-secret --secret-id vapeupar/dev/rds-master \
+  --query '[Name,DeletedDate]'     # si existe (con o sin DeletedDate):
+aws secretsmanager delete-secret --secret-id vapeupar/dev/rds-master \
+  --force-delete-without-recovery
+```
+
+`restore-secret` no sirve para revertir: deja el nombre ocupado igual, y la
+contraseña que guarda ya no vale desde que RDS aplicó la suya. Solo tiene
+sentido para consultar el secreto viejo. Al revertir, CloudFormation genera
+una contraseña nueva, la aplica con `MasterUserPassword` (sin reemplazo) y RDS
+borra su secreto `rds!db-*`; luego desplegar App, que vuelve al permiso por
+nombre.
+
+Pendiente aparte: usuario systemd propio `vapeupar-web` para el frontend
+(propuesta anotada en el Deathnote, no incluida aquí).
+
 ## 5. Riesgos y cómo se mitigan
 
 | Riesgo | Mitigación |
 |---|---|
 | **1 GB de RAM** con dos procesos Node | No construir en la instancia (F3), `output: standalone`, 2 GB de swap, alarma de memoria. Salida de emergencia: `t4g.small`, que es un cambio de una línea |
-| **Un solo nodo**: cae la instancia, cae todo | `Restart=always`, alarma de `StatusCheckFailed`, y la portada **tolera la API caída** (`frontend/src/app/page.tsx:28` cae en los productos de respaldo). Lo que no tolera es que caiga la instancia entera |
+| **Un solo nodo**: cae la instancia, cae todo | `Restart=always`, alarma de `StatusCheckFailed`, y la portada **tolera la API caída** (`frontend/src/app/page.tsx:28` cae en los productos de respaldo). Lo que no tolera es que caiga la instancia entera. **Riesgo aceptado (2026-11-19): sin chequeo externo de disponibilidad.** Una caída de nginx o de Node con la máquina encendida, o el nombre de No-IP caducado, no generan aviso; las alarmas de F6 solo ven la máquina y la base |
 | **Crédito compartido con DeliPan** | §7. Decidir antes de enero de 2027 si la cuenta pasa a plan de pago; es una decisión conjunta |
 | **El plan gratuito restringe tipos de instancia** | Ya mordió una vez: `t4g.nano` falló al desplegar el bastión (`infrastructure-aws.md` §7.1). Quedarse en los tipos elegibles |
 | **Credencial de despliegue compartida** | D3 |

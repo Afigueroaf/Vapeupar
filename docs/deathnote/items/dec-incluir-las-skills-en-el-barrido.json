@@ -1,0 +1,37 @@
+{
+  "title": "Docs: incluir las skills en el barrido",
+  "status": "hecho",
+  "priority": "media",
+  "area": "producto",
+  "summary": "Las skills guían a los agentes en cada tarea: database dice «Prisma o Supabase en fases posteriores» e infrastructure habla de Vercel/VPS/Render/Railway, cuando todo corre ya en RDS y EC2. Cambian la configuración de los agentes, así que conviene que lo autorices tú.",
+  "question": "¿Actualizo también las skills de agente (.claude/skills y el espejo .agents/skills), que citan Supabase y despliegue en Vercel, Render o Railway? (Depende de si sigues usando Gemini: ver dec-futuro-de-gemini-md.)",
+  "options": [
+    {
+      "label": "Solo .claude/skills",
+      "detail": "Corrige las que usa Claude Code; .agents/skills (juego de otros agentes, con 6 skills propias) queda como está",
+      "prompt": "Actualiza .claude/skills/database/SKILL.md (persistencia actual: RDS PostgreSQL + Prisma 7, libro de movimientos, rol vapeupar_app; quita Supabase) y .claude/skills/infrastructure/SKILL.md (EC2 + nginx + systemd, releases en S3 por SSM, CDK en infra/, scripts infra:* y app:*; quita Vercel, Render y Railway), usando docs/infrastructure-aws.md y docs/backend.md como fuente. Revisa las otras 5 skills de .claude/skills buscando afirmaciones falsas. No toques .agents/skills; añade solo un README.md en .agents/skills que diga que es el juego de skills de otros agentes y que no se mantiene en paralelo con .claude/skills. Aceptación: grep -rn -E 'Supabase|Vercel|Render|Railway' .claude/skills sin resultados. Muestra el diff.",
+      "recommended": true
+    },
+    {
+      "label": "Ambas carpetas",
+      "detail": "Mismo cambio en .claude y .agents; doble mantenimiento",
+      "prompt": "Aplica en .claude/skills y .agents/skills las mismas correcciones de database e infrastructure (persistencia en RDS + Prisma 7 y despliegue en EC2 por CDK; sin Supabase, Vercel, Render ni Railway), tomando docs/infrastructure-aws.md y docs/backend.md como fuente. Aceptación: grep -rn -E 'Supabase|Vercel|Render|Railway' .claude/skills .agents/skills sin resultados. Muestra el diff."
+    },
+    {
+      "label": "Dejarlas fuera",
+      "detail": "El barrido toca solo docs/, README y GEMINI; las skills van en otro item",
+      "prompt": "Crea un item pendiente en el Deathnote (docs/deathnote/items/skills-desactualizadas.json, con el formato de los demás) que registre las líneas obsoletas de .claude/skills/database/SKILL.md:14 y .claude/skills/infrastructure/SKILL.md:9, y sus espejos en .agents/skills. Aceptación: npm run deathnote muestra el item nuevo."
+    }
+  ],
+  "parent": "actualizar-docs-obsoletos",
+  "source": "Plan de desarrollo 2026-11-18 (actualizar-docs-obsoletos)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.748Z",
+  "updatedAt": "2026-11-19T06:21:28.939Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:21:28.937Z",
+  "queued": false
+}

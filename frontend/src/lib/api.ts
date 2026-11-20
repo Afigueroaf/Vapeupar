@@ -1,4 +1,5 @@
 import type { Product } from "@/types/product";
+import { CATALOG_TAG } from "@/lib/cache-tags";
 
 /**
  * Cliente del catálogo público para los componentes de servidor.
@@ -9,7 +10,11 @@ import type { Product } from "@/types/product";
  * con sesión y desde el navegador.
  */
 
-/** Segundos que Next reutiliza una respuesta antes de volver a pedirla. */
+/**
+ * Segundos que Next reutiliza una respuesta antes de volver a pedirla. Es la
+ * red de seguridad: lo normal es que el backend invalide `catalogo` al momento
+ * después de cada escritura (A7.3, `app/internal/revalidate`).
+ */
 const REVALIDATE_SECONDS = 60;
 
 /**
@@ -21,7 +26,7 @@ const REVALIDATE_SECONDS = 60;
  * aborta el build a los 60 s. Sin URL absoluta, respaldo directo; en la
  * instancia `API_URL` apunta al backend por loopback.
  */
-function apiBase(): string | null {
+export function apiBase(): string | null {
   const url = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
   return /^https?:\/\//.test(url) ? url : null;
 }
@@ -31,7 +36,8 @@ async function getJson(path: string): Promise<{ status: number; body: unknown } 
   if (!base) return null;
   try {
     const res = await fetch(`${base}${path}`, {
-      next: { revalidate: REVALIDATE_SECONDS },
+      // La etiqueta que invalida la revalidación on-demand (A7.3).
+      next: { revalidate: REVALIDATE_SECONDS, tags: [CATALOG_TAG] },
       headers: { Accept: "application/json" },
     });
     return { status: res.status, body: res.ok ? await res.json() : null };

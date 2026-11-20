@@ -11,6 +11,7 @@ import { VaporizerPointCloud } from "@/components/vaporizer-point-cloud";
 import { VAPORIZER_ANCHOR_SELECTOR } from "@/components/vaporizer/anchor";
 import { FALLBACK_PRODUCTS } from "@/data/fallback-products";
 import { fetchProducts } from "@/lib/api";
+import { getContent, getPartnerBrands, withPartnerBrands } from "@/lib/content";
 
 /** Caras del prisma de la portada. Tiene que cuadrar con `ProductPrism`. */
 const PRISM_SIDES = 6;
@@ -23,10 +24,21 @@ export default async function HomePage() {
   // perdería una elección que cayera más abajo. Con `?showcase=true&limit=6`
   // la elección la hace la base de datos, que es la única que ve el catálogo
   // entero. En paralelo: la segunda no depende de la primera.
-  const [catalog, chosen] = await Promise.all([
+  const [catalog, chosen, faq, partners] = await Promise.all([
     fetchProducts(""),
     fetchProducts(`?showcase=true&limit=${PRISM_SIDES}`),
+    getContent("faq"),
+    getPartnerBrands(),
   ]);
+
+  // La enumeración de marcas aliadas se genera de `Brand.isPartner` (A7.4).
+  // Se sustituye aquí y no en la FAQ porque la FAQ es de cliente.
+  const brands = (text: string) => withPartnerBrands(text, partners);
+  const faqContent = {
+    title: brands(faq.title),
+    intro: brands(faq.intro),
+    items: faq.items.map((item) => ({ question: brands(item.question), answer: brands(item.answer) })),
+  };
 
   const products = catalog ?? FALLBACK_PRODUCTS;
   // Sin nada elegido —o sin backend— la vitrina cae al catálogo, y el reparto
@@ -154,7 +166,7 @@ export default async function HomePage() {
           </div>
 
           <ProductCatalog initialProducts={products} />
-          <FAQ />
+          <FAQ content={faqContent} />
         </main>
         <Footer />
       </div>

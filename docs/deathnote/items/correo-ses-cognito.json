@@ -11,11 +11,34 @@
     }
   ],
   "blockedBy": [
-    "dominio-definitivo"
+    "dominio-definitivo",
+    "dec-correo-de-invitaciones-sin-dominio-propio"
   ],
   "source": "docs/infrastructure-aws.md (§8.1 punto 4) + docs/admin-console-execution-plan.md (Dependencia externa #7)",
   "evidence": "infra/lib/auth-stack.ts sigue con el correo de Cognito",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-16T21:41:14.151Z"
+  "updatedAt": "2026-11-19T06:31:42.468Z",
+  "plan": [
+    "Hoy el item está bloqueado sin fecha: dominio-definitivo se cerró eligiendo seguir con No-IP (D2, 2026-11-16) y SES necesita un dominio con DNS propio. Con vapeupar.ddns.net no se pueden crear los CNAME de DKIM ni el TXT de DMARC.",
+    "Mientras no haya dominio, documenta en docs/infrastructure-aws.md §8.1 punto 4 los límites del correo de Cognito: unos 50 correos al día, remitente no-reply@verificationemail.com y riesgo de que caiga en spam. Las invitaciones salen del backend con AdminCreateUser (npm run admin:invite).",
+    "Si llega un dominio: en infra/lib/auth-stack.ts crea ses.EmailIdentity con Identity.publicHostedZone (si la zona está en Route 53) o Identity.domain, con DKIM Easy y un MAIL FROM mail.<dominio>. Cambia email a cognito.UserPoolEmail.withSES({ fromEmail: 'no-reply@<dominio>', fromName: 'Vapeupar', sesVerifiedDomain: '<dominio>' }). El dominio va en un campo nuevo, auth.emailDomain, de infra/lib/config.ts.",
+    "Si el DNS está fuera de Route 53, publica en docs/infrastructure-aws.md los 3 CNAME de DKIM, el SPF (v=spf1 include:amazonses.com ~all en el MAIL FROM) y el DMARC (_dmarc TXT v=DMARC1; p=none; rua=...), y pásalo a p=quarantine cuando todo esté estable.",
+    "Pide la salida del sandbox de SES (acceso de producción, unas 24 h) antes del cambio. En el sandbox, Cognito solo podría enviar a direcciones verificadas.",
+    "Ejecuta `npm run typecheck --workspace=infra` y `npm run infra:diff`. Confirma que el User Pool se actualiza y no se reemplaza (EmailConfiguration se puede cambiar), y que el cliente y su secreto no cambian. Despliega solo Vapeupar-dev-Auth con aprobación y prueba una invitación real.",
+    "Verificación: npm run typecheck --workspace=infra · VAPEUPAR_ALERT_EMAIL=... npm run infra:diff · aws sesv2 get-email-identity --email-identity <dominio> · aws sesv2 get-account · aws cognito-idp describe-user-pool --user-pool-id <COGNITO_USER_POOL_ID> --query 'UserPool.EmailConfiguration'"
+  ],
+  "acceptance": [
+    "`aws sesv2 get-email-identity --email-identity <dominio>` devuelve VerifiedForSendingStatus true y DKIM SUCCESS.",
+    "`aws sesv2 get-account` devuelve ProductionAccessEnabled true.",
+    "`aws cognito-idp describe-user-pool --user-pool-id <id> --query 'UserPool.EmailConfiguration'` muestra EmailSendingAccount DEVELOPER y el SourceArn de SES.",
+    "Una invitación con npm run admin:invite llega a la bandeja de entrada (no a spam) con DKIM y SPF en pass en las cabeceras.",
+    "El diff no reemplaza el User Pool ni el cliente."
+  ],
+  "risks": [
+    "Mientras siga el correo de Cognito, las invitaciones pueden acabar en spam. La contraseña temporal vence a los 3 días (tempPasswordValidity) y la invitación habría que reenviarla.",
+    "Si un día se cambia a SES sin salir del sandbox, Cognito deja de entregar a direcciones no verificadas y nadie nuevo puede entrar a /admin.",
+    "Hay que vigilar que el diff no reemplace el User Pool: perdería los usuarios y las MFA. El pool tiene RETAIN y protección de borrado."
+  ],
+  "claudeNote": "Plan 2026-11-18: El blockedBy apunta a dominio-definitivo, que está «hecho», pero se cerró con No-IP indefinido. El bloqueo en la práctica no tiene fecha. `npm run build --workspace=infra` no existe: el script es `typecheck`.\n\n2026-11-19: el dueño decidió seguir con el correo integrado de Cognito. Item aparcado hasta que haya dominio propio."
 }

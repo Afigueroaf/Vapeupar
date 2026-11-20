@@ -16,7 +16,7 @@ const FIELD_BASE =
   "font-display text-[0.9375rem] text-foreground placeholder:text-muted " +
   "transition-colors duration-150 ease-vp hover:border-line focus:border-action";
 
-interface TextFieldProps extends React.InputHTMLAttributes<HTMLInputElement> {
+interface TextFieldProps extends React.ComponentProps<"input"> {
   /** Icono opcional a la izquierda (decorativo: debe llevar `aria-hidden`). */
   icon?: React.ReactNode;
 }

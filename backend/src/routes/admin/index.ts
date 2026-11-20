@@ -14,6 +14,7 @@ import { CatalogWriter, catalogService as defaultCatalogService } from '../../se
 import { ContentWriter, contentService as defaultContentService } from '../../services/content.service.js';
 import { SettingsReader, settingsService as defaultSettingsService } from '../../services/settings.service.js';
 import { StockService, stockService as defaultStockService } from '../../services/stock.service.js';
+import { notifySite, SiteRevalidator } from '../../services/site-revalidation.service.js';
 import { createAuditRouter } from './audit.routes.js';
 import { createAuthRouter } from './auth.routes.js';
 import { createBrandsRouter } from './brands.routes.js';
@@ -24,6 +25,8 @@ import { createSuppliersRouter } from './suppliers.routes.js';
 import { createUsersRouter } from './users.routes.js';
 import { createInventoryNotesRouter } from './inventory-notes.routes.js';
 import { createImageUploadsRouter } from './image-uploads.routes.js';
+import { createOrdersRouter, OrderAdminService } from './orders.routes.js';
+import { orderService as defaultOrderService } from '../../services/order.service.js';
 import { InventoryNoteService } from '../../services/inventory-note.service.js';
 import { PrismaInventoryNoteRepository } from '../../repositories/prisma-inventory-note.repository.js';
 import { ImageUploadService } from '../../services/image-upload.service.js';
@@ -46,16 +49,24 @@ export interface AdminRouterDeps {
   auditView?: AuditViewRepository;
   inventoryNotes?: InventoryNoteService;
   imageUploads?: ImageUploadService;
+  /** Pedidos (ADR-003); en los tests, sobre repositorios en memoria. */
+  orders?: OrderAdminService;
   auth?: Partial<typeof cognito> & Pick<typeof cognito, 'login' | 'completeNewPassword' | 'signOut' | 'inviteUser' | 'disableUser'>;
   /** Exigir TOTP en el login; por defecto, según el entorno (ver `isMfaRequired`). */
   requireMfa?: boolean;
   verify?: typeof verifyAccessToken;
+  /**
+   * Aviso al sitio tras cada escritura publicada (A7.3). Por defecto,
+   * `notifySite`, que sin `REVALIDATE_SECRET` no hace nada.
+   */
+  revalidate?: SiteRevalidator;
   /** Se sustituye en los tests para no hablar con Cognito ni con la base. */
   guard?: RequestHandler;
 }
 
 export function createAdminRouter(deps: AdminRouterDeps = {}): Router {
   const users = deps.users ?? new PrismaUserRepository();
+  const revalidate = deps.revalidate ?? notifySite;
   const router = Router();
 
   router.use('/auth', createAuthRouter({ users, auth: deps.auth, verify: deps.verify, requireMfa: deps.requireMfa }));
@@ -72,8 +83,11 @@ export function createAdminRouter(deps: AdminRouterDeps = {}): Router {
   router.use('/stock', createStockRouter({
     stockService: deps.stockService ?? defaultStockService,
     stockView: deps.stockView ?? new PrismaStockViewRepository(),
-    settings: deps.settings ?? defaultSettingsService
+    settings: deps.settings ?? defaultSettingsService,
+    revalidate
   }));
+
+  router.use('/orders', createOrdersRouter({ service: deps.orders ?? defaultOrderService, revalidate }));
 
   router.use('/inventory-notes', createInventoryNotesRouter({
     service: deps.inventoryNotes ?? new InventoryNoteService(new PrismaInventoryNoteRepository())
@@ -82,13 +96,13 @@ export function createAdminRouter(deps: AdminRouterDeps = {}): Router {
   const catalog = deps.catalog ?? new PrismaCatalogRepository();
   const catalogWriter = deps.catalogService ?? defaultCatalogService;
 
-  router.use('/brands', createBrandsRouter({ catalog, service: catalogWriter }));
+  router.use('/brands', createBrandsRouter({ catalog, service: catalogWriter, revalidate }));
   router.use('/suppliers', createSuppliersRouter({ catalog, service: catalogWriter }));
-  router.use('/products', createProductsRouter({ catalog, service: catalogWriter }));
+  router.use('/products', createProductsRouter({ catalog, service: catalogWriter, revalidate }));
   router.use('/uploads', createImageUploadsRouter({
     service: deps.imageUploads ?? new ImageUploadService({ catalog })
   }));
-  router.use('/content', createContentRouter({ service: deps.contentService ?? defaultContentService }));
+  router.use('/content', createContentRouter({ service: deps.contentService ?? defaultContentService, revalidate }));
   router.use('/audit', createAuditRouter({ audit: deps.auditView ?? new PrismaAuditViewRepository() }));
 
   router.use('/users', createUsersRouter({ users, auth: deps.auth }));

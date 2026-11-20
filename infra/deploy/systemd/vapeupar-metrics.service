@@ -1,0 +1,34 @@
+# Envía memoria, swap, disco y días de certificado a CloudWatch (namespace
+# Vapeupar). La lanza `vapeupar-metrics.timer`; no es un servicio residente.
+# docs/aws-full-deployment-plan.md F6.
+#
+# El script vive en /usr/local/sbin y no en /opt/vapeupar/current: así una
+# vuelta atrás a una release anterior a F6 no deja la vigilancia sin script.
+# Lo instala `deploy/activate.sh` en cada release.
+[Unit]
+Description=Vapeupar: metricas de memoria, disco y certificado a CloudWatch
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Root para leer /etc/letsencrypt/live (solo root). Solo lee: el sistema de
+# archivos queda de solo lectura y sin acceso a /home ni /root.
+User=root
+# VAPEUPAR_ENV y AWS_REGION. Lo escribe el despliegue (F3).
+EnvironmentFile=/etc/vapeupar/instance.env
+# El CLI de AWS no debe intentar escribir en /root (ProtectHome).
+Environment=HOME=/tmp
+ExecStart=/usr/local/sbin/vapeupar-metrics
+TimeoutStartSec=60
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes

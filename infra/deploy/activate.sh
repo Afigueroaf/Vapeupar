@@ -10,7 +10,9 @@
 # carpeta nueva, APLICAR LAS MIGRACIONES pendientes (deploy/migrate.mjs),
 # instalar unidades y nginx, mover `current`, reiniciar y VERIFICAR. Si la
 # verificación falla, vuelve a la release anterior (las migraciones no se
-# deshacen: deben ser compatibles con el código anterior).
+# deshacen: deben ser compatibles con el código anterior). Si pasa, instala la
+# vigilancia de la instancia (F6: límites de journald, rotación de nginx y
+# vapeupar-metrics.timer).
 #
 # VOLVER ATRÁS a una release que sigue en la instancia: `<versionId>` = `-`.
 # No descarga nada NI MIGRA: reactiva `releases/<releaseId>` tal cual. Lo usa
@@ -27,6 +29,18 @@ KEEP=3   # releases que se conservan para volver atrás a mano
 log() { echo "[activate $(date +%T)] $*"; }
 # Certificado de Let's Encrypt con nombre fijo (`certbot --cert-name vapeupar`).
 TLS_CERT=/etc/letsencrypt/live/vapeupar/fullchain.pem
+
+# Unidades de systemd de una release: *.service y, desde F6, *.timer. Releases
+# anteriores no traen timers: el patrón sin coincidencias no se instala. Una
+# unidad que ya está en /etc/systemd/system y que la release no trae (p. ej. al
+# volver atrás a una anterior a F6) se queda donde está.
+install_units() {
+  local f
+  for f in "$1"/deploy/systemd/*.service "$1"/deploy/systemd/*.timer; do
+    [ -f "$f" ] && install -m 644 "$f" /etc/systemd/system/
+  done
+  return 0
+}
 
 [[ "$RELEASE" =~ ^[A-Za-z0-9._-]+$ ]] || { log "id de release inválido"; exit 2; }
 
@@ -84,8 +98,15 @@ BAK="$TMP/bak"; mkdir -p "$BAK"
 cp -a /etc/nginx/nginx.conf "$BAK/" 2>/dev/null || true
 cp -a /etc/nginx/conf.d/vapeupar.conf "$BAK/" 2>/dev/null || true
 cp -a /etc/nginx/vapeupar/site.inc "$BAK/" 2>/dev/null || true
+# Devuelve nginx a la copia. `$BAK` vive en `$TMP`, que el trap borra al
+# salir: hay que restaurar ANTES de cualquier `exit`.
+restore_nginx() {
+  cp -a "$BAK/nginx.conf" /etc/nginx/nginx.conf 2>/dev/null || true
+  cp -a "$BAK/vapeupar.conf" /etc/nginx/conf.d/vapeupar.conf 2>/dev/null || true
+  cp -a "$BAK/site.inc" /etc/nginx/vapeupar/site.inc 2>/dev/null || true
+}
 
-install -m 644 "$DEST"/deploy/systemd/*.service /etc/systemd/system/
+install_units "$DEST"
 install -m 644 "$DEST/deploy/nginx/nginx.conf" /etc/nginx/nginx.conf
 # Sitio: rutas comunes en site.inc y una de las dos variantes según haya o no
 # certificado (F4). certbot solo OBTIENE el certificado (`certonly`), no edita
@@ -102,7 +123,22 @@ if [ -f "$TLS_CERT" ] && [ -f "$DEST/deploy/nginx/vapeupar-tls.conf" ]; then
 else
   install -m 644 "$DEST/deploy/nginx/vapeupar.conf" /etc/nginx/conf.d/vapeupar.conf
 fi
-nginx -t
+# Si la configuración nueva no pasa la prueba, NO puede quedarse en disco: con
+# `set -e` el script saldría aquí y el siguiente reload (el deploy-hook de
+# certbot) o un reinicio tumbarían el sitio. Se vuelve a la copia y a las
+# unidades de la release activa; nginx sigue sirviendo con la que tenía
+# cargada, porque aún no se ha recargado. La carpeta de la release se borra
+# solo si se acaba de descargar (al volver atrás es una release buena).
+# Las migraciones, si las había, ya están aplicadas, como cuando falla la
+# verificación.
+if ! nginx -t; then
+  log "FALLO en nginx -t: se restaura la configuración anterior; sigue ${PREV:-ninguna}"
+  restore_nginx
+  [ -n "$PREV" ] && [ -d "$PREV" ] && install_units "$PREV"
+  nginx -t || log "la configuración restaurada TAMPOCO pasa nginx -t"
+  [ "$VERSION" = "-" ] || rm -rf "$DEST"
+  exit 1
+fi
 
 # --- 4. Cambiar `current` (atómico) y reiniciar ------------------------------
 switch_to() {
@@ -151,15 +187,54 @@ else
   journalctl -u vapeupar-env -u vapeupar-backend -u vapeupar-frontend -n 40 --no-pager || true
   if [ -n "$PREV" ] && [ -d "$PREV" ]; then
     log "volviendo a $PREV"
-    cp -a "$BAK/nginx.conf" /etc/nginx/nginx.conf 2>/dev/null || true
-    cp -a "$BAK/vapeupar.conf" /etc/nginx/conf.d/vapeupar.conf 2>/dev/null || true
-    cp -a "$BAK/site.inc" /etc/nginx/vapeupar/site.inc 2>/dev/null || true
-    install -m 644 "$PREV"/deploy/systemd/*.service /etc/systemd/system/
+    restore_nginx
+    install_units "$PREV"
     switch_to "$PREV"
     verify && log "release anterior restaurada y respondiendo" || log "la anterior TAMPOCO responde"
   fi
   exit 1
 fi
+
+# --- 5b. Vigilancia de la instancia (F6) ------------------------------------
+# Después de verificar: un despliegue fallido no toca nada de esto. Todo es
+# idempotente y nada impide el despliegue: llamada con `||`, bash no aplica
+# `set -e` dentro, así que un paso que falle deja su error en la salida del
+# despliegue y se sigue con el siguiente (las alarmas de memoria, disco y
+# certificado detectan por falta de datos que las métricas no llegan).
+# Releases anteriores a F6 no traen estos archivos: se deja lo que haya.
+monitoring() {
+  # journald con límite de tamaño y antigüedad. Solo se reinicia si cambia.
+  local jconf="$DEST/deploy/journald/90-vapeupar.conf"
+  if [ -f "$jconf" ]; then
+    install -d -m 755 /etc/systemd/journald.conf.d
+    if ! cmp -s "$jconf" /etc/systemd/journald.conf.d/90-vapeupar.conf; then
+      install -m 644 "$jconf" /etc/systemd/journald.conf.d/90-vapeupar.conf
+      systemctl restart systemd-journald
+      log "journald: límites actualizados"
+    fi
+  fi
+
+  # Rotación de nginx: solo si el paquete no trae la suya.
+  if [ ! -f /etc/logrotate.d/nginx ] && [ -f "$DEST/deploy/nginx/logrotate" ]; then
+    install -m 644 "$DEST/deploy/nginx/logrotate" /etc/logrotate.d/nginx
+    log "logrotate: instalada la rotación de nginx"
+  fi
+  command -v logrotate >/dev/null || log "AVISO: logrotate no está instalado"
+
+  # Métricas propias cada 5 minutos (vapeupar-metrics.timer). El script usa
+  # openssl para la caducidad del certificado; la AMI estándar de AL2023 lo
+  # suele traer, pero el user-data no lo instala: se garantiza aquí.
+  if [ -f "$DEST/deploy/metrics/vapeupar-metrics.sh" ] && [ -f /etc/systemd/system/vapeupar-metrics.timer ]; then
+    command -v openssl >/dev/null || dnf install -y -q openssl || log "AVISO: no se pudo instalar openssl (sin CertDaysLeft)"
+    install -m 755 "$DEST/deploy/metrics/vapeupar-metrics.sh" /usr/local/sbin/vapeupar-metrics
+    systemctl daemon-reload
+    systemctl enable --quiet vapeupar-metrics.timer
+    # restart y no solo --now: recoge un cambio de horario del timer.
+    systemctl restart vapeupar-metrics.timer
+    log "métricas: vapeupar-metrics.timer activo"
+  fi
+}
+monitoring || log "AVISO: revisa arriba los errores de la vigilancia de la instancia"
 
 # --- 6. Limpieza: conservar las $KEEP releases más recientes -----------------
 ACTIVE="$(readlink -f "$CUR")"

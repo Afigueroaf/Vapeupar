@@ -52,6 +52,11 @@ export class PrismaSiteContentRepository implements SiteContentRepository {
     return findLatest(this.db.client(), key);
   }
 
+  public async findVersion(key: string, version: number): Promise<ContentVersion | undefined> {
+    const row = await this.db.client().siteContent.findUnique({ where: { key_version: { key, version } } });
+    return row ? toVersion(row) : undefined;
+  }
+
   public async listVersions(key: string, limit: number): Promise<ContentVersion[]> {
     const rows = await this.db.client().siteContent.findMany({
       where: { key },

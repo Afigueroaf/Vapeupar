@@ -1,0 +1,37 @@
+{
+  "title": "Tipos compartidos: alcance del paquete de contratos",
+  "status": "hecho",
+  "priority": "baja",
+  "area": "backend",
+  "summary": "Compartir solo tipos no toca la release, porque los tipos desaparecen al compilar. Compartir código obliga a cambiar el empaquetado de deploy-app.mjs, y en este proyecto dev ES producción, así que un error ahí deja el sitio caído hasta el rollback. El item tiene prioridad baja y hoy la paridad de contenido ya está cubierta por una prueba.",
+  "question": "¿Invertimos tiempo ahora en eliminar código duplicado entre la tienda y el servidor (con un pequeño riesgo para el despliegue), o lo dejamos para más adelante?",
+  "options": [
+    {
+      "label": "Solo tipos",
+      "detail": "Elimina los espejos de product.ts y admin.ts sin tocar la release. La taxonomía y los esquemas siguen duplicados, con prueba de paridad.",
+      "prompt": "Decisión tipos-compartidos: el paquete solo contiene tipos. Lee ADR-002 (Consecuencias), la skill architecture e infra/scripts/deploy-app.mjs. Crea packages/contracts (@vapeupar/contracts) con los tipos del contrato público y de /api/admin, compilados a dist/*.d.ts y consumidos con import type desde backend y frontend. Borra frontend/src/types/product.ts y los tipos duplicados del backend. Añade una prueba de paridad para la taxonomía (CATEGORY_LABELS frente a PRODUCT_CATEGORIES) como content-parity.test.ts. Comprueba que el backend no importa el paquete en tiempo de ejecución, para que la release no cambie. Ejecuta npm install desde la raíz del repo (nunca dentro de frontend/ ni de backend/), npm run test:backend, npm run lint --workspace=frontend y npm run build, y actualiza ADR-002 y la skill database.",
+      "recommended": true
+    },
+    {
+      "label": "Tipos, taxonomía y esquemas Zod",
+      "detail": "Una única fuente de verdad para todo, a cambio de modificar el empaquetado de la release y el build.",
+      "prompt": "Decisión tipos-compartidos: paquete completo. Lee ADR-002, la skill architecture, infra/scripts/deploy-app.mjs y .github/workflows/ci.yml. Crea packages/contracts compilado a dist (ESM + d.ts) con los tipos públicos y de admin, PRODUCT_CATEGORIES con sus etiquetas, y los esquemas de contenido con sus defaults. zod va como peerDependency. Migra backend y frontend y borra frontend/src/lib/content/schemas.ts y content-parity.test.ts. Añade el build del paquete antes del backend en el script build raíz y en el CI. En deploy-app.mjs, copia @vapeupar/contracts como carpeta real en backend/node_modules (sin enlaces) y verifica el standalone de Next. Ejecuta npm install desde la raíz del repo (nunca dentro de frontend/ ni de backend/), npm run test:backend, npm run lint --workspace=frontend, npm run build Prepara el despliegue, pero NO ejecutes app:deploy ni lances la release sin mi aprobación."
+    },
+    {
+      "label": "Posponer",
+      "detail": "Cero riesgo y cero trabajo. Sigue la disciplina manual de espejos con pruebas de paridad.",
+      "prompt": "Decisión tipos-compartidos: se pospone. Amplía las pruebas de paridad en el backend: taxonomía (CATEGORY_LABELS de frontend/src/components/admin/catalog.ts y CATEGORIES de product-catalog.tsx frente a PRODUCT_CATEGORIES) y un test de tipos con expectTypeOf entre frontend/src/types/product.ts y backend/src/types/product.types.ts. Marca el item como pospuesto en el Deathnote con el motivo. Ejecuta npm run test:backend."
+    }
+  ],
+  "parent": "tipos-compartidos",
+  "source": "Plan de desarrollo 2026-11-18 (tipos-compartidos)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:58:52.620Z",
+  "updatedAt": "2026-11-19T06:31:25.214Z",
+  "choice": {
+    "kind": "option",
+    "index": 2
+  },
+  "completedAt": "2026-11-19T06:31:25.213Z",
+  "queued": false
+}

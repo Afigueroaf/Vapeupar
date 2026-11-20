@@ -1,0 +1,31 @@
+{
+  "title": "Datos reales de entrega: zonas, tiempos y horario",
+  "status": "pendiente",
+  "priority": "alta",
+  "area": "diseño",
+  "summary": "Hoy el sitio se contradice: la FAQ dice 30–60 min y envíos nacionales; el pie, «Lunes a Sábado 10:00 AM - 10:00 PM» y «envíos a todo el Cesar», y el pendiente #7 del plan de diseño dice que nada está confirmado. Lo que respondas va a la tarjeta, la FAQ y el pie.",
+  "question": "¿Qué digo exactamente de la entrega: zonas que cubres, tiempo real (la FAQ dice 30–60 min), horario y si envías al Cesar y a nivel nacional?",
+  "options": [
+    {
+      "label": "Te paso los datos reales",
+      "detail": "Tú los confirmas y Claude los escribe en los valores por defecto de trust-band, faq y contact en los dos lados.",
+      "prompt": "Con los datos de entrega que te he dado en «Tu prompt» (zonas, tiempo, horario, cobertura fuera de Valledupar), actualiza TRUST_BAND_DEFAULT, FAQ_DEFAULT y CONTACT_DEFAULT en backend/src/schemas/content/ y frontend/src/lib/content/schemas.ts para que digan lo mismo, respetando los máximos de longitud. Ejecuta npm run test:backend (paridad), npm run lint --workspace=frontend y npm run build, y marca el pendiente #7 de docs/design-execution-plan.md en lo que toca a horarios. Si el rediseño de las tarjetas va a la vez, escribe el copy de trust-band dentro de ese cambio y aquí solo FAQ y contacto. Comprueba con GET /api/content/<clave> que source es 'default'; si ya hay una versión publicada, publícalo con PUT /api/admin/content/<clave> (o desde A5.4) en vez de tocar los valores por defecto.",
+      "recommended": true
+    },
+    {
+      "label": "Copy genérico sin cifras por ahora",
+      "detail": "No se prometen tiempos ni horarios hasta que los confirmes; la tarjeta informa menos.",
+      "prompt": "Redacta el copy de entrega sin tiempos, horarios ni zonas concretas (p. ej. «Domicilio en Valledupar · coordinamos por WhatsApp») en la tarjeta, la FAQ y el pie, y enséñamelo antes de escribirlo en los esquemas de los dos lados. Tests, lint y build."
+    }
+  ],
+  "parent": "redisenar-las-tarjetas-del-panel-de-informacion-",
+  "source": "Plan de desarrollo 2026-11-18 (redisenar-las-tarjetas-del-panel-de-informacion-)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.641Z",
+  "updatedAt": "2026-11-19T06:05:03.725Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "claudeNote": "Elegido el 2026-11-19: me pasarás los datos reales. Falta que los escribas (zonas o barrios, tiempo de entrega, horario, cobertura fuera de Valledupar y si hay envíos nacionales) con: npm run deathnote -- prompt dec-datos-reales-de-entrega-zonas-tiempos-y-horario \"…\". Hasta entonces queda pendiente."
+}

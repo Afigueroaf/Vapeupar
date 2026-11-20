@@ -1,0 +1,37 @@
+{
+  "title": "Correo: correo de invitaciones sin dominio propio",
+  "status": "hecho",
+  "priority": "baja",
+  "area": "seguridad",
+  "summary": "SES solo envía bien con un dominio en el que puedas crear registros DNS, y eso no se puede con vapeupar.ddns.net. El correo de Cognito es gratis y llega a unos 50 correos al día, de sobra para invitar a pocos administradores, aunque sale de un remitente genérico. Un dominio cuesta unos 10–15 USD al año, más 0,50 USD/mes si la zona va en Route 53. SES cuesta 0,10 USD por cada 1.000 correos.",
+  "question": "Sigues con No-IP. ¿Dejamos el correo integrado de Cognito y aparcamos este item, o compras un dominio para tener SES?",
+  "options": [
+    {
+      "label": "Seguir con el correo de Cognito y aparcar el item",
+      "detail": "0 USD. Remitente genérico y límite diario bajo, suficiente para la consola.",
+      "prompt": "Decisión: se mantiene cognito.UserPoolEmail.withCognito() en infra/lib/auth-stack.ts mientras no haya dominio propio. Lee docs/infrastructure-aws.md §8.1 y docs/admin-console-execution-plan.md (dependencia externa #7). Documenta en §8.1 punto 4 los límites (unos 50 correos al día, remitente no-reply@verificationemail.com, posible spam) y que el cambio a SES depende de reabrir dominio-definitivo. Deja el item correo-ses-cognito en pendiente, con el claudeNote explicando el bloqueo. Sin cambios en infra/lib/ ni despliegues. Aceptación: `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff` sin cambios y docs actualizados.",
+      "recommended": true
+    },
+    {
+      "label": "Comprar un dominio y pasar a SES",
+      "detail": "Unos 10–15 USD/año más 0,50 USD/mes de zona. Reabre dominio-definitivo y también cambia F4 (certificado y origen).",
+      "prompt": "Decisión: compro el dominio <dominio>. Reabre dominio-definitivo con la opción de Route 53 y, en este item, lee infra/lib/auth-stack.ts, infra/lib/config.ts y docs/infrastructure-aws.md §8.1. Añade auth.emailDomain en config.ts, ses.EmailIdentity con DKIM y MAIL FROM, y cambia a UserPoolEmail.withSES con no-reply@<dominio>. Documenta SPF y DMARC y el trámite para salir del sandbox de SES. Ejecuta `npm run typecheck --workspace=infra` y `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff` y muéstrame si el User Pool se reemplaza. NO despliegues sin mi aprobación. Aceptación: el diff solo actualiza el pool y añade la identidad SES."
+    },
+    {
+      "label": "SES con una sola dirección verificada (p. ej. un Gmail)",
+      "detail": "0 USD, sin dominio, pero el envío falla DMARC del proveedor y es muy probable que acabe en spam. No recomendado.",
+      "prompt": "Evalúa sin cambiar código si UserPoolEmail.withSES con una identidad de dirección suelta (no de dominio) es viable para Cognito en us-east-1, y si el DMARC del proveedor de esa dirección haría fallar la entrega. Entrega la conclusión en la conversación con referencias a infra/lib/auth-stack.ts. No despliegues nada."
+    }
+  ],
+  "parent": "correo-ses-cognito",
+  "source": "Plan de desarrollo 2026-11-18 (correo-ses-cognito)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.854Z",
+  "updatedAt": "2026-11-19T06:29:29.147Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:29:29.146Z",
+  "queued": false
+}

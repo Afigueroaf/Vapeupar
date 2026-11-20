@@ -16,6 +16,8 @@ export interface StockMovement {
   supplierId: string | null;
   /** Costo unitario en pesos, solo en ingresos. */
   unitCost: number | null;
+  /** Precio unitario cobrado en pesos, solo en ventas (ADR-003). */
+  unitPrice: number | null;
   lot: string | null;
   userId: string;
   operationKey: string;

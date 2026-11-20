@@ -59,6 +59,11 @@ jobs:
           npx --workspace=frontend next typegen
           npx --workspace=frontend tsc --noEmit
 
+      # Lógica pura de src/lib (carrito, mensaje de WhatsApp, puerta +18...).
+      # Sin red ni backend: no necesita variables de entorno.
+      - name: Frontend · tests
+        run: npm run test --workspace=frontend
+
       # Mismo build que el de producción (API relativa), con datos de contacto
       # ficticios: aquí solo importa que compile.
       - name: Frontend · build
@@ -67,5 +72,16 @@ jobs:
           NEXT_PUBLIC_WHATSAPP_NUMBER: '570000000000'
         run: npm run build --workspace=frontend
 
+      # Lee el build de arriba, no compila: three.js fuera del JS inicial de la
+      # portada y su peso dentro del presupuesto (docs/frontend.md,
+      # «Presupuesto de rendimiento»). Menos de un segundo.
+      - name: Frontend · guarda de bundle
+        run: npm run check:bundle
+
       - name: Infra · tipos
         run: npm run typecheck --workspace=infra
+
+      # Sintetiza la app en memoria, sin AWS: no más de 10 alarmas (capa
+      # gratuita compartida con DeliPan) y PutMetricData acotado (F6).
+      - name: Infra · tests
+        run: npm run test --workspace=infra

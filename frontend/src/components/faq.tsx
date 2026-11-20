@@ -6,33 +6,7 @@ import { PixelLabel } from "@/components/ui/pixel-label";
 import { Surface } from "@/components/ui/surface";
 import { cn } from "@/lib/utils";
 
-interface FAQItem {
-  question: string;
-  answer: string;
-}
-
-const FAQS: FAQItem[] = [
-  {
-    question: "¿Cómo funcionan las entregas a domicilio en Valledupar?",
-    answer: "Realizamos envíos en moto express a cualquier barrio de Valledupar en un plazo promedio de 30 a 60 minutos desde la confirmación de tu pedido por WhatsApp. También realizamos despachos a municipios cercanos del Cesar y a nivel nacional."
-  },
-  {
-    question: "¿Cuáles son los métodos de pago disponibles?",
-    answer: "Aceptamos pago contra entrega (efectivo al recibir), transferencias por Nequi, Daviplata y Bancolombia a la Mano. No tienes que pagar nada por adelantado para domicilios locales si prefieres contra entrega."
-  },
-  {
-    question: "¿Cómo sé que los vaporizadores son 100% originales?",
-    answer: "Todos nuestros productos provienen directamente de distribuidores autorizados de marcas líderes como Lost Mary, Geekvape, OXVA, Elf Bar y Nasty Juice. Cada caja incluye un sello de seguridad con código QR raspable que puedes escanear en el sitio oficial del fabricante para verificar su autenticidad."
-  },
-  {
-    question: "¿Es obligatoria la cédula de ciudadanía para recibir el pedido?",
-    answer: "Sí, de manera obligatoria y sin excepciones. Cumpliendo con la legislación colombiana (Ley 1335 de 2009), la venta de productos de vapeo y nicotina está estrictamente restringida a mayores de 18 años. Nuestro domiciliario te solicitará presentar el documento físico de identidad al momento de la entrega."
-  },
-  {
-    question: "¿Tienen garantía los dispositivos?",
-    answer: "Sí. Los vaporizadores desechables cuentan con garantía de encendido al momento de la entrega (si presentara falla de fábrica se cambia de inmediato). Los Pods recargables cuentan con garantía de 30 días sobre defectos electrónicos en el dispositivo."
-  }
-];
+import { withLegalFaqItem, type FaqContent } from "@/lib/content/schemas";
 
 /**
  * Acordeón de preguntas frecuentes del sistema VP (fase V6).
@@ -56,9 +30,30 @@ const FAQS: FAQItem[] = [
  *    la derecha. El `max-w-4xl` centrado quedaba descolgado del resto de la
  *    página ahora que las secciones usan el armazón completo `max-w-vp`; esto
  *    llena el ancho sin alargar la línea de lectura.
+ *
+ * El texto llega por props desde `app/page.tsx`, que lo lee de la API de
+ * contenido (A7.2) con el marcador de marcas aliadas ya sustituido (A7.4).
+ * Este componente es de cliente por el acordeón y no puede pedirlo él.
+ *
+ * La pregunta legal +18 no llega por props: la inserta aquí
+ * `withLegalFaqItem`, siempre en la misma posición, para que ninguna
+ * publicación desde la consola pueda quitarla. La vista previa de
+ * `/admin/content` usa este mismo componente.
  */
-export function FAQ() {
+export function FAQ({
+  content,
+  preview = false,
+}: {
+  content: FaqContent;
+  /**
+   * Vista previa de la consola: sin el ancla `#faq` y con otros ids de
+   * botón y panel, para no repetir los de la página.
+   */
+  preview?: boolean;
+}) {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
+
+  const items = withLegalFaqItem(content.items);
 
   const toggle = (index: number) => {
     setOpenIndex(openIndex === index ? null : index);
@@ -66,7 +61,7 @@ export function FAQ() {
 
   return (
     <section
-      id="faq"
+      id={preview ? undefined : "faq"}
       aria-label="Preguntas Frecuentes"
       className="vp-glitch border-t-2 border-line scroll-mt-20"
     >
@@ -75,23 +70,26 @@ export function FAQ() {
           <PixelLabel variant="outline">[ FAQ ]</PixelLabel>
 
           <h2 className="mt-4 text-[1.75rem] font-bold uppercase leading-[0.95] tracking-[-0.01em] sm:text-[2.5rem]">
-            Preguntas frecuentes
+            {content.title}
           </h2>
 
           <p className="mt-3 text-base text-muted sm:text-[1.0625rem]">
-            Todo lo que necesitas saber sobre compras, domicilios y garantías en Vapeupar.
+            {content.intro}
           </p>
         </div>
 
         <div className="space-y-3">
-          {FAQS.map((item, index) => {
+          {items.map((item, index) => {
             const isOpen = openIndex === index;
-            const buttonId = `faq-button-${index}`;
-            const panelId = `faq-panel-${index}`;
+            const prefix = preview ? "faq-preview" : "faq";
+            const buttonId = `${prefix}-button-${index}`;
+            const panelId = `${prefix}-panel-${index}`;
 
             return (
               <Surface
-                key={item.question}
+                // Por índice: dos preguntas iguales desde la consola no deben
+                // romper la reconciliación.
+                key={index}
                 border={isOpen ? "line" : "muted"}
                 className="overflow-hidden transition-colors duration-150 ease-vp"
               >

@@ -37,8 +37,13 @@ export const MovementBodySchema = z.object({
   supplierId: z.uuid().optional(),
   unitCost: z.number().int().nonnegative().optional(),
   lot: z.string().trim().max(100).optional(),
-  /** La genera el cliente, una por formulario abierto; permite reintentar. */
+  /**
+   * La genera el cliente, una por formulario abierto; permite reintentar. El
+   * prefijo `order:` es de los pedidos (ADR-003): uno manual podría ocupar la
+   * clave de la venta de un pedido y bloquear su confirmación.
+   */
   operationKey: z.string().trim().min(8).max(100)
+    .refine(key => !key.toLowerCase().startsWith('order:'), 'El prefijo «order:» está reservado a los pedidos')
 });
 
 export const VariantIdSchema = z.object({

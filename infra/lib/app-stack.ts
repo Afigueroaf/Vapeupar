@@ -4,9 +4,11 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { EnvConfig, paramName, resourceName } from './config.js';
+import { METRICS_NAMESPACE } from './monitoring-stack.js';
 
 interface AppStackProps extends StackProps {
   config: EnvConfig;
@@ -139,24 +141,57 @@ export class AppStack extends Stack {
       }),
     );
 
-    // Los tres secretos del entorno, por nombre. Secrets Manager añade seis
+    // Secreto compartido entre backend y frontend para la revalidación
+    // on-demand (A7.3): el backend lo manda como Bearer a
+    // `/internal/revalidate` y Next lo comprueba. Vive aquí, con quien lo usa:
+    // lo leen los dos procesos de esta instancia y nadie más.
+    // `infra/deploy/write-env.mjs` lo escribe en backend.env y en
+    // frontend.env desde la misma lectura, para que nunca difieran.
+    // Se puede borrar con el stack: no protege datos, se regenera y los dos
+    // lados lo vuelven a leer en el siguiente arranque.
+    const revalidateSecret = new secretsmanager.Secret(this, 'RevalidateSecret', {
+      secretName: `vapeupar/${config.envName}/revalidate`,
+      description: 'Secreto de la revalidacion on-demand del sitio (backend -> /internal/revalidate)',
+      generateSecretString: {
+        // 64 caracteres alfanuméricos (~380 bits). Sin puntuación: va en una
+        // cabecera HTTP y en un EnvironmentFile de systemd.
+        passwordLength: 64,
+        excludePunctuation: true,
+        includeSpace: false,
+      },
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    // Los secretos del entorno, por nombre. Secrets Manager añade seis
     // caracteres aleatorios al ARN, de ahí el `-??????`: así no hace falta
     // importar los ARN de otros stacks, y el comodín no alcanza a ningún otro
-    // secreto. El maestro de RDS está porque las migraciones se ejecutan desde
-    // la instancia (F5); el backend en marcha usa solo `rds-app`.
+    // secreto. El backend en marcha usa solo `rds-app`.
     // Cifrados con la clave gestionada de Secrets Manager: no hace falta KMS.
+    //
+    // El MAESTRO DE RDS va aparte porque desde F7 lo gestiona RDS
+    // (data-stack.ts): se llama `rds!db-<id>`, sin prefijo `vapeupar/`, y un
+    // comodín `rds!db-*` alcanzaría también al de DeliPan en la cuenta
+    // compartida. Por eso se da el ARN EXACTO, leído en cada despliegue del
+    // parámetro DB_SECRET_ARN que publica Data (sin export entre stacks, que
+    // bloquearía el valor si un día cambia). Lo leen las migraciones (F5,
+    // infra/deploy/migrate.mjs), que se ejecutan desde la instancia. Si el
+    // ARN cambia, hay que desplegar Data y DESPUÉS App, como en F7.
+    const masterSecretArn = ssm.StringParameter.valueForStringParameter(this, paramName(config, 'DB_SECRET_ARN'));
     role.addToPolicy(
       new iam.PolicyStatement({
         actions: ['secretsmanager:GetSecretValue'],
-        resources: ['rds-app', 'rds-master', 'cognito-backend-client'].map((name) =>
-          this.formatArn({
-            service: 'secretsmanager',
-            resource: 'secret',
-            // `secret:<nombre>`, con dos puntos, no `secret/<nombre>`.
-            arnFormat: ArnFormat.COLON_RESOURCE_NAME,
-            resourceName: `vapeupar/${config.envName}/${name}-??????`,
-          }),
-        ),
+        resources: [
+          masterSecretArn,
+          ...['rds-app', 'cognito-backend-client', 'revalidate'].map((name) =>
+            this.formatArn({
+              service: 'secretsmanager',
+              resource: 'secret',
+              // `secret:<nombre>`, con dos puntos, no `secret/<nombre>`.
+              arnFormat: ArnFormat.COLON_RESOURCE_NAME,
+              resourceName: `vapeupar/${config.envName}/${name}-??????`,
+            }),
+          ),
+        ],
       }),
     );
 
@@ -214,6 +249,19 @@ export class AppStack extends Stack {
 
     // Descargar releases (F3). Solo lectura.
     artifactsBucket.grantRead(role);
+
+    // Métricas propias de la instancia (F6, `deploy/metrics/vapeupar-metrics.sh`).
+    // PutMetricData no admite permisos por recurso, así que el `*` es
+    // obligado; lo acota la condición: SOLO el namespace `Vapeupar`
+    // (monitoring-stack.ts, METRICS_NAMESPACE). Sin permisos de CloudWatch
+    // Logs: los registros se quedan en la instancia.
+    role.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['cloudwatch:PutMetricData'],
+        resources: ['*'],
+        conditions: { StringEquals: { 'cloudwatch:namespace': METRICS_NAMESPACE } },
+      }),
+    );
 
     /* --- Instancia ------------------------------------------------------- */
 
@@ -364,6 +412,10 @@ export class AppStack extends Stack {
       // Lo lee `infra/deploy/write-env.mjs` en la instancia para el CORS del
       // backend. Ver `config.app.publicOrigin`.
       PUBLIC_ORIGIN: config.app.publicOrigin ?? `http://${eip.attrPublicIp}`,
+      // Lo lee `infra/deploy/write-env.mjs` (A7.3). Si aún no existe —una
+      // instancia con una release nueva antes de desplegar este stack—, el
+      // script sigue sin él y el sitio refresca solo por ISR.
+      REVALIDATE_SECRET_ARN: revalidateSecret.secretArn,
     };
     for (const [key, value] of Object.entries(params)) {
       new ssm.StringParameter(this, `Param${key}`, {

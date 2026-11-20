@@ -1,0 +1,37 @@
+{
+  "title": "Rendimiento: glitch cuantizado a pasos de 3 px",
+  "status": "hecho",
+  "priority": "media",
+  "area": "rendimiento",
+  "summary": "Cuantizar baja de ~25 a ~6 los repintados del filtro por ráfaga, el candidato principal de los 52 fps en scroll. El desgarro de los lienzos 3D lee la misma señal (--glitch-shift): si se cuantiza también, todo glitchea igual; si no, el 3D sigue suave.",
+  "question": "¿Aceptas un glitch que salta a pasos de 3 px (más «digital», menos fluido) para bajar repintados, y lo aplico también a la nube y al prisma 3D?",
+  "options": [
+    {
+      "label": "Solo el filtro CSS a 3 px",
+      "detail": "Baja los repintados; la nube y el prisma siguen con desgarro continuo.",
+      "prompt": "Lee docs/performance-optimization-plan.md (fase 1, «Pendiente de explicar», y fase 5) y frontend/src/components/page-glitch.tsx (apply). Cuantiza a múltiplos de 3 px solo el dx de los feOffset y deja --glitch-shift continuo para los shaders de vaporizer/scene.tsx y prism/scene.ts (actualiza el comentario de lib/glitch.ts). Cuenta las escrituras por ráfaga antes y después con un contador temporal que luego quitas. Mide A,B,A,B en caliente en el Moto G15 (scroll con ráfagas). Lint, build y resultados en el plan.",
+      "recommended": true
+    },
+    {
+      "label": "Todo cuantizado a 3 px",
+      "detail": "DOM y 3D glitchean igual, a saltos; el desgarro del 3D se vuelve más tosco.",
+      "prompt": "Cuantiza a múltiplos de 3 px el shift de apply() en frontend/src/components/page-glitch.tsx, que alimenta los feOffset y --glitch-shift (shaders incluidos). Mide en caliente con A,B,A,B en el Moto G15 y enséñame una grabación del glitch antes y después. Lint y build."
+    },
+    {
+      "label": "No cuantizar",
+      "detail": "El glitch se queda como está; solo presupuesto documentado y vigilancia del bundle.",
+      "prompt": "No toques page-glitch.tsx. Haz solo el presupuesto en docs/frontend.md y la guarda de three.js en el chunk inicial. Lint y build."
+    }
+  ],
+  "parent": "perf-guardas",
+  "source": "Plan de desarrollo 2026-11-18 (perf-guardas)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.641Z",
+  "updatedAt": "2026-11-19T06:21:26.303Z",
+  "choice": {
+    "kind": "option",
+    "index": 1
+  },
+  "completedAt": "2026-11-19T06:21:26.301Z",
+  "queued": false
+}

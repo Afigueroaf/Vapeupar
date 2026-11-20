@@ -1,0 +1,33 @@
+{
+  "title": "HTTPS: duración del HSTS",
+  "status": "pendiente",
+  "priority": "media",
+  "area": "infra",
+  "summary": "Con HSTS activo, los navegadores no dejan entrar por http ni saltarse un error de certificado mientras dure el max-age. Si la renovación automática del certificado falla, quien ya visitó la tienda no podrá entrar ni aceptando el riesgo hasta que se arregle. Que el nombre de No-IP caduque tumba la tienda igual con o sin HSTS. Costo 0 USD.",
+  "question": "¿Activamos HSTS por escalones (1 semana y luego 1 año) o directamente con 1 año?",
+  "options": [
+    {
+      "label": "Escalonado: 1 semana y luego 1 año",
+      "detail": "Si algo falla en la primera semana, el bloqueo dura 7 días como mucho. Necesita dos releases. 0 USD.",
+      "prompt": "Lee infra/deploy/nginx/vapeupar-tls.conf, infra/deploy/nginx/vapeupar-site.inc, infra/deploy/activate.sh y F4 en docs/aws-full-deployment-plan.md. En una rama chore/hsts desde dev, activa `add_header Strict-Transport-Security \"max-age=604800\" always;` en el server 443, sin includeSubDomains ni preload, y actualiza el comentario. Corrige el comentario obsoleto de infra/deploy/nginx/nginx.conf sobre certbot. Documenta en docs/infrastructure-aws.md §5.2.1 que, con HSTS, no se puede volver a una release anterior al esquema TLS. Esto no cambia CDK: confirma que `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff` no muestra diferencias, abre el PR a dev y NO lances la release a produccion sin mi aprobación. Aceptación: tras la release, `curl -sI https://vapeupar.ddns.net/` muestra `strict-transport-security: max-age=604800`. Deja anotado en el item que el 2.º escalón (31536000) va 1–2 semanas después.",
+      "recommended": true
+    },
+    {
+      "label": "Directo a 1 año",
+      "detail": "Una sola release, pero un fallo del certificado o de No-IP bloquea a los visitantes durante meses. 0 USD.",
+      "prompt": "Lee infra/deploy/nginx/vapeupar-tls.conf, infra/deploy/nginx/vapeupar-site.inc y F4 en docs/aws-full-deployment-plan.md. En una rama chore/hsts desde dev, activa `add_header Strict-Transport-Security \"max-age=31536000\" always;` en el server 443, sin includeSubDomains ni preload, y documenta el riesgo y la limitación del rollback en docs/infrastructure-aws.md §5.2.1. Confirma que `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff` no muestra diferencias, abre el PR a dev y NO lances la release sin mi aprobación. Aceptación: `curl -sI https://vapeupar.ddns.net/` muestra `max-age=31536000`."
+    },
+    {
+      "label": "No activar HSTS por ahora",
+      "detail": "Sin riesgo de bloqueo si falla la renovación del certificado; queda la ventana de un primer acceso por http (el 301 ya redirige). 0 USD.",
+      "prompt": "Decisión: no se activa HSTS por ahora. Actualiza el comentario de infra/deploy/nginx/vapeupar-tls.conf y el paso 5 de F4 en docs/aws-full-deployment-plan.md con el motivo (riesgo de bloqueo si falla la renovación del certificado y aún no hay alarma de caducidad), corrige el comentario obsoleto sobre certbot en infra/deploy/nginx/nginx.conf, deja una nota en dominio-definitivo para revisarlo si llega un dominio propio y pasa f4-tls-no-ip a hecho. Sin despliegues. Aceptación: los docs reflejan la decisión y `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff` no muestra cambios."
+    }
+  ],
+  "parent": "f4-tls-no-ip",
+  "source": "Plan de desarrollo 2026-11-18 (f4-tls-no-ip)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.854Z",
+  "updatedAt": "2026-11-19T06:14:59.100Z",
+  "userPrompt": "Dejarlo como pendiente para cuando el sitio salga abierto al público; entonces volver a decidir la duración.",
+  "claudeNote": "Aplazado por el dueño el 2026-11-19: HSTS se decide cuando el sitio salga abierto al público. Hasta entonces no se activa."
+}

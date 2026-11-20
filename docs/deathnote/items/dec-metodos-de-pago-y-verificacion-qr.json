@@ -1,0 +1,31 @@
+{
+  "title": "Tarjetas de información: métodos de pago y verificación QR",
+  "status": "pendiente",
+  "priority": "media",
+  "area": "diseño",
+  "summary": "La tarjeta dice «Efectivo, Nequi y Daviplata» y la FAQ añade Bancolombia a la Mano. La tarjeta «Original» promete que todo es verificable con QR: si alguna marca no lo trae, es una promesa falsa en la portada.",
+  "question": "¿Qué métodos de pago aceptas de verdad (¿también Bancolombia a la Mano?) y todas tus marcas traen sello QR verificable en la web del fabricante?",
+  "options": [
+    {
+      "label": "Confirmo la lista y unifico",
+      "detail": "Tarjeta, FAQ y pie dicen lo mismo; la promesa del QR se ajusta a las marcas que sí lo traen.",
+      "prompt": "Con los métodos de pago y las marcas con QR que te he confirmado en «Tu prompt», ajusta las tarjetas Pago y Original, las respuestas de la FAQ y el pie en los valores por defecto de los dos lados (backend/src/schemas/content/ y frontend/src/lib/content/schemas.ts). Enséñame el copy final antes de escribirlo. npm run test:backend, lint y build.",
+      "recommended": true
+    },
+    {
+      "label": "Dejarlo como está",
+      "detail": "No se toca el copy de pago ni de QR; la incoherencia entre tarjeta y FAQ sigue.",
+      "prompt": "No cambies el copy de pago ni de QR; documenta en el item que queda pendiente de confirmar."
+    }
+  ],
+  "parent": "redisenar-las-tarjetas-del-panel-de-informacion-",
+  "source": "Plan de desarrollo 2026-11-18 (redisenar-las-tarjetas-del-panel-de-informacion-)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.641Z",
+  "updatedAt": "2026-11-19T06:21:33.506Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "claudeNote": "Elegido el 2026-11-19: el dueño confirmará los métodos de pago reales y qué marcas traen QR verificable. Pásalos con: npm run deathnote -- prompt dec-metodos-de-pago-y-verificacion-qr \"…\". Hasta entonces queda pendiente."
+}

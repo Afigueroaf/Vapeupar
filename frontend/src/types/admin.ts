@@ -66,6 +66,11 @@ export interface StockMovement {
   reason: string | null;
   supplierId: string | null;
   unitCost: number | null;
+  /**
+   * Precio unitario cobrado, en las ventas de un pedido confirmado (ADR-003).
+   * Opcional: las ventas manuales lo dejan vacío y un backend anterior no lo manda.
+   */
+  unitPrice?: number | null;
   lot: string | null;
   userId: string;
   operationKey: string;
@@ -298,3 +303,94 @@ export interface Readiness {
 }
 
 export type ReadinessGap = "price" | "imageKey" | "activeVariant";
+
+/**
+ * Una versión del contenido del sitio (`GET /api/admin/content/:key[/versions]`).
+ * `value` llega sin tipar: puede ser una fila antigua que ya no cumple el
+ * esquema, y la consola la valida antes de usarla (A5.4).
+ */
+export interface ContentVersionRow {
+  key: string;
+  value: unknown;
+  version: number;
+  publishedAt: string | null;
+  userId: string;
+  createdAt: string;
+}
+
+/** Resultado de publicar o restaurar: la versión nueva y si el sitio ya la ve (A7.3). */
+export interface ContentPublishResult {
+  version: ContentVersionRow;
+  /** `false`: el aviso al sitio falló y el cambio se verá en ≤60 s. */
+  revalidated: boolean;
+}
+
+// ---- Pedidos (ADR-003) ----
+
+export type OrderStatus = "received" | "confirmed" | "delivered" | "cancelled";
+
+/** Datos personales del cliente (Ley 1581). Nulo en un pedido anonimizado. */
+export interface OrderCustomer {
+  name: string;
+  /** `+573XXXXXXXXX`. */
+  phone: string;
+  neighborhood: string;
+}
+
+export interface OrderLine {
+  id: string;
+  variantId: string;
+  productName: string;
+  variantName: string;
+  quantity: number;
+  /** Precio de catálogo al recibir el pedido. */
+  listPrice: number;
+  /** Precio unitario cobrado; nulo hasta confirmar. */
+  unitPrice: number | null;
+}
+
+export interface OrderConsent {
+  policyVersion: string;
+  purpose: string;
+  /** ISO 8601, hora del servidor. */
+  acceptedAt: string;
+}
+
+/** `GET /api/admin/orders` y cada transición. Fechas en ISO 8601. */
+export interface Order {
+  id: string;
+  /** `VP-XXXXXX`. */
+  reference: string;
+  status: OrderStatus;
+  customer: OrderCustomer | null;
+  /** Suma de las líneas a precio de catálogo al recibir. */
+  subtotal: number;
+  deliveryFee: number | null;
+  /** Precio cobrado más domicilio; nulo hasta confirmar. */
+  total: number | null;
+  cancelReason: string | null;
+  confirmedAt: string | null;
+  deliveredAt: string | null;
+  cancelledAt: string | null;
+  anonymizedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  lines: OrderLine[];
+  consent: OrderConsent | null;
+}
+
+/** Resultado de una transición: el pedido y si se avisó al sitio. */
+export interface OrderTransition {
+  order: Order;
+  /** `true` si era una repetición de lo ya hecho: no se escribió nada. */
+  replayed: boolean;
+  /** `false`: el disponible público tarda hasta 60 s en reflejarlo. */
+  revalidated: boolean;
+}
+
+/** Línea señalada en un `409` de pedidos. */
+export interface OrderLineIssue {
+  variantId: string;
+  reason: "unavailable" | "insufficient_stock";
+  available?: number;
+}

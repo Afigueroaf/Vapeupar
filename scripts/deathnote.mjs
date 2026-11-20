@@ -162,6 +162,12 @@ function ver(items, id) {
   console.log(c.dim(`  id ${it.id} · área ${it.area || "general"} · prioridad ${it.priority || "media"}`));
   if (it.summary) console.log("\n" + wrap(it.summary));
   if (it.question) console.log("\n" + c.yellow(c.b("La decisión")) + "\n" + wrap(it.question));
+  // Plan de desarrollo: pasos, criterios de aceptación y riesgos (arrays de texto).
+  for (const [key, label, numbered] of [["plan", "Plan", true], ["acceptance", "Se da por hecho cuando", false], ["risks", "Riesgos", false]]) {
+    if (!Array.isArray(it[key]) || !it[key].length) continue;
+    console.log("\n" + c.b(label));
+    it[key].forEach((line, n) => console.log(wrap(`${numbered ? n + 1 + "." : "·"} ${line}`, 2)));
+  }
   const list = choices(it);
   if (list.length) {
     console.log("\n" + c.b("Opciones") + c.dim("  (elige con: elegir " + it.id + " <n>)"));
@@ -177,7 +183,7 @@ function ver(items, id) {
   const eff = effectivePrompt(it);
   console.log("\n" + c.b("Prompt que se ejecutará") + "\n" + (eff ? wrap(eff) : c.dim("  (elige una opción o escribe tu prompt)")));
   if (it.claudeNote) console.log("\n" + c.b("Nota de Claude") + "\n" + wrap(it.claudeNote));
-  const kv = [["fuente", it.source], ["evidencia", it.evidence], ["bloqueado por", it.blockedBy?.join(", ")], ["origen", it.origin === "usuario" ? "añadido por ti" : "documentación"], ["en cola desde", it.queued ? it.queuedAt : ""], ["completado", it.completedAt]].filter(([, v]) => v);
+  const kv = [["fuente", it.source], ["evidencia", it.evidence], ["bloqueado por", it.blockedBy?.join(", ")], ["decide para", it.parent], ["origen", it.origin === "usuario" ? "añadido por ti" : "documentación"], ["en cola desde", it.queued ? it.queuedAt : ""], ["completado", it.completedAt]].filter(([, v]) => v);
   console.log("");
   for (const [k, v] of kv) console.log(c.dim(`  ${k.padEnd(14)}`) + v);
 }

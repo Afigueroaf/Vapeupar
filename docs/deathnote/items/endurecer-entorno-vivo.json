@@ -3,20 +3,36 @@
   "status": "en_curso",
   "priority": "media",
   "area": "infra",
-  "summary": "RDS y Cognito ya tienen RETAIN y protección de borrado; faltan versionado y RETAIN del bucket de catálogo, y la retención de backups de 7 días está bloqueada por el plan gratuito.",
-  "suggestions": [
-    {
-      "label": "Bucket de catálogo con RETAIN y versionado",
-      "prompt": "Lee el comentario de CONFIGS.dev en infra/lib/config.ts, infra/lib/storage-stack.ts y docs/infrastructure-aws.md (§2 y §5.5). Prepara el cambio de storage.removalPolicy a RETAIN y versioned a true para dev, sin desplegar: primero muéstrame el comando aws s3 sync de copia de seguridad del bucket, luego ejecuta npm run infra:diff y explícame si el recurso autoDeleteObjects se retira y si hay riesgo de vaciado. No ejecutes infra:deploy hasta que lo apruebe. Actualiza docs/infrastructure-aws.md §8.2."
-    }
-  ],
+  "summary": "El bucket de catálogo ya tiene RETAIN y versionado (2026-11-17). Falta la retención de backups de RDS, que se aplica con el despliegue de Data de plan-pago-aws y espera al plan de pago.",
+  "suggestions": [],
   "blockedBy": [
-    "plan-pago-aws"
+    "plan-pago-aws",
+    "dec-cuanto-historial-de-la-base-guardar"
   ],
   "source": "docs/aws-full-deployment-plan.md (§3 D1, F1.8) + infra/lib/config.ts (comentario de CONFIGS.dev)",
-  "evidence": "cdk diff del 2026-11-17",
+  "evidence": "Stack Vapeupar-dev-Storage UPDATE_COMPLETE · 88/88 objetos",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T21:08:38.196Z",
-  "claudeNote": "Rama chore/bucket-retain-versionado (2026-11-17), SIN DESPLEGAR. Bucket de catálogo a RETAIN y versionado, con versiones antiguas expiradas a los 30 días. cdk diff: solo Vapeupar-dev-Storage (se van el recurso de vaciado, su rol y su Lambda; el bucket gana versionado y ciclo de vida, pierde la etiqueta auto-delete; sin reemplazo). El manejador de CDK 2.275 no vacía un bucket sin esa etiqueta. Procedimiento con copia previa en docs/infrastructure-aws.md §8.2. Pendiente: aprobación del dueño para copia + deploy. La retención de backups de 7 días sigue esperando a plan-pago-aws."
+  "updatedAt": "2026-11-19T03:09:42.867Z",
+  "claudeNote": "Bucket de catálogo APLICADO el 2026-11-17: RETAIN, versionado y versiones antiguas expiradas a los 30 días (cdk deploy de Vapeupar-dev-Storage, UPDATE_COMPLETE). Copia previa de los 88 objetos en C:/vapeupar-backup-catalogo-20261117; después siguen los 88 y CloudFront sirve 200. El aviso de «recursos sin borrar» era el recurso de vaciado, que falló sin permisos y no borró nada (detalle en docs/infrastructure-aws.md §8.2). Queda la parte de backups: retención de 7 días en RDS, bloqueada hasta plan-pago-aws.\n\nPlan 2026-11-18: El summary ya no es cierto: el bucket de catálogo está hecho desde el 2026-11-17. Solo queda la retención de backups, que es exactamente el despliegue de Data de plan-pago-aws. La cabecera de CONFIGS.dev en infra/lib/config.ts dice que dev ya tiene backups de 7 días, y en dev sigue en 1. La sugerencia del bucket está completada y sobra.",
+  "plan": [
+    "El bucket de catálogo ya está hecho (RETAIN, versionado, versiones antiguas expiradas a los 30 días; 88 objetos verificados). No toques Vapeupar-dev-Storage.",
+    "La retención de 7 días se aplica con el despliegue de Vapeupar-dev-Data de plan-pago-aws (pasos 5–6). Si eliges otra retención o copias mensuales, añádelo a chore/aws-plan-pago antes de ese despliegue: el número en db.backupRetentionDays de infra/lib/config.ts, y la copia mensual en un nuevo infra/lib/backup-stack.ts (BackupVault RETAIN vapeupar-dev-vault, BackupPlan con regla mensual y BackupResource.fromArn con el ARN construido desde el identificador fijo vapeupar-dev-db (sin referencia a data.db, para no crear exports entre stacks)) compuesto en infra/bin/vapeupar.ts.",
+    "Ejecuta `npm run typecheck --workspace=infra` y `npm run infra:diff`. Comprueba que el stack de backup no toca Data y que Data solo cambia BackupRetentionPeriod.",
+    "Tras el despliegue, haz un simulacro de restauración: `aws rds restore-db-instance-to-point-in-time --source-db-instance-identifier vapeupar-dev-db --target-db-instance-identifier vapeupar-dev-db-restore-test --use-latest-restorable-time --db-instance-class db.t4g.micro --no-publicly-accessible` en las subredes aisladas. Espera a available y bórralo con --skip-final-snapshot. Cuesta céntimos y prueba que el PITR sirve. Pasa también --db-subnet-group-name y --vpc-security-group-ids de vapeupar-dev-db (los da describe-db-instances); si no, RDS usa la VPC por defecto. Crea un recurso de pago: solo con tu aprobación.",
+    "Corrige la cabecera de CONFIGS.dev en infra/lib/config.ts, que ya dice «backups de 7 días» aunque en dev siguen en 1, y la fila «Retención de backups» de docs/infrastructure-aws.md §8.2.",
+    "Marca la línea «Copias» de F6 en docs/aws-full-deployment-plan.md como hecha y pasa el item a hecho.",
+    "Verificación: aws rds describe-db-instances --db-instance-identifier vapeupar-dev-db --query 'DBInstances[0].[BackupRetentionPeriod,LatestRestorableTime]' · aws rds describe-db-instances --db-instance-identifier vapeupar-dev-db-restore-test --query 'DBInstances[0].DBInstanceStatus' · aws backup list-backup-plans · aws s3api get-bucket-versioning --bucket vapeupar-dev-catalog-342284838697 · npm run typecheck --workspace=infra"
+  ],
+  "acceptance": [
+    "BackupRetentionPeriod = 7 (o el valor elegido) en vapeupar-dev-db y LatestRestorableTime con menos de 10 minutos de antigüedad.",
+    "El simulacro de restauración llega a available y después se borra; no queda ninguna instancia vapeupar-dev-db-restore-test.",
+    "Si eliges la copia mensual: `aws backup list-backup-plans` muestra el plan de Vapeupar y el vault tiene RETAIN.",
+    "§8.2 de infrastructure-aws.md y el comentario de config.ts coinciden con lo desplegado."
+  ],
+  "risks": [
+    "Si se despliega antes de que la cuenta esté en PAID, RDS rechaza el cambio y CloudFormation lo deshace.",
+    "El simulacro de restauración crea una instancia que se cobra por horas. Hay que borrarla el mismo día.",
+    "Las copias de AWS Backup en un vault con RETAIN sobreviven a un cdk destroy: no se pierden, pero hay que borrarlas a mano si algún día se desmonta todo."
+  ]
 }

@@ -5,9 +5,9 @@
 //   node migrate.mjs <carpeta de la release> <entorno> <región>
 //
 // POR QUÉ DESDE LA INSTANCIA: es la única máquina con ruta a RDS y con permiso
-// para leer el secreto del usuario maestro (`vapeupar/<env>/rds-master`, ver
-// app-stack.ts). El runner de GitHub no llega a la base y su rol no puede leer
-// secretos, a propósito.
+// para leer el secreto del usuario maestro (desde F7 lo gestiona y rota RDS,
+// `rds!db-<id>`; ver data-stack.ts y app-stack.ts). El runner de GitHub no
+// llega a la base y su rol no puede leer secretos, a propósito.
 //
 // EL CLI DE PRISMA NO VIAJA EN LA RELEASE: es una devDependency y su motor de
 // migraciones es un binario nativo de la plataforma donde se instala. Se
@@ -81,6 +81,9 @@ const param = (key) => {
   return params[key];
 };
 if (!existsSync(CA_PATH)) throw new Error(`falta ${CA_PATH} (lo descarga write-env.mjs al arrancar el backend)`);
+// Se lee en CADA ejecución, sin caché: RDS rota la contraseña cada 7 días y
+// el ARN sale del parámetro DB_SECRET_ARN. El secreto gestionado trae
+// `username` y `password`, las mismas claves que el antiguo de CDK.
 const master = JSON.parse(
   JSON.parse(aws(['secretsmanager', 'get-secret-value', '--secret-id', param('DB_SECRET_ARN')])).SecretString,
 );

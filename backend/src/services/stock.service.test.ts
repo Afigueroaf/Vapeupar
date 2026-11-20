@@ -90,6 +90,21 @@ describe('StockService.recordMovement: reglas', () => {
     await expectStockError(service.recordMovement(movement({ type: 'return', quantity: 1, supplierId: 'sup-1' })), 'VALIDATION');
   });
 
+  it('el precio cobrado solo en ventas, y queda en el movimiento', async () => {
+    await service.recordMovement(movement({ quantity: 5 }));
+    const sale = await service.recordMovement(movement({ type: 'sale', quantity: 1, unitPrice: 45000 }));
+    expect(sale.movement.unitPrice).toBe(45000);
+    expect((await service.recordMovement(movement({ quantity: 1 }))).movement.unitPrice).toBeNull();
+    await expectStockError(service.recordMovement(movement({ type: 'return', quantity: 1, unitPrice: 45000 })), 'VALIDATION');
+  });
+
+  it('un reintento con otro precio cobrado es otra operación', async () => {
+    await service.recordMovement(movement({ quantity: 5 }));
+    const first = movement({ type: 'sale', quantity: 1, unitPrice: 45000 });
+    await service.recordMovement(first);
+    await expectStockError(service.recordMovement({ ...first, unitPrice: 40000 }), 'OPERATION_KEY_CONFLICT');
+  });
+
   it('rechaza una variante inexistente', async () => {
     await expectStockError(service.recordMovement(movement({ variantId: 'no-existe' })), 'NOT_FOUND');
   });
@@ -210,5 +225,26 @@ describe('StockService: consultas y reconciliación', () => {
     const low = await service.findLowStock(5);
     expect(low.map(v => [v.variantId, v.stock])).toEqual([[VARIANT, 0], ['var-b', 2]]);
     await expectStockError(service.findLowStock(-1), 'VALIDATION');
+  });
+});
+
+describe('StockService.recordMovement: expectedStock', () => {
+  it('aborta con STOCK_CHANGED si el disponible bajo bloqueo no es el esperado, sin escribir', async () => {
+    await service.recordMovement(movement({ quantity: 5 }));
+    await service.recordMovement(movement({ type: 'sale', quantity: 1 }));
+    await expectStockError(
+      service.recordMovement(movement({ type: 'adjustment', quantity: -1, reason: 'Conteo', expectedStock: 5 })),
+      'STOCK_CHANGED'
+    );
+    expect(repo.movements).toHaveLength(2);
+    const ok = await service.recordMovement(movement({ type: 'adjustment', quantity: -1, reason: 'Conteo', expectedStock: 4 }));
+    expect(ok.stock).toBe(3);
+  });
+
+  it('un reintento con la misma clave es replay aunque el stock ya no sea el esperado', async () => {
+    const first = movement({ quantity: 5, expectedStock: 0 });
+    await service.recordMovement(first);
+    const again = await service.recordMovement(first);
+    expect(again.replayed).toBe(true);
   });
 });

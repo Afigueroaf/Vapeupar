@@ -2,10 +2,16 @@
  * Señal del glitch RGB de la página.
  *
  * `<PageGlitch />` es quien la produce: escribe `--glitch-shift` en el elemento
- * raíz en cada fotograma. Vive aquí, y no dentro de ese componente, porque la
- * consumen dos mundos distintos —el filtro SVG en CSS y el shader de la nube de
- * puntos— y el valor máximo tiene que ser el mismo en los tres sitios o la
- * intensidad se descoordina.
+ * raíz cada vez que el desplazamiento cambia. El valor va A SALTOS DE 3 PX
+ * (0, 3, 6… hasta 15): lo cuantiza `apply()` en `page-glitch.tsx`, no esta
+ * librería, para que los `feOffset` se reescriban 4 veces por ráfaga y no 13.
+ * Quien lee la señal la recibe ya cuantizada, así que el desgarro de la nube y
+ * el del prisma saltan igual que el filtro.
+ *
+ * Vive aquí, y no dentro de ese componente, porque la consumen dos mundos
+ * distintos —el filtro SVG en CSS y los shaders de la nube de puntos y del
+ * prisma— y el valor máximo tiene que ser el mismo en todos o la intensidad se
+ * descoordina.
  */
 
 /**

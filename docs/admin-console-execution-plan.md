@@ -16,15 +16,15 @@ V4 y V5.
 
 | Fase | Objetivo | Archivos | Estado |
 |---|---|---|---|
-| **A0** | Decisiones y entorno AWS dev | `infra/`, `docs/infrastructure-aws.md` | 🟡 **En curso**: entorno dev desplegado, 3 decisiones de producto abiertas |
+| **A0** | Decisiones y entorno AWS dev | `infra/`, `docs/infrastructure-aws.md` | ✅ **Ejecutada** (2026-11-16): entorno dev desplegado (2026-10-26) y las 6 decisiones de A0.1 cerradas |
 | **A1** | Esquema Prisma + migración + semilla desde `assets/` | `backend/prisma/`, `backend/src/db/` | ✅ **Ejecutada** (2026-10-26) |
 | **A2** | Desacoplar `ProductService` y reescribir sus tests | `backend/src/services/`, `*.test.ts` | ✅ **Ejecutada** (2026-10-26) |
 | **A3** | Dominio de inventario: movimientos, idempotencia, auditoría | `backend/src/services/stock.service.ts` | ✅ **Ejecutada** (2026-10-26) |
 | **A4** | Autenticación y superficie `/api/admin/*` | `backend/src/routes/admin/`, `backend/src/middleware/` | ✅ **Ejecutada** (2026-10-27): sesión, roles, endurecimiento, inventario y el CRUD completo. Solo queda fuera el puente AdminJS (A4.4), opcional y descartado |
-| **A5** | Consola `/admin` en Next | `frontend/src/app/(admin)/` | 🟡 **Parcial** (2026-10-27): A5.1 (stock), A5.2 (marcas y proveedores) y A5.3 (lineas y variantes), ejecutadas; falta A5.4, que depende de A7.1 |
+| **A5** | Consola `/admin` en Next | `frontend/src/app/(admin)/` | ✅ **Ejecutada** (2026-11-20): A5.1 (stock), A5.2 (marcas y proveedores), A5.3 (lineas y variantes) y A5.4 (contenido, en `feat/a5-4-consola-contenido`, sin fusionar). Falta la revisión en navegador. Ver «Registro A5.4» |
 | **A6** | Catálogo público con variantes | `product-card.tsx`, `product-catalog.tsx`, tipos | ✅ **Ejecutada** (2026-11-17): contratos con `variants` y `brandSlug`, tarjeta «Ver N sabores» con la elección en la ficha, y filtros sobre variantes. Ver «Registro A6» |
-| **A7** | `SiteContent` + revalidación + barrido de textos | `faq.tsx`, `layout.tsx`, `trust-band.tsx` | ⬜ Pendiente |
-| **A8** | Imágenes en S3 + CloudFront | `next.config.ts`, `storage.service.ts` | 🟡 **Parcial** (2026-10-27): código terminado y verificado de extremo a extremo —migración aplicada, subida real con URL prefirmada y lectura `200` por CloudFront—. Falta subir las imágenes del catálogo al bucket. Ver `docs/session-handoff-2026-10-27-inventory-images.md` |
+| **A7** | `SiteContent` + revalidación + barrido de textos | `faq.tsx`, `layout.tsx`, `trust-band.tsx` | 🟡 **Parcial** (2026-11-19): A7.1, A7.2 y A7.4 ejecutadas; A7.3 implementada en `feat/a7-3-revalidacion`, sin desplegar. Ver «Registro A7» |
+| **A8** | Imágenes en S3 + CloudFront | `next.config.ts`, `image-upload.service.ts` | ✅ **Ejecutada** (2026-11-17): código terminado y verificado de extremo a extremo el 2026-10-27 —migración aplicada, subida real con URL prefirmada y lectura `200` por CloudFront— e imágenes del catálogo subidas el 2026-11-17 con `db:upload-images` (bucket de 13 a 88 objetos). Ver «Fase A8» |
 
 Orden recomendado de valor entregado: A1 → A2 → A3 → A4 → **A5.1 (pantalla de
 stock)** → A8 → A5.2–A5.4 → A6 → A7. Con A5.1 y A8 ya se administra el inventario
@@ -910,8 +910,12 @@ formado).
   ejercitado contra el backend con Cognito sustituido.
 - **MFA.** Resuelto el 2026-11-16: la pantalla de acceso pide el código TOTP y,
   la primera vez en producción, enseña el QR para enrolarlo.
-- **Sin pruebas automáticas de frontend.** El workspace no tiene runner y A5 no
-  lo pedía; la red son el build, el lint y la comprobación de contrato de arriba.
+- ~~**Sin pruebas automáticas de frontend.** El workspace no tiene runner y A5 no
+  lo pedía; la red son el build, el lint y la comprobación de contrato de arriba.~~
+  En curso el 2026-11-20 (rama `test/frontend-vitest`, sin fusionar): Vitest en
+  el workspace frontend para la lógica pura de `src/lib` (carrito, mensaje de
+  WhatsApp, contacto, puerta +18, contenido y revalidación), con paso propio en
+  el CI. Las pantallas de la consola siguen sin pruebas de componente.
 
 ---
 
@@ -1029,6 +1033,80 @@ desactivar la ultima variante activa de una linea publicada responde `409`.
   siguiente revalidacion ISR (60 s). La revalidacion inmediata al publicar es
   A7.3 y no esta hecha.
 
+### Registro A5.4 (2026-11-20) — Contenido del sitio
+
+Rama `feat/a5-4-consola-contenido`, **sin fusionar ni desplegar**. Decisiones
+del dueño: publicación directa con vista previa y «Restaurar», sin borradores
+(`dec-borrador-o-publicacion-directa`), y la pregunta legal +18 de la FAQ fija
+en código (`dec-texto-legal-de-mayoria-de-edad`).
+
+| Archivo | Rol |
+|---|---|
+| `backend/src/schemas/content/faq.ts` y `frontend/src/lib/content/schemas.ts` | `LEGAL_FAQ_ITEM`, `LEGAL_FAQ_INDEX` (3) y `stripLegalFaqItem`; `faq.items` 1–11; `FAQ_DEFAULT` sin la legal. El frontend añade `withLegalFaqItem` |
+| `backend/src/services/content.service.ts` | Quita la legal al publicar, restaurar y leer; `restore(key, version)`; `ContentError.fields` |
+| `backend/src/routes/admin/content.routes.ts` | `POST /:key/versions/:version/restore` (owner, `201`, `meta.revalidated`) |
+| `backend/src/repositories/*site-content*` | `findVersion(key, version)` (Prisma: índice único `key_version`) |
+| `frontend/src/components/{hero-view,trust-band-view,contact-view}.tsx` | Vistas sin datos; `Hero`, `TrustBand` y `Footer` las renderizan |
+| `frontend/src/components/faq.tsx` | Inserta siempre la pregunta legal |
+| `frontend/src/lib/admin-api.ts` | `adminApi.content`: `keys`, `get` (404 → `null`), `versions`, `publish`, `restore` |
+| `frontend/src/lib/content-form.ts` | Validación en vivo, errores del backend por campo, límites sacados del esquema (JSON Schema), listas, avisos |
+| `frontend/src/components/admin/content/` | `fields`, `editors` (uno por clave), `preview`, `history` |
+| `frontend/src/app/(admin)/admin/(panel)/content/page.tsx` | La pantalla; «Contenido» en la navegación |
+
+**Decisiones tomadas durante la ejecución**
+
+- **«Restaurar» tiene endpoint propio** en vez de reenviar el valor desde el
+  navegador con un `PUT`: el servidor toma el valor de su propio historial y la
+  auditoría lo distingue (`content.restore` con `restoredFrom`). No se ofrece
+  sobre la versión vigente ni sobre una que ya no cumple el esquema.
+- **La pregunta legal va en la cuarta posición**, donde estaba: con el texto por
+  defecto la portada no cambia. Con menos de tres preguntas editables va al
+  final. Se reconoce por la pregunta, sin mirar espacios, mayúsculas, tildes
+  ni signos de puntuación; una pregunta legal con la respuesta cambiada también
+  se quita. Sin migración de datos: el filtro al leer cubre las versiones ya
+  publicadas. Si alguien la escribe en una tarjeta editable, la consola la
+  marca en esa tarjeta («Esta pregunta ya la añade el sitio») en vez de
+  quitarla en silencio.
+- **Una FAQ antigua con 12 preguntas editables** (el máximo anterior) se lee
+  recortada a 11 con un `console.warn`, en el backend, en el sitio y en el
+  editor, en vez de caer entera al texto por defecto. Al publicar se exige el
+  máximo de 11.
+- **Los límites del formulario salen del esquema** (`z.toJSONSchema`), no de
+  constantes: contadores, mínimos y máximos de lista se mueven solos si cambia
+  el esquema.
+- **Los borradores son locales y por clave**: cambiar de pestaña no pierde lo
+  editado (la pestaña lleva una marca) y el navegador avisa al salir con cambios.
+  No se guardan en ningún sitio, coherente con «sin borradores». «Restaurar» con
+  cambios sin publicar pide confirmación en la fila, y mientras se publica o
+  restaura el editor queda en solo lectura. Un error al restaurar se muestra en
+  el historial.
+- **Los `VALIDATION` de contenido devuelven `errors[]`** además del mensaje, para
+  señalar el campo; si la validación en vivo funciona no deberían llegar nunca.
+- **El autor del historial** se muestra como «tú» o con el inicio de su id: la
+  lista de usuarios es solo para el owner y usa el `sub` de Cognito, no el id.
+- **Vista previa**: la banda se muestra sin el escenario 3D (solo las tarjetas
+  en su `CardField`), y el SEO como tarjeta de buscador y de enlace compartido.
+  `FAQ`, `HeroView` y `ContactView` aceptan `preview` para no repetir ids de la
+  página (`#faq`, `#nosotros`) ni un segundo `h1`. En la consola el layout es de dos columnas desde `xl`; por debajo, la vista
+  previa va bajo el formulario. Los componentes del sitio responden al ancho de
+  la ventana, no al del panel, así que a 1280–1440 px la FAQ y el pie se ven
+  algo más apretados que en la portada.
+
+**Verificación**: `npm test` (backend 232, frontend 63, incluida la paridad y
+`content-form.test.ts`), `npm run lint --workspace=frontend`,
+`npx --workspace=frontend tsc --noEmit`, `npm run build`. El HTML prerenderizado
+de `/` conserva las cinco preguntas en el mismo orden.
+
+**No verificado**
+
+- **Nadie ha visto `/admin/content` en un navegador**: la consola necesita
+  Cognito y la base, así que no se arrancó. Falta el recorrido a 375, 768 y
+  1440 px con sesión de owner y de operator, y comparar la portada antes y
+  después de separar las vistas.
+- **La ruta de Prisma de `findVersion`** no se ha ejecutado contra la base.
+- **El criterio de punta a punta** (cambiar una FAQ y verla en la portada al
+  recargar) espera al despliegue de esta rama y de A7.3.
+
 ## Fase A6 — Catálogo público con variantes
 
 Intersección con el plan visual: se respetan las decisiones de V4 y V5
@@ -1099,9 +1177,10 @@ la API no responde, devuelve el default. La página nunca se queda sin texto.
 
 ### A7.3 — Revalidación on-demand
 
-Route handler `frontend/src/app/api/revalidate/route.ts` que valida
-`REVALIDATE_SECRET` y ejecuta `revalidateTag('catalogo' | 'contenido')`. El
-backend lo invoca tras publicar. El catálogo sigue renderizándose en servidor.
+Route handler `frontend/src/app/internal/revalidate/route.ts` (no `api/`:
+nginx manda `/api/*` al backend) que valida `REVALIDATE_SECRET` y ejecuta
+`revalidateTag('catalogo' | 'contenido', { expire: 0 })`. El backend lo invoca
+tras publicar. El catálogo sigue renderizándose en servidor. Ver «Registro A7.3».
 
 ### A7.4 — Barrido de lo que hoy está escrito a mano
 
@@ -1119,7 +1198,134 @@ marcar una marca como no aliada y verla desaparecer del texto de autenticidad.
 
 ---
 
+### Registro A7 (2026-11-18) — A7.1, A7.2 y A7.4
+
+**Archivos**
+
+| Archivo | Rol |
+|---|---|
+| `backend/src/schemas/content/` | Un esquema Zod estricto por clave, con límites de longitud y su valor por defecto (el texto que había en los componentes) |
+| `backend/src/services/content.service.ts` | `publish` valida por clave (`400` con `value.<campo>`) y guarda el valor recortado; `getPublic` sirve la última versión o el valor por defecto |
+| `backend/src/routes/site.routes.ts` | `GET /api/content/:key` y `GET /api/brands/partners`, públicos |
+| `frontend/src/lib/content/schemas.ts` | Espejo de los esquemas; `content-parity.test.ts` falla si divergen |
+| `frontend/src/lib/content.ts` | `getContent` (etiqueta `contenido`, `safeParse`, respaldo), `getPartnerBrands`, `withPartnerBrands` |
+| `hero.tsx`, `trust-band.tsx`, `faq.tsx`, `footer.tsx`, `app/page.tsx`, `app/layout.tsx` | Leen su clave; `layout.tsx` pasa a `generateMetadata` |
+
+**Decisiones tomadas durante la ejecución**
+
+- **La clave es `contact`, no `contacto`**, como el resto del contrato en
+  inglés (ya lo era en la ruta de A4). Cubre el texto de marca, la ubicación,
+  el horario y las líneas de atención del pie. **El teléfono y el WhatsApp
+  quedan fuera**: siguen en variables de entorno (decisión V0.3), para que un
+  número no pueda cambiarse sin desplegar.
+- **El hero no tiene titular ni CTA de texto**: el titular es el logotipo. Lo
+  editable es la etiqueta pixel (`label`, sin corchetes) y el reclamo
+  (`tagline`).
+- **La banda de confianza exige exactamente tres tarjetas**, porque el panel
+  está maquetado para tres apiladas en un teléfono en vertical.
+- **Marcas aliadas por marcador**: la respuesta de autenticidad lleva
+  `{marcas}`, que el sitio sustituye con `GET /api/brands/partners`. Sin lista,
+  «nuestras marcas aliadas». Con esto la FAQ deja de nombrar Lost Mary,
+  Geekvape, OXVA, Elf Bar y Nasty Juice, que no se venden; y las keywords de
+  SEO pierden `lost mary`, `geekvape` y `oxva` sin poner otra marca a mano.
+  El marcador solo se admite en la FAQ (en cualquiera de sus textos); en otra
+  clave, publicar es `400`.
+- **Lectura con tope de 3 s** (`AbortSignal.timeout`): un backend colgado no
+  cuelga la página, sirve el valor por defecto. Los fetch del catálogo llevan
+  ya la etiqueta `catalogo` para A7.3.
+- **Esquemas duplicados con prueba de paridad** en vez de un paquete
+  compartido, que es el item `tipos-compartidos` y toca el empaquetado de la
+  release. La prueba compara JSON Schema y valores por defecto.
+- **Lectura pública sin 404**: una clave nunca publicada, o cuya última fila no
+  cumple el esquema (anterior a A7.1), devuelve el valor por defecto con
+  `source: "default"`.
+
+**Verificación**
+
+- `npm run test:backend`: esquemas por clave, lectura pública, rutas públicas
+  y paridad.
+- `npm run build` con el backend apagado: la portada se genera con los textos
+  por defecto y la FAQ dice «distribuidores autorizados de nuestras marcas
+  aliadas».
+- **Pendiente con el entorno vivo**: publicar una FAQ desde la API y verla en el
+  sitio (hasta 60 s sin A7.3), y marcar una marca como no aliada y verla
+  desaparecer del texto de autenticidad.
+
+### Registro A7.3 (2026-11-19) — Revalidación on-demand
+
+Rama `feat/a7-3-revalidacion`, **sin desplegar**. Decisión del dueño: refrescan
+al instante el catálogo, el contenido **y el stock** (ventas, ingresos,
+ajustes).
+
+| Archivo | Rol |
+|---|---|
+| `frontend/src/app/internal/revalidate/route.ts` | `POST` con Bearer; `503`/`401`/`400`; `revalidateTag(tag, { expire: 0 })` |
+| `frontend/src/lib/revalidate-auth.ts` | Comparación en tiempo constante sobre SHA-256 |
+| `frontend/src/lib/cache-tags.ts` | `CATALOG_TAG`, `CONTENT_TAG`, `SITE_TAGS`; `api.ts` y `content.ts` dejan el literal |
+| `backend/src/services/site-revalidation.service.ts` | `notifySite(tags)`: tope de 3 s, nunca lanza, sin secreto no hace nada |
+| `backend/src/routes/admin/*.routes.ts` | Avisan tras contenido, marcas, líneas, variantes y movimientos; `meta.revalidated` |
+| `infra/lib/app-stack.ts` | Secreto `vapeupar/<env>/revalidate`, `REVALIDATE_SECRET_ARN` en SSM, permiso de lectura |
+| `infra/deploy/write-env.mjs` | `backend.env` + `frontend.env` (solo `REVALIDATE_SECRET`) desde una sola lectura |
+| `infra/deploy/systemd/vapeupar-frontend.service`, `nginx/vapeupar-site.inc` | `EnvironmentFile=-…/frontend.env`; `/internal/` → `404` |
+
+**Decisiones tomadas durante la ejecución**
+
+- **El secreto es opcional en `write-env.mjs`**: si `REVALIDATE_SECRET_ARN` no
+  existe todavía (release desplegada antes que el stack App), avisa y sigue;
+  backend y frontend arrancan y el sitio se refresca por ISR. Si el parámetro
+  existe pero el secreto no se lee, falla como los demás. El orden recomendado
+  sigue siendo stack App primero y release después, pero equivocarse ya no
+  tumba el backend.
+- **`frontend.env` se escribe siempre**, aunque vaya vacío, y el frontend lo
+  carga con `EnvironmentFile=-`: sin archivo, Next arranca y la ruta da `503`.
+- **El secreto vive en el stack App**, con el rol que lo lee: el diff solo toca
+  ese stack. 64 caracteres alfanuméricos (Secrets Manager no genera hex).
+- **Marcas: solo `catalogo`**: `getPartnerBrands` lleva las dos etiquetas, así
+  que invalidar `catalogo` ya regenera la lista de aliadas sin regenerar todo
+  el contenido.
+- **La respuesta espera el aviso** (tope 3 s) para poder devolver
+  `meta.revalidated`. Un reintento de movimiento (`replayed`) también avisa.
+- **Proveedores, umbral de bajo stock y las rutas de subida de imágenes no
+  avisan.** Proveedores y umbral no cambian nada de lo que ve el visitante. Una
+  imagen nueva se sube a una clave nueva (versionada), y el cambio llega al
+  sitio por el `PATCH` de `imageKey`/`logoKey` de la línea, la variante o la
+  marca, que ya revalida `catalogo`; `presign` e `invalidate` no tocan nada
+  publicado.
+- **La ruta invalida también todas las rutas** (`revalidatePath('/',
+  'layout')`): el build de producción se compila sin `API_URL`, así que `/`,
+  `/coleccion/*` y el layout quedan prerenderizados sin las etiquetas
+  (`.next/server/app/index.meta`), y `revalidateTag` solo no los alcanzaría
+  hasta su primera regeneración por ISR. Comprobado con `next start`: tras la
+  llamada, `/` y `/coleccion/pods` pasan de `HIT` a `MISS`.
+- **`frontend.env` aparte es mínimo privilegio de configuración, no
+  aislamiento**: los dos servicios corren como `vapeupar`. El usuario propio
+  para el frontend queda propuesto en `f7-endurecimiento-perimetral`.
+
+**Verificación**: `npm run test:backend`, `npm run lint --workspace=frontend`,
+`npm run build`, `npm run typecheck --workspace=infra`; `infra:diff` muestra en
+App solo el secreto, su parámetro y el permiso (más el hash de la lambda de
+borrado de S3, que es deriva de la versión de CDK).
+
+**Pendiente**: desplegar con aprobación solo el stack App
+(`cd infra && VAPEUPAR_ALERT_EMAIL=… npx cdk deploy -c env=dev -e Vapeupar-dev-App`),
+después la release; y comprobar en producción: `POST /internal/revalidate` desde
+fuera da `404`, publicar una FAQ y registrar una venta que deja una variante en
+0 se ven al recargar, y `journalctl -u vapeupar-backend` sin avisos de
+revalidación. La consola todavía no muestra el aviso «se verá en ≤60 s» cuando
+`meta.revalidated` es `false` (la pantalla de contenido de A5.4 sí lo muestra).
+
 ## Fase A8 — Imágenes en S3 + CloudFront
+
+> **Se implementó distinto de este diseño (2026-10-27) y está terminada (2026-11-17).**
+> El servicio es `backend/src/services/image-upload.service.ts` (no
+> `storage.service.ts`); las rutas son `POST /api/admin/uploads/presign` y
+> `POST /api/admin/uploads/invalidate`; los tipos admitidos son solo webp, jpeg y
+> png, **sin SVG** (`backend/src/schemas/admin/image-upload.schema.ts`); y la carga
+> inicial no usó `aws s3 sync`, sino el script `npm run db:upload-images
+> --workspace=backend` (`backend/scripts/upload-catalog-images.ts`), que el
+> 2026-11-17 subió 75 imágenes (bucket de 13 a 88 objetos). Detalle vigente en
+> `docs/backend.md` y `docs/infrastructure-aws.md` §2. Lo que sigue es el diseño
+> original, que se conserva como registro.
 
 El bucket `vapeupar-dev-catalog-<cuenta>` y su distribución de CloudFront ya
 existen (stack `Vapeupar-dev-Storage`), con CORS para `PUT` desde
@@ -1176,10 +1382,10 @@ imágenes en storage, autenticación y auditoría.
 | # | Dependencia | Bloquea |
 |---|---|---|
 | 1 | ~~Entorno de datos, storage y auth~~ | ✅ Desplegado en AWS dev (A0.2) |
-| 2 | Correo del owner inicial (recibe la invitación de Cognito) | Primer acceso a la consola |
+| 2 | ~~Correo del owner inicial (recibe la invitación de Cognito)~~ | ✅ Resuelto: el owner entra con MFA en producción desde el 2026-11-17 |
 | 3 | Precio real de cada una de las cuatro líneas y conteo físico inicial del inventario | Publicar líneas (A5.3) y primer uso de A5.1 |
 | 4 | Datos de los proveedores reales (contacto, condiciones) | A5.2 |
-| 5 | Cómputo del backend en AWS (ECS Fargate o Lightsail Containers) y alojamiento del frontend | Despliegue público; en dev el backend corre en local. Ver `docs/infrastructure-aws.md` §8 |
+| 5 | ~~Cómputo del backend en AWS y alojamiento del frontend~~ | ✅ Resuelto el 2026-11-06: frontend y backend en una EC2 con nginx y systemd (no ECS ni Lightsail). Ver `docs/aws-full-deployment-plan.md` |
 | 6 | Logos de las demás marcas aliadas en SVG | A5.2 |
 | 7 | Dominio propio verificado en SES | Correo de invitaciones en producción |
 

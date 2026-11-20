@@ -1,0 +1,37 @@
+{
+  "title": "Ventas: cuándo se descuenta el stock",
+  "status": "hecho",
+  "priority": "media",
+  "area": "producto",
+  "summary": "Descontar pronto evita vender dos veces la última unidad, pero obliga a devolver el stock si el cliente cancela. Descontar al entregar refleja la venta real, a cambio de que el sitio muestre unidades que ya están comprometidas.",
+  "question": "¿En qué momento debe restarse el stock: al confirmar el pedido con el cliente por chat, al entregarlo, o al recibir el mensaje (como reserva)?",
+  "options": [
+    {
+      "label": "Al confirmar por chat",
+      "detail": "Equilibrio: el sitio deja de ofrecer lo comprometido. Una cancelación se registra como devolución.",
+      "prompt": "Decisión: el stock se descuenta cuando el operador confirma el pedido con el cliente. Una cancelación posterior se registra como movimiento 'return' con la misma referencia VP. Documéntalo en docs/sales-flow-proposal.md y en la ayuda de la pantalla de registro (MOVEMENT_HINTS en movement-labels.ts).",
+      "recommended": true
+    },
+    {
+      "label": "Al entregar",
+      "detail": "Solo cuentan las ventas cobradas. Entre la confirmación y la entrega, el sitio puede ofrecer unidades comprometidas.",
+      "prompt": "Decisión: el stock se descuenta al entregar y cobrar. Documéntalo en docs/sales-flow-proposal.md. En la pantalla de registro, muestra un aviso cuando una variante tenga pocas unidades para que el operador la reserve mentalmente."
+    },
+    {
+      "label": "Reserva al recibir el pedido",
+      "detail": "No se vende dos veces, pero exige la entidad Order con reservas que caducan y su limpieza.",
+      "prompt": "Decisión: el stock se reserva al recibir el pedido. Esto implica la entidad Order. Añade al ADR-003 el modelo de reserva (movimiento o tabla de reservas, caducidad, liberación al cancelar) y su efecto en el disponible público. No implementes nada hasta que lo apruebe."
+    }
+  ],
+  "parent": "registro-ventas",
+  "source": "Plan de desarrollo 2026-11-18 (registro-ventas)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:58:52.620Z",
+  "updatedAt": "2026-11-19T06:14:54.682Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:14:54.681Z",
+  "queued": false
+}

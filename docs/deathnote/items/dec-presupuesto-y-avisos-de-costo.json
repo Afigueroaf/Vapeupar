@@ -1,0 +1,32 @@
+{
+  "title": "Plan de pago AWS: presupuesto y avisos de costo",
+  "status": "hecho",
+  "priority": "media",
+  "area": "infra",
+  "summary": "Con el plan de pago, Vapeupar cuesta unos 27,5 USD/mes de verdad. Un presupuesto muy alto avisa tarde y uno muy bajo avisa por nada. Las alertas son gratis. Los avisos llegan solo al correo de VAPEUPAR_ALERT_EMAIL.",
+  "question": "¿Te sirven el presupuesto de 45 USD/mes (avisos al 50/80/100 %) y la alerta de anomalías desde 5 USD que ya están en la rama?",
+  "options": [
+    {
+      "label": "Dejarlo como está: 45 USD y anomalías desde 5 USD",
+      "detail": "Lo preparado en chore/aws-plan-pago, sin cambios. 0 USD extra.",
+      "prompt": "Confirmo los valores de chore/aws-plan-pago: monthlyBudgetUsd 45 y costAnomalyThresholdUsd 5 en infra/lib/config.ts. No cambies nada; anótalo como confirmado en el claudeNote de plan-pago-aws. Aceptación: el item refleja la confirmación y no hay cambios en infra/.",
+      "recommended": true
+    },
+    {
+      "label": "Más ajustado: 35 USD y anomalías desde 3 USD",
+      "detail": "Avisa antes de un desvío pequeño, a cambio de algún correo de más en los meses con picos de CloudFront o snapshots.",
+      "prompt": "En la rama chore/aws-plan-pago, cambia en infra/lib/config.ts (dev) monthlyBudgetUsd a 35 y costAnomalyThresholdUsd a 3, y actualiza la tabla de docs/infrastructure-aws.md §6.2. Ejecuta `npm run typecheck --workspace=infra` y `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff` y muéstrame el diff de Vapeupar-dev-Ops. NO despliegues: se aplica con el resto del cambio a pago. Aceptación: el diff de Ops muestra 35 USD y el umbral de 3."
+    }
+  ],
+  "parent": "plan-pago-aws",
+  "source": "Plan de desarrollo 2026-11-18 (plan-pago-aws)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.854Z",
+  "updatedAt": "2026-11-19T06:27:16.762Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:27:16.761Z",
+  "queued": false
+}

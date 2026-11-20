@@ -12,7 +12,7 @@ Implementar y mantener la API REST en TypeScript de Vapeupar (`backend/`) — ru
 - Al crear o modificar un endpoint en `backend/src/routes/`.
 - Al agregar lógica de negocio o filtros en `backend/src/services/product.service.ts`.
 - Al modificar modelos de datos o interfaces en `backend/src/types/product.types.ts`.
-- Al integrar una base de datos relacional (PostgreSQL/Prisma) o servicios externos.
+- Al tocar repositorios Prisma (`backend/src/repositories/`) o servicios externos (Cognito, S3, CloudFront).
 - Al configurar middlewares (CORS, logging, autenticación, rate limiting).
 
 ## Debe consultar
@@ -25,7 +25,8 @@ Implementar y mantener la API REST en TypeScript de Vapeupar (`backend/`) — ru
 ## Reglas
 - La lógica de negocio vive en `backend/src/services/`, no en los controladores de ruta (`backend/src/routes/`).
 - Tipado estricto: Todo parámetro de entrada, modelo de datos y respuesta debe estar completamente tipado en TypeScript. No usar `any`.
-- Validar datos de entrada con esquemas Zod para endpoints que reciban datos en el body o parámetros complejos.
+- Tipado estricto también al convertir: no usar `as` (type assertions forzadas) sin una validación previa que lo justifique.
+- Toda ruta que reciba query, params o body se valida con esquemas Zod de `backend/src/schemas/` (`schemas/admin/` para la consola).
 - Mantener el contrato de la API estable: un cambio en la forma de la respuesta **o en el status code** es un cambio de contrato. Actualizar los tipos del frontend y `docs/backend.md` en el mismo cambio, nunca después.
 - CORS restringido: Asegurar que el backend solo acepte orígenes autorizados definidos en `FRONTEND_URL`.
 - Revisar `backend/src/services/` antes de escribir una función nueva: no duplicar lógica que ya existe en un servicio.
@@ -35,4 +36,4 @@ Implementar y mantener la API REST en TypeScript de Vapeupar (`backend/`) — ru
 ## Restricciones
 - No modificar `frontend/` salvo que sea estrictamente necesario para un cambio de contrato, y en ese caso coordinarlo explícitamente con la skill `frontend`.
 - No escribir secretos (valores de `.env`) en código, logs ni documentación.
-- No agregar dependencias nuevas sin necesidad clara: Express + Zod + TypeScript cubren el alcance actual de routing, validación y tipado.
+- No agregar dependencias nuevas sin necesidad clara: Express, Zod, Prisma y el SDK de AWS ya cubren routing, validación, persistencia, sesión e imágenes.

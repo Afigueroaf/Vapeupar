@@ -10,11 +10,11 @@ Decisión de origen: [ADR-002](decisions/002-consola-de-administracion-y-persist
 | | |
 |---|---|
 | Cuenta | `342284838697` (compartida con DeliPan staging) |
-| Plan de AWS | **Gratuito** (`FREE`), vence el 2027-03-12; 157,54 USD de crédito al 2026-10-26. Ver §6.1 |
+| Plan de AWS | **Gratuito** (`FREE`) al 2026-10-26, con vencimiento el 2027-03-12. Crédito recalculado en [`aws-full-deployment-plan.md`](aws-full-deployment-plan.md) §7.1; el paso a plan de pago se sigue en el Deathnote (`plan-pago-aws`). Ver §6.1 |
 | Región | `us-east-1` |
 | Código | `infra/` (AWS CDK, TypeScript) |
-| Entorno `dev` | ✅ Desplegado el 2026-10-26 |
-| Entorno `prod` | ⬜ Definido en `infra/lib/config.ts`, **no desplegado** (ver §8) |
+| Entorno `dev` | ✅ Desplegado el 2026-10-26. **Es la producción** desde el 2026-11-06, en https://vapeupar.ddns.net (§2) |
+| Entorno `prod` | ⬜ Entorno futuro, solo definido en `infra/lib/config.ts`: **no desplegado** y sin fecha. No es la tienda en producción, que corre en `dev` (ver §8) |
 
 ---
 
@@ -63,10 +63,11 @@ Decisión de origen: [ADR-002](decisions/002-consola-de-administracion-y-persist
 |---|---|
 | `CDKToolkit-Vapeupar` | Toolkit de CDK propio (qualifier `vapeupar`): bucket de assets y roles `cdk-vapeupar-*` |
 | `Vapeupar-dev-Network` | VPC, 2 subredes públicas + 2 aisladas, Internet Gateway, endpoint S3, grupo de seguridad por defecto cerrado |
-| `Vapeupar-dev-Data` | RDS `vapeupar-dev-db` (protección de borrado, `RETAIN`), grupo de seguridad `vapeupar-dev-rds`, secretos `vapeupar/dev/rds-master` (maestro) y `vapeupar/dev/rds-app` (rol `vapeupar_app`) |
+| `Vapeupar-dev-Data` | RDS `vapeupar-dev-db` (protección de borrado, `RETAIN`), grupo de seguridad `vapeupar-dev-rds`, secreto `vapeupar/dev/rds-app` (rol `vapeupar_app`). El maestro: `vapeupar/dev/rds-master` hasta F7; con F7 desplegado, el que gestiona y rota RDS (`rds!db-<id>`, cada 7 días) |
 | `Vapeupar-dev-Storage` | Bucket `vapeupar-dev-catalog-342284838697`, distribución CloudFront con OAC |
 | `Vapeupar-dev-Auth` | User Pool `vapeupar-dev-admins`, cliente `vapeupar-dev-backend`, secreto `vapeupar/dev/cognito-backend-client` |
 | `Vapeupar-dev-Ops` | Presupuesto `vapeupar-dev-monthly` (30 USD), grupo de recursos `vapeupar-dev-resources` |
+| `Vapeupar-dev-Monitoring` | Tema SNS `vapeupar-dev-alerts` (correo de `VAPEUPAR_ALERT_EMAIL`) y las 10 alarmas `vapeupar-dev-*` de la EC2, RDS y las métricas propias (namespace `Vapeupar`). Sin exports: lee `APP_INSTANCE_ID` de SSM. Ver §5.6 (F6, **pendiente de desplegar**) |
 | `Vapeupar-dev-App` | EC2 `vapeupar-dev-app` (`t4g.micro`, Node 22, nginx, IP elástica), grupo `vapeupar-dev-app` (solo 80/443), rol `vapeupar-dev-app` con permisos mínimos, regla 5432 en el grupo de RDS, bucket `vapeupar-dev-artifacts-342284838697`. Detalle en [`aws-full-deployment-plan.md`](aws-full-deployment-plan.md) F1 |
 
 ### Parámetros publicados en SSM (`/vapeupar/dev/*`)
@@ -78,7 +79,7 @@ se actualiza solo.
 | Parámetro | Contenido |
 |---|---|
 | `DB_HOST`, `DB_PORT`, `DB_NAME` | Endpoint de RDS |
-| `DB_SECRET_ARN` | ARN del secreto con usuario y contraseña maestros (solo migraciones) |
+| `DB_SECRET_ARN` | ARN del secreto con usuario y contraseña maestros (solo migraciones). Con F7, `MasterUserSecret.SecretArn` de la instancia: rota cada 7 días, hay que releerlo (`npm run infra:env-backend`) |
 | `DB_APP_SECRET_ARN` | ARN del secreto del rol `vapeupar_app` (runtime del backend) |
 | `TUNNEL_INSTANCE_ID` | Instancia destino del túnel (hoy, la de la aplicación). Sustituye a `BASTION_INSTANCE_ID`, retirado el 2026-11-06 |
 | `APP_INSTANCE_ID`, `APP_PUBLIC_IP` | EC2 de la aplicación y su IP elástica |
@@ -404,8 +405,8 @@ la release y **antes** de cambiar `current`:
 - Instala en la instancia el CLI de Prisma de la versión exacta del lockfile
   (`/opt/vapeupar/tools/prisma-<versión>`, una vez por versión: el motor de
   migraciones es un binario nativo y no viaja en la release).
-- Se conecta con el usuario maestro (`vapeupar/dev/rds-master`, que solo puede
-  leer el rol de la instancia) y TLS verificado contra la CA de RDS
+- Se conecta con el usuario maestro (secreto `DB_SECRET_ARN`; desde F7 lo
+  gestiona y rota RDS, y solo puede leerlo el rol de la instancia) y TLS verificado contra la CA de RDS
   (`sslaccept=strict`, el equivalente de `verify-full`).
 - `prisma migrate deploy` aplica solo las pendientes; sin pendientes, no hace
   nada.
@@ -591,6 +592,112 @@ cd infra && npx cdk destroy --all
 - `CDKToolkit-Vapeupar` no se borra con `destroy`; se elimina aparte si ya no
   habrá ningún entorno.
 
+### 5.6 Vigilancia: alarmas, métricas y registros (F6)
+
+> Implementado en la rama `infra/f6-alarmas` el 2026-11-20, **sin desplegar**.
+> Decisiones del dueño: aviso solo por correo, **sin chequeo externo** de
+> disponibilidad y registros solo en la instancia.
+
+**Alarmas** (`infra/lib/monitoring-stack.ts`). Todas avisan al tema
+`vapeupar-dev-alerts` al entrar en ALARM y al volver a OK. Son **10, el
+máximo gratuito de la cuenta** (compartido con DeliPan); lo comprueba
+`npm run test --workspace=infra`, que también corre en CI.
+
+| Alarma | Métrica | Condición | Sin datos |
+|---|---|---|---|
+| `vapeupar-dev-ec2-status-system` | `AWS/EC2 StatusCheckFailed_System` (máx., 1 min) | ≥ 1 durante 2 min. **Además recupera la EC2** (otro host, misma IP elástica) | sin cambio |
+| `vapeupar-dev-ec2-status-instance` | `AWS/EC2 StatusCheckFailed_Instance` (máx., 1 min) | ≥ 1 durante 3 min | sin cambio |
+| `vapeupar-dev-ec2-cpu` | `AWS/EC2 CPUUtilization` (media, 5 min) | > 80 % durante 15 min | sin cambio |
+| `vapeupar-dev-ec2-cpu-credits` | `AWS/EC2 CPUCreditBalance` (mín., 5 min) | < 20 créditos | sin cambio |
+| `vapeupar-dev-rds-storage` | `AWS/RDS FreeStorageSpace` (mín., 5 min) | < 5 GB (10 % del techo de autoescalado, `maxAllocatedStorageGb` = 50) | sin cambio |
+| `vapeupar-dev-rds-connections` | `AWS/RDS DatabaseConnections` (máx., 5 min) | > 60 durante 10 min | sin cambio |
+| `vapeupar-dev-rds-memory` | `AWS/RDS FreeableMemory` (mín., 5 min) | < 100 MB durante 15 min | sin cambio |
+| `vapeupar-dev-mem` | `Vapeupar MemUsedPercent` (media, 5 min) | > 90 % durante 15 min | **alarma** |
+| `vapeupar-dev-disk` | `Vapeupar RootDiskUsedPercent` (máx., 5 min) | > 80 % durante 15 min | **alarma** |
+| `vapeupar-dev-cert` | `Vapeupar CertDaysLeft` (mín., 1 h) | < 20 días | **alarma** |
+
+Fuera para no pasar de 10: la CPU de RDS y una alarma propia del timer de
+métricas (si el timer se para, memoria, disco y certificado pasan a ALARM a los
+15 minutos —1 hora el certificado—). **No se vigila desde fuera**: una caída de
+nginx o de Node con la máquina encendida, o el nombre de No-IP caducado, no
+avisan (riesgo aceptado, `aws-full-deployment-plan.md` §5).
+
+`rds-storage` no usa 2 GB porque ahí es donde el autoescalado de RDS ya crece
+(menos del 10 % de lo asignado): avisaría de algo que se está resolviendo solo
+y, cerca del techo de 50 GB, demasiado tarde. Con los 20 GB iniciales salta a
+los 15 GB usados, antes de que RDS crezca; para una base que ocupa megas eso ya
+es una anomalía.
+
+El tema lleva `enforceSSL`, y su política sustituye a la predeterminada: por eso
+incluye un Allow de `sns:Publish` para `cloudwatch.amazonaws.com`, limitado a
+esta cuenta y a las alarmas `vapeupar-dev-*` (lo exige el test).
+
+**Métricas propias, sin agente.** `vapeupar-metrics.timer` lanza cada 5
+minutos `/usr/local/sbin/vapeupar-metrics` (copia de
+`infra/deploy/metrics/vapeupar-metrics.sh`), que envía `MemUsedPercent`,
+`RootDiskUsedPercent` y `CertDaysLeft` con `aws cloudwatch put-metric-data`,
+dimensión `Environment=dev`. **Solo las que tienen alarma**: las 10 métricas
+propias gratuitas son por cuenta y se comparten con DeliPan (techo
+`MAX_CUSTOM_METRICS` = 3, comprobado por el test). Cada métrica es
+independiente: si el certificado no se puede leer (corrupto, sin `openssl`),
+memoria y disco se envían igual y la alarma del certificado avisa por falta de
+datos. `openssl` viene del paquete `openssl` de AL2023; el user-data no lo
+instala, así que `activate.sh` lo instala con `dnf` si falta. El rol de la
+instancia solo puede publicar en el namespace `Vapeupar`. Lo instala y habilita
+`activate.sh` en cada release, así que **llega con la primera release
+posterior al despliegue**; hasta entonces esas tres alarmas están en ALARM o
+INSUFFICIENT_DATA. Prueba en local: `VAPEUPAR_METRICS_DRY_RUN=1 bash
+infra/deploy/metrics/vapeupar-metrics.sh` imprime los datos sin enviarlos.
+
+**Registros solo en la instancia** (no se envían a CloudWatch Logs).
+`infra/deploy/journald/90-vapeupar.conf` limita el journal a 200 MB y 14
+días; nginx rota con el `/etc/logrotate.d/nginx` del paquete (si faltara,
+`activate.sh` instala `infra/deploy/nginx/logrotate`: diario, 14 copias,
+comprimido). Se leen por SSM:
+
+```bash
+# En Git Bash, anteponer MSYS_NO_PATHCONV=1.
+aws ssm start-session --target <APP_INSTANCE_ID>
+sudo journalctl -u vapeupar-backend --since -1h --no-pager
+sudo journalctl -u vapeupar-frontend -u vapeupar-env -n 200 --no-pager
+sudo journalctl -u vapeupar-metrics -n 20 --no-pager
+sudo journalctl --disk-usage
+sudo tail -n 100 /var/log/nginx/error.log
+```
+
+**Puesta en marcha** (una vez, con aprobación). Orden: **App → release →
+Monitoring**, para que las métricas propias ya lleguen cuando nazcan las
+alarmas:
+
+1. `VAPEUPAR_ALERT_EMAIL=<correo> npm run infra:diff`: solo el stack nuevo
+   `Vapeupar-dev-Monitoring` y la sentencia `cloudwatch:PutMetricData` en la
+   política del rol de App. **Ningún reemplazo** de la EC2 ni de RDS.
+2. Desplegar solo `Vapeupar-dev-App` (la política).
+3. Sacar una release (`npm run app:deploy` o el workflow): instala el timer,
+   journald y, si falta, openssl. Comprobar `aws cloudwatch list-metrics
+   --namespace Vapeupar` (tres métricas) antes de seguir.
+4. Desplegar `Vapeupar-dev-Monitoring`. Si se despliega antes de la release,
+   `vapeupar-dev-mem`, `-disk` y `-cert` entran en ALARM por datos ausentes
+   (BREACHING) y mandan correo; es lo esperado y se limpia con el OK en cuanto
+   llegan datos.
+5. Confirmar la suscripción con el enlace del correo «AWS Notification -
+   Subscription Confirmation». Sin eso no llega ningún aviso.
+6. Comprobar, y **que el correo llegue** (es la única prueba de que CloudWatch
+   puede publicar en el tema):
+
+```bash
+aws cloudwatch describe-alarms --alarm-name-prefix vapeupar-dev --query 'MetricAlarms[].[AlarmName,StateValue]' --output table
+aws cloudwatch list-metrics --namespace Vapeupar
+aws cloudwatch set-alarm-state --alarm-name vapeupar-dev-rds-connections --state-value ALARM --state-reason prueba
+# Debe LLEGAR al buzón un correo «ALARM: vapeupar-dev-rds-connections» (mirar
+# también spam) y, a los 5-10 minutos, otro de OK. Si no llega con la
+# suscripción confirmada, revisar la política del tema y el historial de la
+# alarma (describe-alarm-history: «Failed to execute action»).
+```
+
+**Si se reemplaza la EC2**, volver a desplegar `Vapeupar-dev-Monitoring`: el id
+de la instancia se lee del parámetro SSM al desplegar, no se actualiza solo.
+
 ## 6. Costos estimados del entorno dev
 
 Precios de lista aproximados en `us-east-1`; confirmar en la
@@ -605,6 +712,7 @@ Precios de lista aproximados en `us-east-1`; confirmar en la
 | ~~Bastión + su IPv4~~ (retirado el 2026-11-06) | ~~10.5~~ |
 | Secrets Manager (2 secretos) | ~0.8 |
 | CloudWatch Logs (logs de PostgreSQL, 1 semana) | <1 |
+| CloudWatch: 10 alarmas y 4 métricas propias (F6) | 0 dentro de la capa gratuita (10 alarmas y 10 métricas **por cuenta**, compartidas con DeliPan); si no quedan, ~1 + ~1,2 |
 | S3, CloudFront, Cognito Lite, SSM, Lambdas de CDK | ~0 a este volumen |
 | **Total** | **~27.5** (antes ~26, con bastión y sin aplicación) |
 
@@ -614,6 +722,9 @@ previsto sobre 30 USD, contando solo recursos con `Project=Vapeupar` y
 a ambos proyectos.
 
 ### 6.1 Plan gratuito de AWS y créditos compartidos ⚠️
+
+> Datos del 2026-10-26, cuando se desplegó dev. Se conservan como referencia;
+> lo vigente está en los enlaces de «Qué hacer».
 
 La cuenta está en el **plan gratuito** de AWS (`aws freetier get-account-plan-state`):
 
@@ -642,8 +753,12 @@ Qué hacer:
 
 - Decidir **antes de enero de 2027** si la cuenta pasa a plan de pago. Es una
   decisión conjunta con DeliPan, porque afecta a ambos.
-- Detener el bastión y la base cuando no se usen (§5.4): baja el consumo de
-  Vapeupar de ~26 a ~3 USD/mes.
+- ~~Detener el bastión y la base cuando no se usen~~: el bastión se retiró el
+  2026-11-06 y, desde ese día, detener la EC2 o la base (§5.4) deja la tienda
+  fuera de línea. Ya no es una forma de ahorrar.
+- Saldo y fecha de agotamiento actualizados: [`aws-full-deployment-plan.md`](aws-full-deployment-plan.md)
+  §7.1. La decisión de pasar a plan de pago está en el item `plan-pago-aws` del
+  Deathnote (`npm run deathnote -- ver plan-pago-aws`).
 - Consultar el saldo: `aws freetier get-account-plan-state`.
 
 ## 7. Verificación del despliegue
@@ -715,19 +830,22 @@ que falta no es código de infraestructura nuevo, sino estas decisiones y tareas
      `cdk-vapeupar-*`.
    - Como mínimo, un usuario o rol IAM `vapeupar-deployer` con MFA, distinto de
      `delipan_admin`.
-2. **CI/CD con OIDC.** Un rol `vapeupar-github-actions-deploy` (el mismo patrón
-   que ya usa DeliPan) que solo pueda asumir los roles `cdk-vapeupar-*`. Sin
-   claves de larga duración en GitHub.
+2. ~~**CI/CD con OIDC.**~~ **Hecho para la aplicación** (PR #1 y #9): el rol
+   `vapeupar-dev-github-deploy` (`infra/lib/app-stack.ts`) solo publica la
+   release en el bucket de artefactos y la activa por SSM, sin claves de larga
+   duración en GitHub (§5.2.1). Los cambios de CDK siguen desplegándose a mano;
+   un rol de CI que asuma los roles `cdk-vapeupar-*` queda para prod.
 3. **Dominio.** DNS (Route 53 u otro), certificados ACM (el de CloudFront debe
    estar en `us-east-1`), dominio propio para imágenes (p. ej.
    `img.<dominio>`) y para la API.
 4. **Correo.** Verificar el dominio en SES (DKIM, SPF, DMARC), solicitar el
    acceso de producción de SES (sale del sandbox en ~24 h) y cambiar el User
    Pool a `UserPoolEmail.withSES`.
-5. **Rol del backend.** Hoy el backend corre en local y firma con la sesión del
-   AWS CLI. Su rol en prod necesita exactamente dos permisos sobre el
-   catálogo, y ninguno más: `s3:PutObject` limitado al prefijo del catálogo y
-   `cloudfront:CreateInvalidation` sobre la distribución del catálogo. Nunca el
+5. **Rol del backend.** Hecho en dev: el backend corre en la EC2 con el rol
+   `vapeupar-dev-app`, que sobre el catálogo solo tiene `s3:PutObject` y
+   `s3:DeleteObject` en los prefijos `marcas/`, `proveedores/` y `productos/`, y
+   `cloudfront:CreateInvalidation` sobre la distribución del catálogo. Prod
+   necesita el mismo recorte. Nunca el
    administrador compartido de la cuenta: quien pueda llamar al presign escribe
    donde ese rol alcance.
 
@@ -776,16 +894,25 @@ aws s3 ls s3://vapeupar-dev-catalog-342284838697 --recursive | wc -l
 El diff del 2026-11-17 dio exactamente lo esperado en el paso 2 y ninguna
 diferencia en `Vapeupar-dev-App`.
 
+**Aplicado el 2026-11-17** (≈ 01:30 UTC del 18), con copia previa de los 88 objetos en
+`C:apeupar-backup-catalogo-20261117`. Resultado: `UPDATE_COMPLETE`, 88 objetos
+en el bucket después, versionado `Enabled` y regla `noncurrent-30d` activa.
+CDK avisó de «recursos que no se pudieron borrar»: fue el propio recurso de vaciado.
+Su manejador falló con `AccessDenied` en `s3:GetBucketTagging`, porque la política del
+bucket ya había perdido su permiso; es decir, **no llegó a vaciar nada**. Después
+CloudFormation lo dio por omitido (`DELETE_SKIPPED`, la Lambda ya no existía). La
+Lambda y su rol sí se borraron, así que no queda nada que limpiar a mano.
+
 ### 8.3 Lo que falta construir
 
 | Pieza | Propuesta | Nota |
 |---|---|---|
-| **Cómputo del backend** | ECS Fargate en esta VPC detrás de un Application Load Balancer | ~25 USD/mes (ALB ~16 + tarea 0.25 vCPU ~9). Tareas en subred pública con IP pública y grupo de seguridad que solo admite tráfico del ALB, para no pagar NAT. Lightsail Containers es más barato pero no encaja: solo hace peering con la VPC por defecto, no con la de Vapeupar |
-| **Frontend** | Vercel, o Amplify Hosting si se quiere todo en AWS | Requisito: soportar Next.js 16 con SSR y `revalidateTag` on-demand (ADR-002 §7). Verificar el soporte de Amplify para la versión de Next en uso antes de elegirlo |
-| **Rol de la aplicación en PostgreSQL** | `vapeupar_app` con permisos mínimos (plan A1.1) | El usuario maestro queda solo para migraciones |
-| **Rotación de secretos** | Rotación automática del secreto maestro de RDS | Secrets Manager con la Lambda de rotación gestionada |
-| **Observabilidad** | Alarmas de CloudWatch (CPU, almacenamiento libre y conexiones de RDS; 5xx del ALB), notificadas por SNS | Valorar VPC Flow Logs y un trail de CloudTrail si la cuenta no tiene uno |
-| **Protección perimetral** | AWS WAF delante de CloudFront y del ALB | Reglas gestionadas básicas y rate limit; complementa el rate limit de Express |
+| ~~**Cómputo del backend**~~ | **Hecho (F1–F3, 2026-11-06)**: EC2 `t4g.micro` con nginx y systemd, releases en S3 activadas por SSM ([`aws-full-deployment-plan.md`](aws-full-deployment-plan.md)) | Se descartaron ECS Fargate con ALB (~25 USD/mes) y Lightsail Containers (solo hace peering con la VPC por defecto). Un ALB con segunda instancia queda para cuando el tráfico lo pida (F7) |
+| ~~**Frontend**~~ | **Hecho**: Next.js en la misma EC2, detrás del mismo nginx | Se descartaron Vercel y Amplify Hosting: Next 16 con SSR y `revalidateTag` on-demand (ADR-002 §7) corre igual en la instancia, y la revalidación llega por loopback |
+| ~~**Rol de la aplicación en PostgreSQL**~~ | **Hecho (A1)**: `vapeupar_app` con permisos mínimos (`npm run db:sync-app-role`) | El usuario maestro queda solo para migraciones |
+| **Rotación de secretos** | Contraseña maestra gestionada por RDS (`manageMasterUserPassword`), rotación cada 7 días | **Hecho en código (F7, rama `infra/f7-perimetro`), pendiente de desplegar.** Sin Lambda ni endpoint de VPC: 0 USD. Modificación in-place de la instancia, sin reemplazo. Orden en `aws-full-deployment-plan.md` F7 |
+| **Observabilidad** | En dev, las 10 alarmas de F6 (§5.6). En prod hará falta otro juego `vapeupar-prod-*`, que ya no cabe en la capa gratuita, y, si se pone un ALB, sus 5xx | Valorar VPC Flow Logs y un trail de CloudTrail si la cuenta no tiene uno |
+| **Protección perimetral** | Hoy: límite de peticiones en nginx (F7) delante del de Express. Con dominio propio: AWS WAF delante de CloudFront | **nginx hecho en código (F7), pendiente de desplegar**: login 10/min ráfaga 5, resto de `/api/admin` 60/min, 100 simultáneas por IP; tienda sin límite. WAF (~8–10 USD/mes) aplazado hasta tener dominio: ACM no valida `vapeupar.ddns.net` y WAF no se conecta a una EC2 |
 | **Copias de seguridad** | Además de los backups de RDS, AWS Backup con copia a otra región si el negocio lo requiere | Decisión de negocio: cuánto dato se puede perder |
 
 ### 8.4 Habilitar prod en el código

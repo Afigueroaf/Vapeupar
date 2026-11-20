@@ -1,0 +1,37 @@
+{
+  "title": "Backups: cuánto historial de la base guardar",
+  "status": "hecho",
+  "priority": "media",
+  "area": "infra",
+  "summary": "Con 7 días, un dato roto o borrado que nadie note durante una semana ya no se puede recuperar, y eso importará más cuando haya registro de ventas. La base es pequeña: RDS no cobra los backups hasta 20 GB y una copia mensual en AWS Backup cuesta menos de 0,50 USD/mes.",
+  "question": "Con el plan de pago, ¿te basta con 7 días de restauración o quieres además una copia mensual que dure un año?",
+  "options": [
+    {
+      "label": "7 días + copia mensual guardada 12 meses",
+      "detail": "Cubre errores que se descubren tarde. Menos de 0,50 USD/mes. Un stack más (backup-stack.ts).",
+      "prompt": "Lee infra/lib/config.ts, infra/lib/data-stack.ts, infra/bin/vapeupar.ts y docs/infrastructure-aws.md §6.2 en la rama chore/aws-plan-pago. Añade infra/lib/backup-stack.ts con un BackupVault vapeupar-dev-vault (RETAIN) y un BackupPlan mensual con 365 días de retención sobre data.db, componlo en bin/vapeupar.ts y documéntalo en §6.2 y §8.2. Ejecuta `npm run typecheck --workspace=infra` y `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff` y muéstrame el diff: el stack nuevo no puede tocar Vapeupar-dev-Data. NO despliegues sin mi aprobación y nunca antes de que la cuenta esté en plan de pago. Aceptación: el diff solo añade el vault, el plan y la selección.",
+      "recommended": true
+    },
+    {
+      "label": "Solo 7 días, lo ya preparado",
+      "detail": "Sin piezas nuevas ni costo. Lo que pase de una semana se pierde salvo los snapshots manuales.",
+      "prompt": "Decisión: retención de 7 días sin copias adicionales. No cambies infra/. Cuando se despliegue plan-pago-aws, verifica la retención, haz el simulacro de restauración a vapeupar-dev-db-restore-test y bórralo, corrige la cabecera de CONFIGS.dev y §8.2 de docs/infrastructure-aws.md y pasa el item a hecho. Aceptación: BackupRetentionPeriod 7 y el simulacro llega a available."
+    },
+    {
+      "label": "35 días (el máximo de RDS) sin AWS Backup",
+      "detail": "Un mes de restauración a cualquier minuto, cambiando solo un número. Prácticamente 0 USD con esta base.",
+      "prompt": "En la rama chore/aws-plan-pago, cambia db.backupRetentionDays de dev a 35 en infra/lib/config.ts y actualiza el comentario, §6.2 y §8.2 de docs/infrastructure-aws.md. Ejecuta `npm run typecheck --workspace=infra` y `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff` y muéstrame el diff de Vapeupar-dev-Data: solo BackupRetentionPeriod. NO despliegues sin mi aprobación ni antes del cambio a pago. Aceptación: el diff solo muestra la retención 35."
+    }
+  ],
+  "parent": "endurecer-entorno-vivo",
+  "source": "Plan de desarrollo 2026-11-18 (endurecer-entorno-vivo)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.854Z",
+  "updatedAt": "2026-11-19T06:14:56.991Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:14:56.990Z",
+  "queued": false
+}

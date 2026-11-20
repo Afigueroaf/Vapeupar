@@ -1,6 +1,6 @@
 {
   "title": "Vigilancia: alarmas de EC2 y RDS, agente de CloudWatch y logs (F6)",
-  "status": "pendiente",
+  "status": "en_curso",
   "priority": "media",
   "area": "infra",
   "summary": "Alarmas de StatusCheckFailed, CPU, memoria y disco de la instancia, CPU/almacenamiento/conexiones de RDS, tema SNS y límites de journald y nginx.",
@@ -14,5 +14,36 @@
   "evidence": "No hay ningún cloudwatch.Alarm en infra/lib/; presupuesto sigue en 30 USD",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-16T21:41:14.151Z"
+  "updatedAt": "2026-11-20T07:40:08.849Z",
+  "plan": [
+    "Crea infra/lib/monitoring-stack.ts (Vapeupar-dev-Monitoring) compuesto en infra/bin/vapeupar.ts después de App. Lleva un tema SNS vapeupar-dev-alerts con suscripción de correo a alertEmail (el mismo VAPEUPAR_ALERT_EMAIL del presupuesto). Toma el id de la instancia con ssm.StringParameter.valueForStringParameter(APP_INSTANCE_ID) y el de RDS por su nombre fijo vapeupar-dev-db, para no crear exports entre stacks que bloqueen un reemplazo de la EC2.",
+    "Alarmas de la EC2 (5 minutos, enviadas al SNS): StatusCheckFailed_System con la acción de recuperar la instancia, StatusCheckFailed_Instance, CPUUtilization > 80 % durante 15 minutos y CPUCreditBalance < 20. La instancia está en créditos STANDARD: sin créditos, la CPU baja a su mínimo y no hay ningún cargo que lo delate.",
+    "Alarmas de RDS: CPUUtilization > 80 % durante 15 minutos, FreeStorageSpace < 2 GB, DatabaseConnections > 60 (db.t4g.micro admite unas 100) y FreeableMemory < 100 MB. En total unas 9–10 alarmas, sin pasar de las 10 gratuitas. OJO al recuento: con todo lo anterior salen 11 alarmas sin el chequeo externo. Para quedarte en 10 (gratuitas y compartidas con DeliPan): quita la de CPU de RDS y no crees la del timer; usa treatMissingData: BREACHING en memoria, disco y certificado, que ya detecta que el timer no envía datos.",
+    "Memoria, disco y caducidad del certificado, sin un agente residente (la máquina tiene 1 GB de RAM): crea infra/deploy/metrics/vapeupar-metrics.sh más vapeupar-metrics.service y .timer en infra/deploy/systemd/, cada 5 minutos. El script usa `aws cloudwatch put-metric-data --namespace Vapeupar` para MemUsedPercent, SwapUsedPercent, RootDiskUsedPercent y CertDaysLeft (con openssl sobre /etc/letsencrypt/live/vapeupar/fullchain.pem). activate.sh lo instala y habilita igual que las demás unidades. Como el user-data no se vuelve a ejecutar (userDataCausesReplacement false), no va ahí. Alarmas: memoria > 90 %, disco > 80 % y certificado < 20 días. Si faltan datos, alarma por fallo del propio timer. activate.sh hoy solo copia deploy/systemd/*.service (también en el rollback): amplíalo para copiar *.timer y haz `systemctl enable --now vapeupar-metrics.timer`.",
+    "En infra/lib/app-stack.ts, añade al rol de la app solo `cloudwatch:PutMetricData` con la condición cloudwatch:namespace = Vapeupar, siguiendo la regla del archivo de no usar comodines.",
+    "Logs locales: añade infra/deploy/journald/90-vapeupar.conf (SystemMaxUse=200M, MaxRetentionSec=14day), instalado por activate.sh en /etc/systemd/journald.conf.d/ seguido de `systemctl restart systemd-journald`. Comprueba por SSM que existen `rpm -q logrotate` y /etc/logrotate.d/nginx; si faltan, versiona infra/deploy/nginx/logrotate (daily, rotate 14, compress). Por defecto no se manda nada a CloudWatch Logs.",
+    "Si eliges un chequeo externo: un route53.CfnHealthCheck HTTPS a vapeupar.ddns.net / (la API no expone /api/health: el backend sirve /health y nginx solo pasa /api/ al backend; si quieres vigilar el backend, añade antes GET /api/health en backend/src/app.ts), con su alarma en el mismo SNS. Detecta también que el nombre de No-IP haya caducado.",
+    "Ejecuta `npm run typecheck --workspace=infra` y `npm run infra:diff`: solo debe aparecer el stack nuevo y la política del rol en App, sin reemplazos. Despliega solo con aprobación, confirma la suscripción SNS, saca una release para el timer y actualiza docs/infrastructure-aws.md (§2, §6 y §8.3) y F6 en docs/aws-full-deployment-plan.md.",
+    "Verificación: npm run typecheck --workspace=infra · VAPEUPAR_ALERT_EMAIL=... npm run infra:diff · aws cloudwatch describe-alarms --alarm-name-prefix vapeupar-dev --query 'MetricAlarms[].[AlarmName,StateValue]' · aws cloudwatch list-metrics --namespace Vapeupar · aws sns list-subscriptions-by-topic --topic-arn <arn de vapeupar-dev-alerts> · aws cloudwatch set-alarm-state --alarm-name vapeupar-dev-rds-cpu --state-value ALARM --state-reason prueba · aws ssm send-command --instance-ids <APP_INSTANCE_ID> --document-name AWS-RunShellScript --parameters 'commands=[\"systemctl status vapeupar-metrics.timer\",\"journalctl --disk-usage\",\"cat /etc/logrotate.d/nginx\"]'"
+  ],
+  "acceptance": [
+    "`aws cloudwatch describe-alarms --alarm-name-prefix vapeupar-dev` lista todas las alarmas en estado OK (no INSUFFICIENT_DATA) 15 minutos después de la release.",
+    "La suscripción del tema vapeupar-dev-alerts está confirmada y `aws cloudwatch set-alarm-state --state-value ALARM` sobre una alarma hace llegar un correo.",
+    "En `aws cloudwatch list-metrics --namespace Vapeupar` aparecen MemUsedPercent, SwapUsedPercent, RootDiskUsedPercent y CertDaysLeft con datos recientes.",
+    "`journalctl --disk-usage` en la instancia queda por debajo de 200 MB y nginx tiene rotación activa.",
+    "El diff no muestra reemplazos de la EC2 ni de RDS."
+  ],
+  "risks": [
+    "Las 10 alarmas y 10 métricas propias gratuitas son de toda la cuenta y se comparten con DeliPan. Si DeliPan ya usa algunas, cada alarma extra cuesta 0,10 USD/mes y cada métrica 0,30 USD/mes.",
+    "ops-stack.ts e infra/lib/config.ts también cambian en chore/aws-plan-pago. Empezar F6 antes de fusionar esa rama traerá conflictos.",
+    "El timer de métricas solo llega a la instancia con una release. Hasta entonces, las alarmas de memoria, disco y certificado quedan en INSUFFICIENT_DATA.",
+    "La acción de recuperar la EC2 la reinicia en otro host: con la IP elástica no se pierde nada, pero hay unos minutos de caída."
+  ],
+  "blockedBy": [
+    "plan-pago-aws",
+    "dec-a-quien-y-por-donde-avisar",
+    "dec-chequeo-de-caida-desde-fuera",
+    "dec-enviar-logs-a-cloudwatch"
+  ],
+  "claudeNote": "Plan 2026-11-18: El prompt de la sugerencia pide instalar el agente en el user-data. No sirve: userDataCausesReplacement está en false y cloud-init no lo repite, así que tiene que ir por activate.sh o SSM. La subida del presupuesto a 45 USD ya está en chore/aws-plan-pago. `npm run build --workspace=infra` no existe: el script es `typecheck`. §8.3 de infrastructure-aws.md habla de alarmas de 5xx del ALB, y no hay ALB. La línea «Copias» de F6 la cubren endurecer-entorno-vivo y plan-pago-aws.\n2026-11-20: implementado en la rama infra/f6-alarmas (sin desplegar). Stack Vapeupar-dev-Monitoring con el tema vapeupar-dev-alerts (solo correo) y 10 alarmas (sin CPU de RDS ni alarma del timer; BREACHING en mem, disk y cert), recuento comprobado por infra/test/monitoring.test.ts (npm test y CI). Métricas por vapeupar-metrics.timer (put-metric-data, namespace Vapeupar, sin agente ni logs a CloudWatch), journald a 200M/14 días y logrotate de nginx solo si falta, todo instalado por activate.sh tras verificar; PutMetricData acotado por cloudwatch:namespace. Sin chequeo externo: riesgo aceptado en aws-full-deployment-plan.md §5. Falta: infra:diff y despliegue con aprobación de Vapeupar-dev-App (solo la política) y después Vapeupar-dev-Monitoring; confirmar la suscripción SNS por correo (es nueva); sacar una release para instalar el timer y journald; probar una alarma con set-alarm-state (vapeupar-dev-rds-connections, ya no existe rds-cpu) y comprobar logrotate en la instancia por SSM. Si DeliPan ya usa alarmas o métricas gratuitas, las de Vapeupar se cobran (0,10 USD/alarma, 0,30 USD/métrica).\n2026-11-20 (revisión): Allow de sns:Publish para CloudWatch en el tema (enforceSSL dejaba solo el Deny), métricas best-effort sin SwapUsedPercent (3 de 10 gratuitas, MAX_CUSTOM_METRICS), openssl garantizado por activate.sh y rds-storage a <5 GB (10 % del techo). Orden de despliegue: App → release → Monitoring → confirmar suscripción → set-alarm-state y comprobar que el correo LLEGA."
 }

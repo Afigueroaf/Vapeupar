@@ -1,4 +1,5 @@
-# Genera /etc/vapeupar/backend.env desde SSM y Secrets Manager.
+# Genera /etc/vapeupar/backend.env (y frontend.env, que solo lleva
+# REVALIDATE_SECRET) desde SSM y Secrets Manager.
 # docs/aws-full-deployment-plan.md F2.
 #
 # UNA UNIDAD APARTE, Y NO UN ExecStartPre DEL BACKEND, a propósito: así el
@@ -10,7 +11,7 @@
 # del backend la vuelve a ejecutar y recoge los secretos y parámetros actuales
 # (una contraseña rotada, un origen nuevo en F4).
 [Unit]
-Description=Vapeupar: entorno del backend desde SSM y Secrets Manager
+Description=Vapeupar: entorno del backend y del frontend desde SSM y Secrets Manager
 Wants=network-online.target
 After=network-online.target
 

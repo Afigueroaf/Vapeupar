@@ -22,3 +22,5 @@ Guardar la coherencia arquitectónica de Vapeupar: límites limpios entre el fro
 - Mantener el desacoplamiento: el frontend nunca interactúa directamente con bases de datos internas; se comunica exclusivamente a través de los endpoints REST del backend.
 - Lógica de negocio en el backend: validaciones de inventario, reglas de descuento y precios calculados deben residir en `backend/src/services/`.
 - Registrar como ADR en `docs/decisions/` cualquier decisión tecnológica o arquitectónica con impacto a largo plazo.
+- La documentación va con el cambio: cada endpoint nuevo, cambio de diseño o decisión estructural se refleja en `docs/` en el mismo commit, no después.
+- La consola `/admin` habla con el backend por `/api/admin/*`, nunca con la base, Cognito o S3 directamente (salvo el PUT a S3 con la URL prefirmada que firma el backend).

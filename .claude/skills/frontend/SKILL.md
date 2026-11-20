@@ -12,7 +12,7 @@ Implementar y mantener la aplicación web de cara al cliente y catálogo interac
 - Al crear o modificar una página (`frontend/src/app/`) o componente de interfaz (`frontend/src/components/`).
 - Al integrar o ajustar filtros de catálogo, búsqueda o tarjetas de producto.
 - Al modificar el flujo de verificación de edad (+18) en `frontend/src/components/age-verification-modal.tsx`.
-- Al conectar el consumo de la API REST del backend (`frontend/src/app/page.tsx` o servicios en `frontend/src/lib/`).
+- Al conectar el consumo de la API REST del backend (clientes en `frontend/src/lib/`: `api.ts`, `content.ts`, `admin-api.ts`).
 - Al diseñar o ajustar el flujo de checkout o pedidos directos por WhatsApp.
 
 ## Debe consultar
@@ -31,7 +31,7 @@ Implementar y mantener la aplicación web de cara al cliente y catálogo interac
 - Usar clases semánticas de Tailwind y la función de utilidad `cn()` de `frontend/src/lib/utils.ts`.
 - Garantizar accesibilidad y diseño responsive mobile-first, ya que la gran mayoría de compradores de vaporizadores acceden desde smartphones. En concreto: objetivos táctiles ≥44px, foco visible en todo elemento interactivo y contraste suficiente sobre los fondos oscuros de la identidad VP.
 - Reutilizar lo que ya existe en `frontend/src/components/` y `frontend/src/components/ui/` (`button`, `field`, `card-field`, `surface`, `pixel-label`) antes de escribir markup nuevo. Si un patrón se repite, extraerlo a `components/ui/` en vez de duplicarlo.
-- El acceso a la API del backend se centraliza en `frontend/src/lib/` — no hacer `fetch` directo desde un componente. Hoy solo `frontend/src/app/page.tsx` lo hace; al agregar la segunda llamada, extraer un cliente compartido antes de duplicar la lógica de URL base y manejo de errores.
+- El acceso a la API del backend se centraliza en `frontend/src/lib/` (`api.ts` para el sitio público, `content.ts` para el contenido, `admin-api.ts` para la consola) — no hacer `fetch` directo desde un componente ni duplicar la lógica de URL base y manejo de errores.
 - No asumir que un ajuste "ya está cubierto en otro lado". Si un cambio afecta a varias vistas (catálogo, tarjeta de producto, FAQ, footer), verificarlas explícitamente antes de dar la tarea por terminada.
 
 ## Restricciones

@@ -44,13 +44,23 @@ enum VariantKind {
 
 /// Tipos del libro de inventario. El signo de `quantity` lo impone stock.service.
 enum StockMovementType {
-  inbound    // ingreso de mercancía (suma)
-  sale       // venta (resta)
+  inbound // ingreso de mercancía (suma)
+  sale // venta (resta)
   adjustment // ajuste por conteo físico (signo explícito, exige motivo)
-  shrinkage  // merma (resta)
-  return     // devolución de cliente (suma)
+  shrinkage // merma (resta)
+  return // devolución de cliente (suma)
 
   @@map("stock_movement_type")
+}
+
+/// Ciclo de vida de un pedido (ADR-003 §2). `delivered` y `cancelled` son finales.
+enum OrderStatus {
+  received // llegó desde el sitio; no reserva stock
+  confirmed // confirmado por chat: ya descontó el stock
+  delivered // entregado y cobrado
+  cancelled // cancelado; si estaba confirmado, devolvió el stock
+
+  @@map("order_status")
 }
 
 enum UserRole {
@@ -165,9 +175,10 @@ model Variant {
   createdAt  DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt  DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  product   Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
-  movements StockMovement[]
+  product        Product         @relation(fields: [productId], references: [id], onDelete: Restrict)
+  movements      StockMovement[]
   inventoryNotes InventoryNote[]
+  orderLines     OrderLine[]
 
   @@unique([productId, slug])
   @@map("variants")
@@ -204,6 +215,8 @@ model StockMovement {
   supplierId   String?           @map("supplier_id") @db.Uuid
   /// Costo unitario en pesos, para ingresos.
   unitCost     Int?              @map("unit_cost")
+  /// Precio unitario cobrado en pesos, solo en ventas (ADR-003 §3).
+  unitPrice    Int?              @map("unit_price")
   lot          String?
   userId       String            @map("user_id") @db.Uuid
   /// Idempotencia: un reintento con la misma clave no duplica el movimiento.
@@ -217,6 +230,79 @@ model StockMovement {
   @@index([variantId, createdAt])
   @@index([supplierId])
   @@map("stock_movements")
+}
+
+/// Pedido enviado desde el sitio (ADR-003). Nada se borra: los datos del
+/// cliente se anonimizan (pasan a nulo) a petición o al vencer el plazo.
+model Order {
+  id                   String      @id @default(uuid(7)) @db.Uuid
+  /// `VP-XXXXXX`, generada en el servidor.
+  reference            String      @unique
+  status               OrderStatus @default(received)
+  /// Datos personales (Ley 1581): nulos tras anonimizar.
+  customerName         String?     @map("customer_name")
+  /// Móvil colombiano normalizado: `+573XXXXXXXXX`.
+  customerPhone        String?     @map("customer_phone")
+  customerNeighborhood String?     @map("customer_neighborhood")
+  /// Suma de las líneas a precio de catálogo al recibir, en pesos.
+  subtotal             Int
+  /// Domicilio cobrado en pesos; se fija al confirmar.
+  deliveryFee          Int?        @map("delivery_fee")
+  cancelReason         String?     @map("cancel_reason")
+  /// UUID que el navegador genera por envío: un reintento no crea otro pedido.
+  submissionKey        String      @unique @map("submission_key") @db.Uuid
+  confirmedAt          DateTime?   @map("confirmed_at") @db.Timestamptz(3)
+  deliveredAt          DateTime?   @map("delivered_at") @db.Timestamptz(3)
+  cancelledAt          DateTime?   @map("cancelled_at") @db.Timestamptz(3)
+  anonymizedAt         DateTime?   @map("anonymized_at") @db.Timestamptz(3)
+  createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt            DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  lines   OrderLine[]
+  consent OrderConsent?
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+/// Línea de un pedido. Una variante aparece una sola vez por pedido.
+model OrderLine {
+  id          String @id @default(uuid(7)) @db.Uuid
+  orderId     String @map("order_id") @db.Uuid
+  variantId   String @map("variant_id") @db.Uuid
+  quantity    Int
+  /// Precio de la línea en el catálogo al recibir el pedido, en pesos.
+  listPrice   Int    @map("list_price")
+  /// Precio unitario cobrado; se fija al confirmar (por defecto, `listPrice`).
+  unitPrice   Int?   @map("unit_price")
+  /// Copia de los nombres al recibir: el pedido se lee igual si se renombra el catálogo.
+  productName String @map("product_name")
+  variantName String @map("variant_name")
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  variant Variant @relation(fields: [variantId], references: [id], onDelete: Restrict)
+
+  @@unique([orderId, variantId])
+  @@index([variantId])
+  @@map("order_lines")
+}
+
+/// Autorización de tratamiento de datos (Ley 1581). Solo inserción para el rol
+/// de la aplicación: es la prueba y sobrevive a la anonimización.
+model OrderConsent {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  orderId       String   @unique @map("order_id") @db.Uuid
+  /// Versión del texto de la política que el cliente aceptó.
+  policyVersion String   @map("policy_version")
+  /// Finalidad autorizada, p. ej. `pedido`.
+  purpose       String
+  /// Fecha del servidor al recibir el pedido.
+  acceptedAt    DateTime @default(now()) @map("accepted_at") @db.Timestamptz(3)
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@map("order_consents")
 }
 
 /// Contenido editable del sitio (FAQ, hero, SEO...), versionado por clave.
@@ -262,9 +348,9 @@ model User {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  movements StockMovement[]
-  contents  SiteContent[]
-  audits    AuditLog[]
+  movements      StockMovement[]
+  contents       SiteContent[]
+  audits         AuditLog[]
   inventoryNotes InventoryNote[]
 
   @@map("users")

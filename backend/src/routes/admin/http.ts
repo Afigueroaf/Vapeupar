@@ -5,7 +5,9 @@ import { CatalogError, CatalogErrorCode } from '../../services/catalog.service.j
 import { ContentError, ContentErrorCode } from '../../services/content.service.js';
 import { StockError, StockErrorCode } from '../../services/stock.service.js';
 import { InventoryNoteError } from '../../services/inventory-note.service.js';
+import { SiteRevalidator, SiteTag } from '../../services/site-revalidation.service.js';
 import { ImageUploadError } from '../../services/image-upload.service.js';
+import { OrderError, OrderErrorCode } from '../../services/order.service.js';
 
 /**
  * Traducción de errores de dominio a HTTP, en un solo sitio: los servicios
@@ -16,7 +18,8 @@ const STOCK_STATUS: Record<StockErrorCode, number> = {
   VALIDATION: 400,
   NOT_FOUND: 404,
   INSUFFICIENT_STOCK: 409,
-  OPERATION_KEY_CONFLICT: 409
+  OPERATION_KEY_CONFLICT: 409,
+  STOCK_CHANGED: 409
 };
 
 const AUTH_STATUS: Record<AuthErrorCode, number> = {
@@ -46,6 +49,16 @@ const CONTENT_STATUS: Record<ContentErrorCode, number> = {
   VALIDATION: 400,
   NOT_FOUND: 404,
   CONFLICT: 409
+};
+
+const ORDER_STATUS: Record<OrderErrorCode, number> = {
+  VALIDATION: 400,
+  NOT_FOUND: 404,
+  UNAVAILABLE: 409,
+  INSUFFICIENT_STOCK: 409,
+  INVALID_STATE: 409,
+  CONFLICT: 409,
+  FORBIDDEN: 403
 };
 
 export function sendValidationError(res: Response, error: ZodError, message = 'Datos inválidos'): void {
@@ -83,11 +96,28 @@ export function sendDomainError(res: Response, error: unknown): boolean {
     return true;
   }
   if (error instanceof ContentError) {
-    res.status(CONTENT_STATUS[error.code]).json({ success: false, message: error.message, code: error.code });
+    res.status(CONTENT_STATUS[error.code]).json({
+      success: false,
+      message: error.message,
+      code: error.code,
+      // Cada campo inválido, con la misma forma que `sendValidationError`: la
+      // consola lo proyecta sobre su campo (A5.4).
+      ...(error.fields && { errors: error.fields })
+    });
     return true;
   }
   if (error instanceof InventoryNoteError) {
     res.status(404).json({ success: false, message: error.message, code: error.code });
+    return true;
+  }
+  if (error instanceof OrderError) {
+    res.status(ORDER_STATUS[error.code]).json({
+      success: false,
+      message: error.message,
+      code: error.code,
+      // Qué línea falla y por qué: el sitio y la consola la señalan (ADR-003).
+      ...(error.details && { lines: error.details })
+    });
     return true;
   }
   if (error instanceof ImageUploadError) {
@@ -132,4 +162,19 @@ export function sendPage<T>(
       totalPages: Math.max(1, Math.ceil(page.total / paging.limit))
     }
   });
+}
+
+/**
+ * Pide al sitio que refresque `tags` después de una escritura que ya se hizo
+ * (A7.3). Devuelve si se confirmó, para `meta.revalidated`. No lanza aunque el
+ * revalidador inyectado lo haga: un fallo aquí no puede convertir en 500 una
+ * escritura que salió bien.
+ */
+export async function revalidateSite(revalidate: SiteRevalidator, tags: SiteTag[]): Promise<boolean> {
+  try {
+    return await revalidate(tags);
+  } catch (error) {
+    console.warn(`[revalidación] fallo inesperado: ${error instanceof Error ? error.message : String(error)}`);
+    return false;
+  }
 }

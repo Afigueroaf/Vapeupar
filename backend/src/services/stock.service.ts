@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { recordAudit } from './audit.service.js';
-import { DuplicateOperationKeyError, NewStockMovement, StockRepository } from '../repositories/stock.repository.js';
+import { DuplicateOperationKeyError, NewStockMovement, StockRepository, StockTransaction } from '../repositories/stock.repository.js';
 import { PrismaStockRepository } from '../repositories/prisma-stock.repository.js';
 import { Kardex, LowStockVariant, StockMovement, StockMovementType } from '../types/stock.types.js';
 
@@ -10,7 +10,7 @@ import { Kardex, LowStockVariant, StockMovement, StockMovementType } from '../ty
  * caché se mantiene en la misma transacción y `reconcile()` la repara.
  */
 
-export type StockErrorCode = 'VALIDATION' | 'NOT_FOUND' | 'INSUFFICIENT_STOCK' | 'OPERATION_KEY_CONFLICT';
+export type StockErrorCode = 'VALIDATION' | 'NOT_FOUND' | 'INSUFFICIENT_STOCK' | 'OPERATION_KEY_CONFLICT' | 'STOCK_CHANGED';
 
 /** Error de dominio; la capa HTTP (A4) lo traduce a 400 / 404 / 409. */
 export class StockError extends Error {
@@ -39,9 +39,13 @@ const RecordMovementSchema = z.object({
   reason: optionalText(500),
   supplierId: optionalText(64),
   unitCost: z.number().int().nonnegative().optional(),
+  /** Precio unitario cobrado, solo en ventas (ADR-003). */
+  unitPrice: z.number().int().nonnegative().optional(),
   lot: optionalText(100),
   userId: z.string().trim().min(1),
-  operationKey: z.string().trim().min(8).max(100)
+  operationKey: z.string().trim().min(8).max(100),
+  /** Disponible con el que se calculó el movimiento: si al bloquear la variante es otro, aborta con `STOCK_CHANGED`. */
+  expectedStock: z.number().int().optional()
 }).superRefine((input, ctx) => {
   if (input.type === 'adjustment') {
     if (!input.reason) {
@@ -60,6 +64,9 @@ const RecordMovementSchema = z.object({
       path: [input.unitCost !== undefined ? 'unitCost' : 'supplierId'],
       message: 'Proveedor y costo unitario solo aplican a ingresos'
     });
+  }
+  if (input.type !== 'sale' && input.unitPrice !== undefined) {
+    ctx.addIssue({ code: 'custom', path: ['unitPrice'], message: 'El precio cobrado solo aplica a ventas' });
   }
 });
 
@@ -81,79 +88,101 @@ function sameOperation(existing: StockMovement, candidate: NewStockMovement): bo
     && existing.reason === candidate.reason
     && existing.supplierId === candidate.supplierId
     && existing.unitCost === candidate.unitCost
+    && existing.unitPrice === candidate.unitPrice
     && existing.lot === candidate.lot
     && existing.userId === candidate.userId;
 }
 
-function conflict(operationKey: string): StockError {
+export function operationKeyConflict(operationKey: string): StockError {
   return new StockError(
     'OPERATION_KEY_CONFLICT',
     `La operationKey "${operationKey}" ya se usó para otra operación`
   );
 }
 
+/**
+ * Registra un movimiento dentro de una transacción ya abierta. Es la misma
+ * operación que `StockService.recordMovement`, para quien necesita escribir
+ * varios movimientos y otra entidad en una sola transacción (confirmar un
+ * pedido, ADR-003): el libro sigue teniendo una sola puerta.
+ *
+ * Una `DuplicateOperationKeyError` del repositorio sale tal cual; quien abre la
+ * transacción la traduce con `operationKeyConflict`.
+ */
+export async function recordMovementIn(tx: StockTransaction, input: RecordMovementInput): Promise<RecordMovementResult> {
+  const parsed = RecordMovementSchema.safeParse(input);
+  if (!parsed.success) {
+    throw new StockError('VALIDATION', parsed.error.issues.map(e => e.message).join('; '));
+  }
+  const data = parsed.data;
+  const candidate: NewStockMovement = {
+    variantId: data.variantId,
+    type: data.type,
+    quantity: data.type === 'adjustment' ? data.quantity : data.quantity * SIGN[data.type],
+    reason: data.reason ?? null,
+    supplierId: data.supplierId ?? null,
+    unitCost: data.unitCost ?? null,
+    unitPrice: data.unitPrice ?? null,
+    lot: data.lot ?? null,
+    userId: data.userId,
+    operationKey: data.operationKey
+  };
+
+  // El bloqueo va primero: serializa las operaciones sobre la variante, de
+  // modo que un reintento concurrente ve el movimiento del primero.
+  const variant = await tx.lockVariant(candidate.variantId);
+  if (!variant) {
+    throw new StockError('NOT_FOUND', 'Variante no encontrada');
+  }
+
+  const existing = await tx.findMovementByKey(candidate.operationKey);
+  if (existing) {
+    if (!sameOperation(existing, candidate)) throw operationKeyConflict(candidate.operationKey);
+    return { movement: existing, stock: variant.stockCache, replayed: true };
+  }
+
+  // Comprobado bajo el bloqueo: una venta entre la lectura de quien llama y
+  // esta escritura no puede quedar tapada por un ajuste calculado con el valor viejo.
+  if (data.expectedStock !== undefined && variant.stockCache !== data.expectedStock) {
+    throw new StockError(
+      'STOCK_CHANGED',
+      `El stock cambió: se esperaba ${data.expectedStock} y hay ${variant.stockCache}`
+    );
+  }
+
+  const stock = variant.stockCache + candidate.quantity;
+  // Un conteo físico puede revelar que el disponible registrado era falso,
+  // así que solo el ajuste (que ya exige motivo) puede dejarlo en negativo.
+  if (stock < 0 && candidate.type !== 'adjustment') {
+    throw new StockError(
+      'INSUFFICIENT_STOCK',
+      `Stock insuficiente: disponible ${variant.stockCache}, se intentan restar ${-candidate.quantity}`
+    );
+  }
+
+  const movement = await tx.insertMovement(candidate);
+  await tx.setStockCache(candidate.variantId, stock);
+  await recordAudit(tx.audit, {
+    userId: candidate.userId,
+    entity: 'variant',
+    entityId: candidate.variantId,
+    action: `stock.${candidate.type}`,
+    before: { stock: variant.stockCache },
+    after: { stock, movementId: movement.id, quantity: movement.quantity }
+  });
+  return { movement, stock, replayed: false };
+}
+
 export class StockService {
   constructor(private readonly repository: StockRepository) {}
 
   public async recordMovement(input: RecordMovementInput): Promise<RecordMovementResult> {
-    const parsed = RecordMovementSchema.safeParse(input);
-    if (!parsed.success) {
-      throw new StockError('VALIDATION', parsed.error.issues.map(e => e.message).join('; '));
-    }
-    const data = parsed.data;
-    const candidate: NewStockMovement = {
-      variantId: data.variantId,
-      type: data.type,
-      quantity: data.type === 'adjustment' ? data.quantity : data.quantity * SIGN[data.type],
-      reason: data.reason ?? null,
-      supplierId: data.supplierId ?? null,
-      unitCost: data.unitCost ?? null,
-      lot: data.lot ?? null,
-      userId: data.userId,
-      operationKey: data.operationKey
-    };
-
     try {
-      return await this.repository.transaction(async tx => {
-        // El bloqueo va primero: serializa las operaciones sobre la variante, de
-        // modo que un reintento concurrente ve el movimiento del primero.
-        const variant = await tx.lockVariant(candidate.variantId);
-        if (!variant) {
-          throw new StockError('NOT_FOUND', 'Variante no encontrada');
-        }
-
-        const existing = await tx.findMovementByKey(candidate.operationKey);
-        if (existing) {
-          if (!sameOperation(existing, candidate)) throw conflict(candidate.operationKey);
-          return { movement: existing, stock: variant.stockCache, replayed: true };
-        }
-
-        const stock = variant.stockCache + candidate.quantity;
-        // Un conteo físico puede revelar que el disponible registrado era falso,
-        // así que solo el ajuste (que ya exige motivo) puede dejarlo en negativo.
-        if (stock < 0 && candidate.type !== 'adjustment') {
-          throw new StockError(
-            'INSUFFICIENT_STOCK',
-            `Stock insuficiente: disponible ${variant.stockCache}, se intentan restar ${-candidate.quantity}`
-          );
-        }
-
-        const movement = await tx.insertMovement(candidate);
-        await tx.setStockCache(candidate.variantId, stock);
-        await recordAudit(tx.audit, {
-          userId: candidate.userId,
-          entity: 'variant',
-          entityId: candidate.variantId,
-          action: `stock.${candidate.type}`,
-          before: { stock: variant.stockCache },
-          after: { stock, movementId: movement.id, quantity: movement.quantity }
-        });
-        return { movement, stock, replayed: false };
-      });
+      return await this.repository.transaction(tx => recordMovementIn(tx, input));
     } catch (error) {
       // Misma clave registrada en paralelo sobre otra variante: el bloqueo no la
       // serializa y la detecta el índice único.
-      if (error instanceof DuplicateOperationKeyError) throw conflict(error.operationKey);
+      if (error instanceof DuplicateOperationKeyError) throw operationKeyConflict(error.operationKey);
       throw error;
     }
   }

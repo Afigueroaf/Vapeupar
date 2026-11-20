@@ -1,0 +1,32 @@
+{
+  "title": "Consola de contenido: texto legal de mayoría de edad",
+  "status": "hecho",
+  "priority": "media",
+  "area": "admin",
+  "summary": "Hoy es un elemento más de faq.items. Un borrado accidental quitaría del sitio el aviso legal +18 sin pasar por revisión de código. Fijarlo cambia el esquema faq en ambos espejos y la prueba de paridad.",
+  "question": "¿La pregunta de la FAQ sobre la cédula obligatoria y la Ley 1335 debe poder editarse o borrarse desde la consola, o queda fija en el código?",
+  "options": [
+    {
+      "label": "Fija en código",
+      "detail": "El aviso +18 siempre aparece. La consola edita el resto de preguntas y muestra la legal bloqueada.",
+      "prompt": "Decisión: la pregunta legal +18 de la FAQ no es editable. Lee la skill security, backend/src/schemas/content/faq.ts, frontend/src/lib/content/schemas.ts, frontend/src/components/faq.tsx y content-parity.test.ts. Saca esa pregunta de FAQ_DEFAULT.items a una constante LEGAL_FAQ_ITEM en código, que faq.tsx renderiza siempre. Ajusta los límites (items max 11) en los dos espejos. Asegúrate de que una versión ya publicada que la contenga no la duplique (filtra por pregunta en getPublic o en una migración de datos). En /admin/content muéstrala bloqueada con una explicación. Ejecuta npm run test:backend, npm run lint --workspace=frontend y npm run build.",
+      "recommended": true
+    },
+    {
+      "label": "Editable con aviso",
+      "detail": "Mantiene la flexibilidad. La consola avisa y pide confirmación si la pregunta legal falta o cambia.",
+      "prompt": "Decisión: la pregunta legal +18 sigue siendo editable. En el editor de la FAQ de /admin/content, detecta si falta un elemento que mencione «18» o «cédula» y pide una confirmación explícita antes de publicar. Documenta la regla en docs/security.md. Ejecuta npm run lint --workspace=frontend y npm run build."
+    }
+  ],
+  "parent": "a5-4-consola-contenido",
+  "source": "Plan de desarrollo 2026-11-18 (a5-4-consola-contenido)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:58:52.620Z",
+  "updatedAt": "2026-11-19T06:27:20.996Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:27:20.995Z",
+  "queued": false
+}
