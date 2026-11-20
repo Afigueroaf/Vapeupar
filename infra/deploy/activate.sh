@@ -98,6 +98,13 @@ BAK="$TMP/bak"; mkdir -p "$BAK"
 cp -a /etc/nginx/nginx.conf "$BAK/" 2>/dev/null || true
 cp -a /etc/nginx/conf.d/vapeupar.conf "$BAK/" 2>/dev/null || true
 cp -a /etc/nginx/vapeupar/site.inc "$BAK/" 2>/dev/null || true
+# Devuelve nginx a la copia. `$BAK` vive en `$TMP`, que el trap borra al
+# salir: hay que restaurar ANTES de cualquier `exit`.
+restore_nginx() {
+  cp -a "$BAK/nginx.conf" /etc/nginx/nginx.conf 2>/dev/null || true
+  cp -a "$BAK/vapeupar.conf" /etc/nginx/conf.d/vapeupar.conf 2>/dev/null || true
+  cp -a "$BAK/site.inc" /etc/nginx/vapeupar/site.inc 2>/dev/null || true
+}
 
 install_units "$DEST"
 install -m 644 "$DEST/deploy/nginx/nginx.conf" /etc/nginx/nginx.conf
@@ -116,7 +123,22 @@ if [ -f "$TLS_CERT" ] && [ -f "$DEST/deploy/nginx/vapeupar-tls.conf" ]; then
 else
   install -m 644 "$DEST/deploy/nginx/vapeupar.conf" /etc/nginx/conf.d/vapeupar.conf
 fi
-nginx -t
+# Si la configuración nueva no pasa la prueba, NO puede quedarse en disco: con
+# `set -e` el script saldría aquí y el siguiente reload (el deploy-hook de
+# certbot) o un reinicio tumbarían el sitio. Se vuelve a la copia y a las
+# unidades de la release activa; nginx sigue sirviendo con la que tenía
+# cargada, porque aún no se ha recargado. La carpeta de la release se borra
+# solo si se acaba de descargar (al volver atrás es una release buena).
+# Las migraciones, si las había, ya están aplicadas, como cuando falla la
+# verificación.
+if ! nginx -t; then
+  log "FALLO en nginx -t: se restaura la configuración anterior; sigue ${PREV:-ninguna}"
+  restore_nginx
+  [ -n "$PREV" ] && [ -d "$PREV" ] && install_units "$PREV"
+  nginx -t || log "la configuración restaurada TAMPOCO pasa nginx -t"
+  [ "$VERSION" = "-" ] || rm -rf "$DEST"
+  exit 1
+fi
 
 # --- 4. Cambiar `current` (atómico) y reiniciar ------------------------------
 switch_to() {
@@ -165,9 +187,7 @@ else
   journalctl -u vapeupar-env -u vapeupar-backend -u vapeupar-frontend -n 40 --no-pager || true
   if [ -n "$PREV" ] && [ -d "$PREV" ]; then
     log "volviendo a $PREV"
-    cp -a "$BAK/nginx.conf" /etc/nginx/nginx.conf 2>/dev/null || true
-    cp -a "$BAK/vapeupar.conf" /etc/nginx/conf.d/vapeupar.conf 2>/dev/null || true
-    cp -a "$BAK/site.inc" /etc/nginx/vapeupar/site.inc 2>/dev/null || true
+    restore_nginx
     install_units "$PREV"
     switch_to "$PREV"
     verify && log "release anterior restaurada y respondiendo" || log "la anterior TAMPOCO responde"
