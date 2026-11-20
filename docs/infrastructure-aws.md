@@ -609,7 +609,7 @@ máximo gratuito de la cuenta** (compartido con DeliPan); lo comprueba
 | `vapeupar-dev-ec2-status-instance` | `AWS/EC2 StatusCheckFailed_Instance` (máx., 1 min) | ≥ 1 durante 3 min | sin cambio |
 | `vapeupar-dev-ec2-cpu` | `AWS/EC2 CPUUtilization` (media, 5 min) | > 80 % durante 15 min | sin cambio |
 | `vapeupar-dev-ec2-cpu-credits` | `AWS/EC2 CPUCreditBalance` (mín., 5 min) | < 20 créditos | sin cambio |
-| `vapeupar-dev-rds-storage` | `AWS/RDS FreeStorageSpace` (mín., 5 min) | < 2 GB | sin cambio |
+| `vapeupar-dev-rds-storage` | `AWS/RDS FreeStorageSpace` (mín., 5 min) | < 5 GB (10 % del techo de autoescalado, `maxAllocatedStorageGb` = 50) | sin cambio |
 | `vapeupar-dev-rds-connections` | `AWS/RDS DatabaseConnections` (máx., 5 min) | > 60 durante 10 min | sin cambio |
 | `vapeupar-dev-rds-memory` | `AWS/RDS FreeableMemory` (mín., 5 min) | < 100 MB durante 15 min | sin cambio |
 | `vapeupar-dev-mem` | `Vapeupar MemUsedPercent` (media, 5 min) | > 90 % durante 15 min | **alarma** |
@@ -622,11 +622,27 @@ métricas (si el timer se para, memoria, disco y certificado pasan a ALARM a los
 nginx o de Node con la máquina encendida, o el nombre de No-IP caducado, no
 avisan (riesgo aceptado, `aws-full-deployment-plan.md` §5).
 
+`rds-storage` no usa 2 GB porque ahí es donde el autoescalado de RDS ya crece
+(menos del 10 % de lo asignado): avisaría de algo que se está resolviendo solo
+y, cerca del techo de 50 GB, demasiado tarde. Con los 20 GB iniciales salta a
+los 15 GB usados, antes de que RDS crezca; para una base que ocupa megas eso ya
+es una anomalía.
+
+El tema lleva `enforceSSL`, y su política sustituye a la predeterminada: por eso
+incluye un Allow de `sns:Publish` para `cloudwatch.amazonaws.com`, limitado a
+esta cuenta y a las alarmas `vapeupar-dev-*` (lo exige el test).
+
 **Métricas propias, sin agente.** `vapeupar-metrics.timer` lanza cada 5
 minutos `/usr/local/sbin/vapeupar-metrics` (copia de
 `infra/deploy/metrics/vapeupar-metrics.sh`), que envía `MemUsedPercent`,
-`SwapUsedPercent` (sin alarma), `RootDiskUsedPercent` y `CertDaysLeft` con
-`aws cloudwatch put-metric-data`, dimensión `Environment=dev`. El rol de la
+`RootDiskUsedPercent` y `CertDaysLeft` con `aws cloudwatch put-metric-data`,
+dimensión `Environment=dev`. **Solo las que tienen alarma**: las 10 métricas
+propias gratuitas son por cuenta y se comparten con DeliPan (techo
+`MAX_CUSTOM_METRICS` = 3, comprobado por el test). Cada métrica es
+independiente: si el certificado no se puede leer (corrupto, sin `openssl`),
+memoria y disco se envían igual y la alarma del certificado avisa por falta de
+datos. `openssl` viene del paquete `openssl` de AL2023; el user-data no lo
+instala, así que `activate.sh` lo instala con `dnf` si falta. El rol de la
 instancia solo puede publicar en el namespace `Vapeupar`. Lo instala y habilita
 `activate.sh` en cada release, así que **llega con la primera release
 posterior al despliegue**; hasta entonces esas tres alarmas están en ALARM o
@@ -649,24 +665,34 @@ sudo journalctl --disk-usage
 sudo tail -n 100 /var/log/nginx/error.log
 ```
 
-**Puesta en marcha** (una vez, con aprobación):
+**Puesta en marcha** (una vez, con aprobación). Orden: **App → release →
+Monitoring**, para que las métricas propias ya lleguen cuando nazcan las
+alarmas:
 
 1. `VAPEUPAR_ALERT_EMAIL=<correo> npm run infra:diff`: solo el stack nuevo
    `Vapeupar-dev-Monitoring` y la sentencia `cloudwatch:PutMetricData` en la
    política del rol de App. **Ningún reemplazo** de la EC2 ni de RDS.
-2. Desplegar `Vapeupar-dev-App` (política) y después
-   `Vapeupar-dev-Monitoring`.
-3. Confirmar la suscripción con el enlace del correo «AWS Notification -
+2. Desplegar solo `Vapeupar-dev-App` (la política).
+3. Sacar una release (`npm run app:deploy` o el workflow): instala el timer,
+   journald y, si falta, openssl. Comprobar `aws cloudwatch list-metrics
+   --namespace Vapeupar` (tres métricas) antes de seguir.
+4. Desplegar `Vapeupar-dev-Monitoring`. Si se despliega antes de la release,
+   `vapeupar-dev-mem`, `-disk` y `-cert` entran en ALARM por datos ausentes
+   (BREACHING) y mandan correo; es lo esperado y se limpia con el OK en cuanto
+   llegan datos.
+5. Confirmar la suscripción con el enlace del correo «AWS Notification -
    Subscription Confirmation». Sin eso no llega ningún aviso.
-4. Sacar una release (`npm run app:deploy` o el workflow) para instalar el
-   timer y los límites de journald.
-5. Comprobar:
+6. Comprobar, y **que el correo llegue** (es la única prueba de que CloudWatch
+   puede publicar en el tema):
 
 ```bash
 aws cloudwatch describe-alarms --alarm-name-prefix vapeupar-dev --query 'MetricAlarms[].[AlarmName,StateValue]' --output table
 aws cloudwatch list-metrics --namespace Vapeupar
 aws cloudwatch set-alarm-state --alarm-name vapeupar-dev-rds-connections --state-value ALARM --state-reason prueba
-# Llega un correo de ALARM y, al siguiente dato, otro de OK.
+# Debe LLEGAR al buzón un correo «ALARM: vapeupar-dev-rds-connections» (mirar
+# también spam) y, a los 5-10 minutos, otro de OK. Si no llega con la
+# suscripción confirmada, revisar la política del tema y el historial de la
+# alarma (describe-alarm-history: «Failed to execute action»).
 ```
 
 **Si se reemplaza la EC2**, volver a desplegar `Vapeupar-dev-Monitoring`: el id

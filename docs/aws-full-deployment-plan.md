@@ -525,7 +525,7 @@ Desde la instancia, que ya tiene ruta a RDS:
 | Pieza | Qué |
 |---|---|
 | Alarmas de la instancia | `StatusCheckFailed_System` (con recuperación), `StatusCheckFailed_Instance`, CPU > 80 % 15 min y créditos de CPU < 20. Memoria (> 90 %), disco (> 80 %) y días del certificado (< 20) **sin agente**: `vapeupar-metrics.timer` los envía cada 5 min con `put-metric-data` (namespace `Vapeupar`), instalado por `activate.sh` y no por `user-data` (no se repite). Si faltan datos, esas tres alarmas saltan |
-| Alarmas de RDS | Almacenamiento libre < 2 GB, conexiones > 60 y memoria libre < 100 MB. **Sin la de CPU**, para quedar en 10 alarmas (capa gratuita compartida con DeliPan; `infra/test/monitoring.test.ts`) |
+| Alarmas de RDS | Almacenamiento libre < 5 GB (10 % del techo de autoescalado; a 2 GB coincidiría con el propio autoescalado), conexiones > 60 y memoria libre < 100 MB. **Sin la de CPU**, para quedar en 10 alarmas (capa gratuita compartida con DeliPan; `infra/test/monitoring.test.ts`) |
 | Notificación | Tema SNS `vapeupar-dev-alerts` (stack `Vapeupar-dev-Monitoring`), solo al correo del presupuesto. Sin SMS ni chequeo externo (decisiones del 2026-11-19) |
 | Presupuesto | `vapeupar-dev-monthly` sube de 30 a 45 USD (§7) o deja de avisar de nada útil |
 | Logs | Solo en la instancia: `journald` a 200 MB y 14 días (`infra/deploy/journald/`), nginx rotado por logrotate. **No** se envían a CloudWatch Logs (decisión del 2026-11-19) |
