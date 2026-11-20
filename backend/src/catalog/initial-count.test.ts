@@ -7,6 +7,7 @@ import {
   ExistingCountMovement,
   buildCountTemplate,
   decodeCsv,
+  formatPlan,
   operationKeyFor,
   parseCsv,
   parseQuantity,
@@ -198,5 +199,22 @@ describe('planInitialCount', () => {
 
     expect(run(rows('12', '21000')).errors[0].message).toMatch(/--batch nuevo/);
     expect(run(rows('10', '22000')).errors[0].message).toMatch(/--batch nuevo/);
+  });
+});
+
+describe('formatPlan', () => {
+  it('informe con movimientos, errores por fila, variantes sin fila y totales', () => {
+    const ok = formatPlan(plan([line(MANGO, '10', '21000', 'Distribuidora Norte'), line(MENTA, '0'), line(ONE, '6')]));
+    expect(ok).toContain('Lote 2026-11: 3 filas leídas, 3 válidas, 0 errores');
+    expect(ok).toContain('fila 2: ingreso lifepod-eco-3/mango-ice +10 a $21.000, proveedor Distribuidora Norte');
+    expect(ok).toContain('fila 4: ajuste  lifepod-one/electric-blue +2 (4 → 6)');
+    expect(ok).toContain('ECO 3 (lifepod-eco-3): 10 en 2 variantes');
+    expect(ok).toContain('Ingresos: 1 filas, 10 unidades, costo total $210.000');
+    expect(ok).toContain('se puede aplicar con --apply');
+
+    const bad = formatPlan(plan([line(MANGO, 'x')]));
+    expect(bad).toContain('fila 2: cantidad "x"');
+    expect(bad).toContain('- lifepod-eco-3/menta');
+    expect(bad).toContain('NO se puede aplicar');
   });
 });
