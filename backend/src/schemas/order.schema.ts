@@ -14,6 +14,14 @@ import { z } from 'zod';
  */
 export const DATA_POLICY_VERSION = 'borrador-2026-11-20';
 
+/**
+ * Una versión que empieza por «borrador» no ha pasado la revisión legal: con
+ * ella no se registran pedidos aunque `ORDERS_ENABLED` esté encendido (`app.ts`).
+ */
+export function isDraftPolicyVersion(version: string): boolean {
+  return version.startsWith('borrador');
+}
+
 /** Finalidad autorizada que queda en `order_consents`. */
 export const DATA_PURPOSE = 'pedido';
 

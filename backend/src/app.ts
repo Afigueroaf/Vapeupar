@@ -7,6 +7,7 @@ import { productRouter } from './routes/product.routes.js';
 import { createAdminRouter } from './routes/admin/index.js';
 import { createBrandsPublicRouter, createContentPublicRouter } from './routes/site.routes.js';
 import { createOrdersPublicRouter } from './routes/order.routes.js';
+import { DATA_POLICY_VERSION, isDraftPolicyVersion } from './schemas/order.schema.js';
 
 /**
  * Armado de la aplicación, separado de `index.ts` para poder levantarla en un
@@ -26,6 +27,11 @@ export interface AppOptions {
    * aprobación del dueño y la política de datos revisada (ADR-003 §5).
    */
   ordersEnabled?: boolean;
+  /**
+   * Versión vigente de la política de datos, para la guarda de abajo. Por
+   * defecto `DATA_POLICY_VERSION`; los tests simulan una ya revisada.
+   */
+  dataPolicyVersion?: string;
   /** Límites por ventana; los valores por defecto son los de producción. */
   rateLimits?: { publicMax?: number; adminMax?: number; loginMax?: number; ordersMax?: number };
 }
@@ -83,7 +89,16 @@ export function createApp(options: AppOptions = {}): Express {
   // escribe nada y lo frena el límite general de `/api`. 10 por IP cada 15
   // minutos deja margen a varios clientes tras la misma IP y sigue cortando
   // una ráfaga de pedidos falsos.
-  const ordersEnabled = options.ordersEnabled ?? process.env.ORDERS_ENABLED === 'true';
+  // Guarda: mientras la política de datos sea un borrador sin revisión legal,
+  // no se registran pedidos con datos personales aunque el interruptor esté
+  // encendido. Mismo 404 que con el interruptor apagado (ADR-003 §5): para el
+  // público, la función sencillamente no existe todavía.
+  const ordersSwitch = options.ordersEnabled ?? process.env.ORDERS_ENABLED === 'true';
+  const draftPolicy = isDraftPolicyVersion(options.dataPolicyVersion ?? DATA_POLICY_VERSION);
+  if (ordersSwitch && draftPolicy) {
+    console.warn('[pedidos] ORDERS_ENABLED está encendido, pero la política de datos es un borrador: POST /api/orders sigue apagado');
+  }
+  const ordersEnabled = ordersSwitch && !draftPolicy;
   if (ordersEnabled) {
     app.use('/api/orders', rateLimit({
       windowMs: 15 * 60 * 1000,

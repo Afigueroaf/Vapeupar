@@ -19,7 +19,7 @@ const UVA = '019299a4-0000-7000-8000-0000000000a2';
 const servers: Server[] = [];
 let keySeq = 0;
 
-async function start(options: { ordersMax?: number; ordersEnabled?: boolean } = {}) {
+async function start(options: { ordersMax?: number; ordersEnabled?: boolean; dataPolicyVersion?: string } = {}) {
   const stock = new InMemoryStockRepository();
   stock.addVariant({ id: MANGO, name: 'Mango Ice', productId: 'eco-3', productName: 'LifePod ECO 3', stockCache: 5 });
   stock.addVariant({ id: UVA, name: 'Uva', productId: 'eco-3', productName: 'LifePod ECO 3', stockCache: 0 });
@@ -28,6 +28,8 @@ async function start(options: { ordersMax?: number; ordersEnabled?: boolean } = 
   const app = createApp({
     ordersRouter: createOrdersPublicRouter({ service: new OrderService(orders) }),
     ordersEnabled: options.ordersEnabled ?? true,
+    // Una política ya revisada: con la de borrador, la guarda no monta la ruta.
+    dataPolicyVersion: options.dataPolicyVersion ?? '2027-01-01',
     rateLimits: { ordersMax: options.ordersMax ?? 100 }
   });
   const server = await new Promise<Server>(resolve => {
@@ -120,6 +122,19 @@ describe('POST /api/orders', () => {
     expect(response.status).toBe(404);
     expect(response.body).toEqual({ success: false, message: 'Endpoint no encontrado' });
     expect(orders.all).toHaveLength(0);
+  });
+
+  it('con la política en borrador responde 404 aunque el interruptor esté encendido', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { url, orders } = await start({ dataPolicyVersion: 'borrador-2026-11-20' });
+      const response = await post(url, order());
+      expect(response.status).toBe(404);
+      expect(orders.all).toHaveLength(0);
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('borrador'));
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('un JSON mal formado es 400 y el cuerpo nunca llega al registro', async () => {
