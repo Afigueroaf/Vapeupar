@@ -16,7 +16,9 @@
     "db:sync-app-role": "tsx prisma/sync-app-role.ts",
     "db:seed": "prisma db seed",
     "admin:invite": "tsx scripts/admin-invite.ts",
-    "db:upload-images": "tsx scripts/upload-catalog-images.ts"
+    "db:upload-images": "tsx scripts/upload-catalog-images.ts",
+    "db:count-template": "tsx scripts/export-count-template.ts",
+    "db:import-stock": "tsx scripts/import-initial-stock.ts"
   },
   "dependencies": {
     "@aws-sdk/client-cloudfront": "^3.1169.0",

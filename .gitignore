@@ -44,3 +44,6 @@ claude-vp.cmd
 
 # Cliente de Prisma generado (npm run db:generate)
 backend/src/generated/
+
+# Planillas del conteo fisico (llevan costos): nunca en git
+backend/scripts/data/
