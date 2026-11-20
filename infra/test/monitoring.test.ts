@@ -12,7 +12,7 @@ import { App, Stack } from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
 import { buildApp } from '../lib/build-app.js';
 import { getConfig } from '../lib/config.js';
-import { MAX_ALARMS, METRICS_NAMESPACE } from '../lib/monitoring-stack.js';
+import { MAX_ALARMS, MAX_CUSTOM_METRICS, METRICS_NAMESPACE } from '../lib/monitoring-stack.js';
 
 // El paquete infra es CommonJS (sin "type": "module"): `__dirname` existe.
 const root = path.resolve(__dirname, '..');
@@ -72,6 +72,38 @@ describe('vigilancia (F6)', () => {
     t.hasResourceProperties('AWS::SNS::Topic', { TopicName: 'vapeupar-dev-alerts' });
     t.resourceCountIs('AWS::SNS::Subscription', 1);
     t.hasResourceProperties('AWS::SNS::Subscription', { Protocol: 'email', Endpoint: 'alertas@example.com' });
+  });
+
+  test('el tema admite publicar a CloudWatch solo desde las alarmas de Vapeupar de esta cuenta', () => {
+    // Con enforceSSL la política del tema sustituye a la predeterminada: sin
+    // un Allow explícito, ninguna alarma podría publicar.
+    const policies = Object.values(Template.fromStack(stacks.monitoring).findResources('AWS::SNS::TopicPolicy'));
+    assert.equal(policies.length, 1);
+    const statements = (policies[0] as any).Properties.PolicyDocument.Statement as any[];
+    const allow = statements.filter((s) => s.Effect === 'Allow');
+    assert.equal(allow.length, 1, 'falta el Allow de sns:Publish para CloudWatch');
+    assert.deepEqual(allow[0].Principal, { Service: 'cloudwatch.amazonaws.com' });
+    assert.equal(allow[0].Action, 'sns:Publish');
+    const account = getConfig('dev').account;
+    assert.deepEqual(allow[0].Condition, {
+      StringEquals: { 'aws:SourceAccount': account },
+      ArnLike: { 'aws:SourceArn': `arn:aws:cloudwatch:us-east-1:${account}:alarm:vapeupar-dev-*` },
+    });
+    // Todas las alarmas caen bajo ese prefijo.
+    for (const a of alarms) assert.ok(a.Properties.AlarmName.startsWith('vapeupar-dev-'), a.Properties.AlarmName);
+  });
+
+  test(`el script de métricas envía como mucho ${MAX_CUSTOM_METRICS} métricas propias y todas tienen alarma`, () => {
+    const script = readFileSync(path.join(root, 'deploy/metrics/vapeupar-metrics.sh'), 'utf8');
+    const sent = [...new Set([...script.matchAll(/\bdatum\s+([A-Za-z]+)\s/g)].map((m) => m[1]))].sort();
+    console.log(`  métricas propias: ${sent.length}/${MAX_CUSTOM_METRICS} (${sent.join(', ')})`);
+    assert.ok(sent.length > 0, 'no se encontraron llamadas a datum en el script');
+    assert.ok(sent.length <= MAX_CUSTOM_METRICS, `envía ${sent.length}; el máximo es ${MAX_CUSTOM_METRICS}`);
+    const withAlarm = alarms
+      .filter((a) => a.Properties.Namespace === METRICS_NAMESPACE)
+      .map((a) => a.Properties.MetricName)
+      .sort();
+    assert.deepEqual(sent, withAlarm);
   });
 
   test('memoria, disco y certificado tratan la falta de datos como fallo (vigilan el timer)', () => {

@@ -1,6 +1,7 @@
-import { Duration, Stack, StackProps } from 'aws-cdk-lib';
+import { ArnFormat, Duration, Stack, StackProps } from 'aws-cdk-lib';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import * as cwActions from 'aws-cdk-lib/aws-cloudwatch-actions';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
@@ -26,6 +27,18 @@ export const METRICS_NAMESPACE = 'Vapeupar';
  * 0,10 USD/mes. Lo comprueba `infra/test/monitoring.test.ts`.
  */
 export const MAX_ALARMS = 10;
+
+/**
+ * Techo de métricas propias (namespace Vapeupar). La capa gratuita da 10
+ * métricas personalizadas POR CUENTA, compartidas con DeliPan (0,30 USD/mes
+ * cada una de más). Se envía solo lo que tiene alarma: memoria, disco y
+ * certificado. Lo comprueba `infra/test/monitoring.test.ts` contando las que
+ * envía `infra/deploy/metrics/vapeupar-metrics.sh`.
+ */
+export const MAX_CUSTOM_METRICS = 3;
+
+/** Prefijo de los nombres de alarma de un entorno: `vapeupar-dev-`. */
+export const alarmNamePrefix = (config: EnvConfig) => resourceName(config, '');
 
 /**
  * Vigilancia (docs/aws-full-deployment-plan.md, F6): tema SNS con aviso por
@@ -64,6 +77,31 @@ export class MonitoringStack extends Stack {
     });
     // La suscripción queda pendiente hasta pulsar el enlace del correo de AWS.
     this.topic.addSubscription(new subscriptions.EmailSubscription(alertEmail));
+
+    // CloudWatch publica en el tema como servicio. Con `enforceSSL`, CDK crea
+    // una política del tema que SOLO lleva el Deny sin TLS, y esa política
+    // sustituye a la predeterminada: sin este Allow las alarmas no podrían
+    // publicar y no llegaría ningún correo. Acotado a esta cuenta y a las
+    // alarmas de Vapeupar del entorno (no a las de DeliPan).
+    this.topic.addToResourcePolicy(
+      new iam.PolicyStatement({
+        sid: 'AllowVapeuparAlarms',
+        principals: [new iam.ServicePrincipal('cloudwatch.amazonaws.com')],
+        actions: ['sns:Publish'],
+        resources: [this.topic.topicArn],
+        conditions: {
+          StringEquals: { 'aws:SourceAccount': this.account },
+          ArnLike: {
+            'aws:SourceArn': this.formatArn({
+              service: 'cloudwatch',
+              resource: 'alarm',
+              arnFormat: ArnFormat.COLON_RESOURCE_NAME,
+              resourceName: `${alarmNamePrefix(config)}*`,
+            }),
+          },
+        },
+      }),
+    );
 
     const notify = new cwActions.SnsAction(this.topic);
     const alarm = (
@@ -155,12 +193,21 @@ export class MonitoringStack extends Stack {
         period: Duration.minutes(5),
       });
 
+    // Umbral: el 10 % del TECHO del autoescalado (`maxAllocatedStorageGb`,
+    // 5 GB en dev), no un valor fijo. RDS crece solo cuando queda menos del
+    // 10 % de lo ASIGNADO (2 GB con 20 GB): una alarma en 2 GB saltaría justo
+    // cuando RDS ya lo está resolviendo, y cerca del techo avisaría tarde. Con
+    // 5 GB avisa con margen al acercarse a los 50 GB, cuando ya no puede
+    // crecer. Contrapartida aceptada: con los 20 GB iniciales también salta a
+    // los 15 GB usados, antes de que crezca; en una base de catálogo que hoy
+    // ocupa megas, eso ya es una anomalía que conviene mirar.
+    const storageThresholdGb = config.db.maxAllocatedStorageGb * 0.1;
     alarm('RdsFreeStorage', {
       name: 'rds-storage',
-      alarmDescription: 'Quedan menos de 2 GB libres en RDS (el autoescalado de almacenamiento tiene techo)',
+      alarmDescription: `Quedan menos de ${storageThresholdGb} GB libres en RDS (10 % del techo de autoescalado, ${config.db.maxAllocatedStorageGb} GB)`,
       metric: rdsMetric('FreeStorageSpace', 'Minimum'),
       comparisonOperator: cloudwatch.ComparisonOperator.LESS_THAN_THRESHOLD,
-      threshold: 2 * 1024 ** 3,
+      threshold: storageThresholdGb * 1024 ** 3,
       evaluationPeriods: 1,
       treatMissingData: cloudwatch.TreatMissingData.MISSING,
     });
