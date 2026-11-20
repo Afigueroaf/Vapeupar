@@ -72,5 +72,11 @@ jobs:
           NEXT_PUBLIC_WHATSAPP_NUMBER: '570000000000'
         run: npm run build --workspace=frontend
 
+      # Lee el build de arriba, no compila: three.js fuera del JS inicial de la
+      # portada y su peso dentro del presupuesto (docs/frontend.md,
+      # «Presupuesto de rendimiento»). Menos de un segundo.
+      - name: Frontend · guarda de bundle
+        run: npm run check:bundle
+
       - name: Infra · tipos
         run: npm run typecheck --workspace=infra
