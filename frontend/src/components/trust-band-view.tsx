@@ -59,9 +59,10 @@ export function TrustBandCards({ items }: { items: TrustBandContent["items"] }) 
         const highlight = item.highlight?.trim();
 
         return (
-          /* Más apretadas por debajo de `lg`: apiladas en un teléfono en
-             vertical, las tres tienen que caber en el alto del escenario (o
-             el escenario crece: ver `trust-band.tsx`).
+          /* Más apretadas por debajo de `sm` y de `lg`: apiladas en un
+             teléfono en vertical, las tres tienen que caber en el alto del
+             escenario (a 375×667, ~650 px de banda; si no, crece: ver
+             `trust-band.tsx`). Desde `sm` las medidas son las de siempre.
 
              `vp-glitch-card`: el filtro del glitch lo lleva cada tarjeta y no
              la sección, que tiene dentro el lienzo 3D.
@@ -72,29 +73,35 @@ export function TrustBandCards({ items }: { items: TrustBandContent["items"] }) 
           <Surface
             key={index}
             style={{ "--vp-tb-accent": accent.color } as CSSProperties}
-            className="vp-card vp-glitch-card p-3 shadow-[4px_4px_0_0_var(--vp-tb-accent)] sm:p-4 lg:p-5"
+            className="vp-card vp-glitch-card p-2.5 shadow-[4px_4px_0_0_var(--vp-tb-accent)] sm:p-4 lg:p-5"
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5 sm:gap-3">
               <span
                 aria-hidden="true"
-                className={cn("grid size-10 shrink-0 place-items-center rounded-vp lg:size-12", accent.tile)}
+                className={cn("grid size-9 shrink-0 place-items-center rounded-vp sm:size-10 lg:size-12", accent.tile)}
               >
                 <Icon className="size-5 lg:size-6" />
               </span>
               <div className="min-w-0">
                 <PixelLabel variant={accent.label}>{item.label}</PixelLabel>
                 {highlight && (
-                  <p className="mt-1.5 font-display text-lg font-bold uppercase leading-none tracking-[0.01em] sm:text-xl lg:text-2xl">
+                  <p className="mt-1 font-display text-base font-bold uppercase leading-none tracking-[0.01em] sm:mt-1.5 sm:text-xl lg:text-2xl">
                     {highlight}
                   </p>
                 )}
               </div>
             </div>
-            <h3 className="mt-2 text-base font-bold leading-tight sm:mt-3 lg:mt-4 lg:text-lg">{item.title}</h3>
+            <h3 className="mt-1.5 text-[0.9375rem] font-bold leading-tight sm:mt-3 sm:text-base lg:mt-4 lg:text-lg">{item.title}</h3>
             {lines.length > 0 && (
-              <ul className="mt-1 space-y-0.5 text-sm leading-snug text-muted sm:mt-2 sm:space-y-1">
+              <ul className="mt-1 text-sm leading-snug text-muted sm:mt-2 sm:space-y-1">
                 {lines.map((line, lineIndex) => (
-                  <li key={lineIndex} className="flex gap-2">
+                  <li
+                    key={lineIndex}
+                    // En un teléfono, las líneas extra van en `text-xs`:
+                    // apiladas, las tres tarjetas tienen que caber cerca del
+                    // alto de la pantalla. Desde `sm`, todas iguales.
+                    className={cn("flex gap-2", lineIndex > 0 && "text-xs/snug sm:text-sm/snug")}
+                  >
                     {/* Viñeta cuadrada, como un píxel: decorativa. */}
                     <span aria-hidden="true" className="mt-[0.45em] size-1.5 shrink-0 bg-[var(--vp-tb-accent)]" />
                     <span className="min-w-0">{line}</span>

@@ -140,10 +140,11 @@ etiqueta de caché `contenido` y ISR de 60 s.
   por la violeta común. Sin enlaces (decisión
   `dec-tarjetas-de-informacion-enlace-de-cada-tarjeta`) y sin filtros nuevos:
   el glitch sigue siendo `vp-glitch-card` en cada tarjeta. Una fila antigua
-  sin `icon` usa el de su posición. A 375×667 en vertical, con el copy por
-  defecto, la banda pasa de 603 a ~761 px de alto: crece (es `min-h`) en vez
-  de recortar, y en vertical la rejilla de `app/page.tsx` ya no la iguala con
-  la intro. El texto muted sobre la zona más clara de `.vp-card` (violeta al
+  sin `icon` usa el de su posición. Por debajo de `sm` van compactas (menos
+  relleno y separación, icono y dato algo menores, líneas extra en
+  `text-xs/snug`): a 375×667 en vertical, con el copy por defecto, la banda
+  mide ~646 px (la pantalla bajo la barra son 603; es `min-h`, así que crece
+  en vez de recortar). Desde `sm` las medidas no cambian. El texto muted sobre la zona más clara de `.vp-card` (violeta al
   24 %) queda en ~4.8:1.
 - La presentación de la intro, la banda y el pie está separada de la lectura:
   `HeroView`, `TrustBandCards` y `ContactView` no piden datos, y `Hero`,
