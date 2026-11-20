@@ -21,7 +21,7 @@ const REVALIDATE_SECONDS = 60;
  * aborta el build a los 60 s. Sin URL absoluta, respaldo directo; en la
  * instancia `API_URL` apunta al backend por loopback.
  */
-function apiBase(): string | null {
+export function apiBase(): string | null {
   const url = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
   return /^https?:\/\//.test(url) ? url : null;
 }
@@ -31,7 +31,8 @@ async function getJson(path: string): Promise<{ status: number; body: unknown } 
   if (!base) return null;
   try {
     const res = await fetch(`${base}${path}`, {
-      next: { revalidate: REVALIDATE_SECONDS },
+      // `catalogo`: la etiqueta que invalidará la revalidación on-demand (A7.3).
+      next: { revalidate: REVALIDATE_SECONDS, tags: ["catalogo"] },
       headers: { Accept: "application/json" },
     });
     return { status: res.status, body: res.ok ? await res.json() : null };

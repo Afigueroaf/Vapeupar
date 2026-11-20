@@ -3,7 +3,7 @@
   "status": "en_curso",
   "priority": "alta",
   "area": "infra",
-  "summary": "El plan gratuito vence el 2027-03-12 y el crédito compartido con DeliPan podría agotarse antes; si no se pasa a pago, AWS cierra la cuenta con ambos proyectos. Además limita backups a 1 día.",
+  "summary": "Opción elegida: pasar a pago en la misma cuenta. La rama chore/aws-plan-pago (backups de 7 días, presupuesto de 45 USD y alertas de anomalías) espera a que confirmes el cambio en la consola de AWS. Según el ritmo medido, el crédito llega hasta finales de febrero de 2027.",
   "question": "¿Cuándo y cómo se pasa a plan de pago: misma cuenta compartida, o cuenta propia de Vapeupar con AWS Organizations?",
   "options": [
     {
@@ -27,12 +27,40 @@
   "evidence": "Rama chore/aws-plan-pago (0c66dff)",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T18:28:10.426Z",
+  "updatedAt": "2026-11-19T03:09:42.867Z",
   "choice": {
     "kind": "option",
     "index": 0
   },
   "queued": false,
   "userPrompt": "El cambio a plan de pago lo hace el dueño en la consola de AWS en diciembre de 2026, cuando se agoten los créditos gratuitos; no antes. Ahora solo deja preparado en una rama el cambio de infra (backupRetentionDays 7, presupuesto y alarmas de coste) y documentado el procedimiento, sin desplegar: se aplica después de que el dueño confirme que la cuenta ya está en plan de pago.",
-  "claudeNote": "Preparado en la rama chore/aws-plan-pago (empujable, NO fusionada en dev a propósito): backupRetentionDays 7, presupuesto 45 USD (vapeupar-dev-monthly-costs) con avisos al 50/80/100 % y anomalías de costo desde 5 USD. Se fusiona y despliega en diciembre de 2026, cuando la cuenta pase a plan de pago; procedimiento en esa rama, infrastructure-aws.md §6.2."
+  "claudeNote": "Preparado en la rama chore/aws-plan-pago (empujable, NO fusionada en dev a propósito): backupRetentionDays 7, presupuesto 45 USD (vapeupar-dev-monthly-costs) con avisos al 50/80/100 % y anomalías de costo desde 5 USD. Se fusiona y despliega en diciembre de 2026, cuando la cuenta pase a plan de pago; procedimiento en esa rama, infrastructure-aws.md §6.2.\n\nPlan 2026-11-18: El summary y la question son de antes de decidir: la opción 0 ya está elegida y la rama preparada. «Diciembre, cuando se agoten los créditos» no cuadra con el §7.1 medido: con el ritmo actual el crédito llega hasta finales de febrero de 2027. La rama va 54 commits por detrás de dev y choca solo en el JSON del item. La sugerencia de que el presupuesto suba a 45 en F6 ya está cubierta aquí.\n\n2026-11-19: el dueño espera a que queden menos de ~20 USD de crédito para pasar a pago (control semanal). Cuando se haga: 7 días de retención más copia mensual guardada 12 meses, presupuesto de 45 USD y anomalías desde 5 USD.",
+  "plan": [
+    "A principios de diciembre de 2026, revisa el estado con `aws freetier get-account-plan-state` (tipo de plan, crédito que queda, vencimiento 2027-03-12) y coordina con DeliPan quién hace el cambio y cuándo.",
+    "Haces tú el cambio en la consola (Billing → plan de la cuenta → Upgrade). Después, `aws freetier get-account-plan-state` debe responder PAID.",
+    "Actualiza la rama chore/aws-plan-pago (0c66dff, 54 commits por detrás de dev) fusionando dev dentro. `git merge-tree` confirma que el único conflicto es docs/deathnote/items/plan-pago-aws.json: quédate con la versión de dev. config.ts, ops-stack.ts y los docs se fusionan solos.",
+    "Ejecuta `npm run typecheck --workspace=infra` y `VAPEUPAR_ALERT_EMAIL=... npm run infra:diff`. Lo esperado: en Vapeupar-dev-Data solo BackupRetentionPeriod 1→7 (reemplazo condicional); en Vapeupar-dev-Ops, el presupuesto vapeupar-dev-monthly se reemplaza por vapeupar-dev-monthly-costs (45 USD, avisos al 50/80/100 % del gasto real y al 100 % del previsto) y se añaden CostAnomalyMonitor y CostAnomalySubscription (5 USD). Storage y App, sin cambios. Lo que se aplique al final depende de dec-cuanto-historial-de-la-base-guardar (7 o 35 días, o copia mensual en un stack de backup nuevo que no toca Data) y de dec-presupuesto-y-avisos-de-costo (45 o 35 USD).",
+    "Sigue infrastructure-aws.md §6.2 de la rama: snapshot manual vapeupar-dev-db-antes-plan-pago-AAAAMMDD y espera a que esté available. Luego `cd infra && VAPEUPAR_ALERT_EMAIL=... npx cdk deploy -c env=dev -e Vapeupar-dev-Data` solo. Comprueba que el endpoint no cambió y que la retención es 7.",
+    "Despliega aparte `cd infra && VAPEUPAR_ALERT_EMAIL=... npx cdk deploy -c env=dev -e Vapeupar-dev-Ops` y confirma las suscripciones por correo que pida AWS.",
+    "Fusiona en dev y actualiza los docs: §6.1 (plan PAID, fecha, crédito restante), la tabla §8.2 (retención 7 días, presupuesto 45 USD) y la cabecera de CONFIGS.dev en infra/lib/config.ts. Pasa plan-pago-aws y endurecer-entorno-vivo a hecho.",
+    "Verificación: aws freetier get-account-plan-state · git merge-tree --write-tree --name-only dev chore/aws-plan-pago · npm run typecheck --workspace=infra · VAPEUPAR_ALERT_EMAIL=... npm run infra:diff · aws rds describe-db-instances --db-instance-identifier vapeupar-dev-db --query 'DBInstances[0].[Endpoint.Address,BackupRetentionPeriod,LatestRestorableTime]' · aws budgets describe-budgets --account-id 342284838697 --query 'Budgets[?starts_with(BudgetName, `vapeupar`)]' · aws ce get-anomaly-monitors"
+  ],
+  "acceptance": [
+    "`aws freetier get-account-plan-state` devuelve el plan PAID.",
+    "`aws rds describe-db-instances --db-instance-identifier vapeupar-dev-db --query 'DBInstances[0].[Endpoint.Address,BackupRetentionPeriod]'` devuelve el mismo endpoint de antes y 7.",
+    "`aws budgets describe-budgets --account-id 342284838697` muestra vapeupar-dev-monthly-costs con 45 USD y 4 notificaciones, y ya no existe vapeupar-dev-monthly.",
+    "`aws ce get-anomaly-monitors` muestra vapeupar-dev-cost-anomalies.",
+    "chore/aws-plan-pago está fusionada en dev sin conflictos pendientes."
+  ],
+  "risks": [
+    "Ejecutar `npm run infra:deploy` (deploy --all) desde una rama que ya incluya este cambio antes de pasar a pago hace que RDS rechace la retención de 7 días y CloudFormation deshaga el cambio. Por eso la rama no se fusiona hasta confirmar PAID.",
+    "El cambio de retención marca la instancia como reemplazo condicional. Va en un despliegue propio, con snapshot y con RETAIN y la protección de borrado ya activas.",
+    "Al reemplazar el presupuesto se pierden sus notificaciones de este mes en curso (el historial de gasto sigue en Cost Explorer).",
+    "Las anomalías y el presupuesto filtran por la etiqueta Project. Si deja de estar activada como etiqueta de asignación de costos, no avisan.",
+    "La factura pasa a cobrarse también por DeliPan en la misma tarjeta. El reparto queda fuera de infra/."
+  ],
+  "blockedBy": [
+    "dec-cuando-hacer-el-cambio-a-pago",
+    "dec-presupuesto-y-avisos-de-costo"
+  ]
 }

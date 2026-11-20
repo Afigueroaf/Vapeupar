@@ -4,24 +4,42 @@
   "priority": "baja",
   "area": "producto",
   "summary": "El carrito genera un pedido por WhatsApp con referencia VP-XXXXXX, pero no hay tabla de pedidos: cada venta se descuenta a mano como movimiento de venta.",
-  "question": "¿Se mantiene el descuento manual de stock por venta o se crea una entidad de pedido que la consola confirme?",
-  "options": [
-    {
-      "detail": "Cero desarrollo y coherente con el volumen actual; depende de la disciplina de registrar cada venta.",
-      "label": "Mantener manual por ahora",
-      "prompt": "Decisión: las ventas se siguen registrando a mano como movimientos de venta. Añade en /admin/stock un campo opcional de referencia VP-XXXXXX al registrar una venta (guardado en el motivo o en lote) para cruzarla con el chat de WhatsApp, sin cambiar el esquema. npm run test:backend, npm run build y documenta la regla en docs/admin-console-execution-plan.md.",
-      "recommended": true
-    },
-    {
-      "detail": "Trazabilidad de pedidos y descuento automático de stock, pero introduce estados, reservas y más superficie.",
-      "label": "Entidad Order confirmada desde la consola",
-      "prompt": "Decisión: se crea una entidad de pedido. Lee ADR-001, ADR-002 y docs/admin-console-execution-plan.md (Alcance). Redacta un ADR-003 con el modelo Order/OrderLine (referencia VP-XXXXXX, estados pendiente/confirmado/entregado/cancelado), cuándo se descuenta stock vía StockService y qué datos personales se guardan (y cuáles no). No implementes nada hasta que apruebe el ADR."
-    }
-  ],
   "source": "docs/admin-console-execution-plan.md (Alcance explícito: Fuera) + docs/decisions/001-stack-and-architecture.md",
   "evidence": "Commit 052304a: «sin pasarela de pago ni tabla de pedidos»",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T01:41:09.711Z",
-  "userPrompt": "El dueño quiere un trabajo especializado aquí: diseñar una experiencia de compra disfrutable para los clientes y cómoda para el operador (del carrito y el pedido por WhatsApp hasta el registro de la venta y el descuento de stock). No decidir aún entre manual y entidad Order: primero proponer el flujo completo de cliente y operador."
+  "updatedAt": "2026-11-19T03:09:42.867Z",
+  "userPrompt": "El dueño quiere un trabajo especializado aquí: diseñar una experiencia de compra disfrutable para los clientes y cómoda para el operador (del carrito y el pedido por WhatsApp hasta el registro de la venta y el descuento de stock). No decidir aún entre manual y entidad Order: primero proponer el flujo completo de cliente y operador.",
+  "plan": [
+    "Recorre el flujo actual de punta a punta y descríbelo en una propuesta nueva, docs/sales-flow-proposal.md. El carrito (frontend/src/lib/cart.ts, components/cart/cart-drawer.tsx) genera orderReference() y orderMessage() en frontend/src/lib/order-message.ts y abre WhatsApp. El operador confirma por chat, entrega verificando la cédula y registra a mano un movimiento 'sale' por variante en /admin/stock (movement-form.tsx). Anota las fricciones: un pedido de 3 sabores son 3 formularios, la referencia VP no queda en ningún sitio, no se guarda el precio cobrado ni el domicilio, y el disponible público puede llevar hasta 60 s de retraso.",
+    "Diseña la experiencia del cliente. Pantalla de «pedido enviado» con la referencia y la opción de copiarla, qué pasa después (te confirmamos disponibilidad y domicilio, pago contra entrega, cédula al recibir), qué hacer si WhatsApp no abre, y el carrito que se vacía o se conserva tras enviar. Ajusta el texto del mensaje de WhatsApp para que sea más fácil de procesar.",
+    "Diseña la experiencia del operador. En la consola habrá un «Registrar pedido» (nuevo frontend/src/app/(admin)/admin/(panel)/orders/new/page.tsx o una sección en /admin/stock) que, a partir del pedido, muestra todas las líneas con su disponible actual y registra la venta completa en un paso, con la referencia VP en el campo lot de cada movimiento.",
+    "Backend para el registro en un paso: POST /api/admin/stock/sales recibe {reference, lines:[{variantId, quantity}]} y crea todos los movimientos 'sale' en una sola transacción de StockService (backend/src/services/stock.service.ts). Usa operationKey derivado de la referencia y la variante para que un doble envío no duplique la venta, audita la operación y rechaza todo el pedido si una línea no tiene stock. Solo cambia el esquema si se decide guardar precio o datos del cliente.",
+    "Según la decisión sobre cómo llega el pedido: o el mensaje de WhatsApp incluye un enlace con el carrito codificado (variantIds y cantidades, nunca precios de confianza: el backend vuelve a calcularlos) que abre el formulario ya relleno, o el operador elige las líneas a mano con buscador. Si se elige la entidad Order, redacta primero docs/decisions/003-pedidos.md y no implementes nada hasta que se apruebe.",
+    "Consulta y cruce: en /admin/stock (kardex-panel.tsx), filtra y muestra los movimientos por referencia VP para cruzar un chat con su venta y deshacerla con un movimiento 'return' si el cliente cancela.",
+    "Tests y documentación: tests del endpoint por lotes (transacción completa o nada, idempotencia, stock insuficiente, 403 sin rol) en el backend. Documenta la regla operativa en docs/admin-console-execution-plan.md (Alcance) y en docs/backend.md, Si A7.3 incluye el stock, llama a notifySite(['catalogo']) también desde POST /api/admin/stock/sales tras la transacción, sin que su fallo cambie la respuesta.",
+    "Verificación: npm run test:backend · npm run lint --workspace=frontend · npm run build · Recorrido manual: carrito de 3 líneas, enviar pedido, registrar la venta en la consola y ver el disponible en el sitio"
+  ],
+  "acceptance": [
+    "Existe docs/sales-flow-proposal.md con el flujo de cliente y operador paso a paso, revisado por el dueño, antes de escribir código.",
+    "Un pedido de 3 variantes se registra en la consola en un solo envío y genera 3 movimientos 'sale' con la referencia VP en lot.",
+    "Reenviar el mismo registro (doble clic o reintento) no duplica ningún movimiento.",
+    "Si una línea no tiene stock suficiente, no se registra ninguna y la consola dice cuál falla.",
+    "Buscar VP-XXXXXX en la consola encuentra los movimientos de esa venta.",
+    "No se guarda ningún dato personal del cliente salvo lo decidido explícitamente."
+  ],
+  "risks": [
+    "Un enlace con el carrito en el mensaje deja ver la ruta /admin a los clientes, y el contenido del enlace es manipulable. Por eso no puede llevar precios de confianza y la consola debe exigir sesión, como ya hace.",
+    "Un endpoint público de pedidos (opción Order) es superficie de abuso: spam, reservas falsas que bloquean stock. Necesita un límite de peticiones y, quizá, un captcha.",
+    "El registro por lotes debe ser todo o nada. Un fallo a mitad que deje movimientos sueltos descuadra el kardex.",
+    "Sin A7.3, el disponible público va hasta 60 s por detrás de las ventas registradas."
+  ],
+  "blockedBy": [
+    "a7-revalidacion-on-demand",
+    "dec-como-llega-el-pedido-a-la-consola",
+    "dec-datos-del-cliente-que-se-guardan",
+    "dec-cuando-se-descuenta-el-stock",
+    "dec-registrar-el-precio-cobrado"
+  ],
+  "claudeNote": "Plan 2026-11-18: El userPrompt del item pide NO decidir aún entre manual y Order, sino proponer primero el flujo completo. Las dos opciones actuales del item son prematuras y conviene sustituirlas por estas cuatro decisiones, que se responden sobre la propuesta de flujo. La opción «Mantener manual» del item sugiere guardar la referencia «en el motivo o en lote»: lot (máx. 100) es mejor, porque reason es obligatorio en los ajustes y tiene otro sentido. El comentario de order-message.ts dice que la referencia «no se guarda en ningún sitio»: habrá que actualizarlo.\n\nLa pregunta y las opciones antiguas (manual frente a entidad Order) se retiraron: tu indicación era no decidirlo aún, sino proponer antes el flujo completo. Ahora son cuatro decisiones (dec-* en «bloqueado por») que se responden sobre esa propuesta.\n\nDecisiones del 2026-11-19 que cambian el alcance: pedido guardado en la base (entidad Order, con ADR y migración), con nombre, teléfono y barrio del cliente (Ley 1581: política de datos, casilla de autorización en el carrito y procedimiento de borrado), stock descontado al confirmar por chat, y precio cobrado más domicilio en la misma migración. Es bastante más trabajo que el formulario manual: conviene un ADR antes de tocar código."
 }

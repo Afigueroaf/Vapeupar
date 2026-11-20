@@ -1,6 +1,6 @@
 {
   "title": "Subir las imágenes de variantes del catálogo al bucket",
-  "status": "en_curso",
+  "status": "hecho",
   "priority": "media",
   "area": "datos",
   "summary": "Las imágenes de línea ya están en el CDN, pero el traspaso documenta un bucket casi vacío y no consta que las 79 imágenes de variante de assets/brands se hayan subido con las claves de §4.2.",
@@ -11,9 +11,11 @@
     }
   ],
   "source": "docs/session-handoff-2026-10-27-inventory-images.md (§4.6) + docs/admin-console-execution-plan.md (A8)",
-  "evidence": "docs/backend.md (Base de datos)",
+  "evidence": "dry-run posterior: 0 por subir · 82/82 imágenes 200",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T21:04:50.519Z",
-  "claudeNote": "Rama feat/carga-imagenes (2026-11-17), sin fusionar. npm run db:upload-images (--dry-run): lee assets/brands con el mapa de la semilla, ahora compartido en src/catalog/catalog-assets.ts; sube solo lo que falta en el bucket, rellena imageKey solo en filas vacías (audita image.backfill) y lista las claves rotas que no arregla. Tests 178/178. NO EJECUTADO contra producción: abrir el túnel a la base quedó bloqueado por permisos; el dueño debe lanzar el dry-run y revisar antes de la carga real."
+  "updatedAt": "2026-11-17T22:32:49.414Z",
+  "claudeNote": "Hecho el 2026-11-17. npm run db:upload-images subió 75 imágenes al bucket de producción (logo de LifePod y 74 de variantes de ECO 3, ECO PRO y ONE); 0 filas rellenadas porque todas tenían imageKey. El bucket pasa de 13 a 88 objetos; un segundo dry-run da 0 por subir, y las 82 URLs de imagen que sirve la API responden 200 por CloudFront. Script y mapa compartido con la semilla en el PR #18.",
+  "completedAt": "2026-11-17T22:32:49.319Z",
+  "queued": false
 }

@@ -1,20 +1,17 @@
 import { z } from 'zod';
 import { jsonObject } from '../json.schema.js';
+import { CONTENT_KEYS, ContentKey } from '../content/index.js';
 
 /**
  * Contenido editable del sitio (plan A4.2, `GET/PUT /api/admin/content/:key`).
  *
- * Las claves son una lista cerrada, la de A7.1, y en inglés como el resto del
- * contrato de la API. **La forma del valor de cada clave todavía no se valida
- * aquí**: eso es A7.1, que creará `backend/src/schemas/content/` con un esquema
- * por clave. Hasta entonces esta ruta acepta cualquier objeto JSON con tope de
- * tamaño, y el frontend hace `safeParse` contra su propio esquema con los
- * textos por defecto como respaldo (A7.2), así que un valor mal formado no
- * puede dejar la página sin texto.
+ * Las claves son una lista cerrada y en inglés como el resto del contrato. El
+ * cuerpo se valida aquí solo como JSON con tope de tamaño; la **forma** de cada
+ * clave la exige `ContentService.publish` con los esquemas de
+ * `schemas/content/` (A7.1), que es donde vive esa regla.
  */
-export const CONTENT_KEYS = ['hero', 'trust-band', 'faq', 'seo', 'contact'] as const;
-
-export type ContentKey = typeof CONTENT_KEYS[number];
+export { CONTENT_KEYS };
+export type { ContentKey };
 
 export const ContentKeyParamSchema = z.object({
   key: z.enum(CONTENT_KEYS)

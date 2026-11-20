@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PixelLabel } from "@/components/ui/pixel-label";
 import { COLLECTIONS } from "@/lib/collections";
 import { formatPhoneCO, storePhone, telLink } from "@/lib/contact";
+import { getContent } from "@/lib/content";
 
 /**
  * Pie de página del sistema VP (fase V6).
@@ -22,7 +23,9 @@ const COL_HEADING = "text-[0.9375rem] font-bold uppercase tracking-[0.06em]";
 const COL_LIST = "mt-4 space-y-2 text-base text-muted";
 const LINK = "transition-colors hover:text-action";
 
-export function Footer() {
+/** Texto de marca, horario y servicio: clave `contact` del contenido (A7.4). */
+export async function Footer() {
+  const contact = await getContent("contact");
   const currentYear = new Date().getFullYear();
   const phoneHref = telLink();
 
@@ -54,7 +57,7 @@ export function Footer() {
           />
 
           <p className="mt-4 text-base leading-relaxed text-muted">
-            Tu tienda especializada en Valledupar para vaporizadores desechables, pods recargables, e-líquidos premium y accesorios originales.
+            {contact.about}
           </p>
         </div>
 
@@ -62,9 +65,10 @@ export function Footer() {
         <div>
           <h3 className={COL_HEADING}>Ubicación y cobertura</h3>
           <ul className={COL_LIST}>
-            <li>Valledupar, Cesar, Colombia</li>
-            <li>Lunes a Sábado: 10:00 AM - 10:00 PM</li>
-            <li>Domingos: 12:00 PM - 8:00 PM</li>
+            <li>{contact.location}</li>
+            {contact.hours.map((line, index) => (
+              <li key={index}>{line}</li>
+            ))}
           </ul>
         </div>
 
@@ -80,9 +84,9 @@ export function Footer() {
                 </a>
               </li>
             )}
-            <li>Envíos locales express en moto</li>
-            <li>Envíos a todo el departamento del Cesar</li>
-            <li>Métodos: Nequi, Daviplata, Contra Entrega</li>
+            {contact.service.map((line, index) => (
+              <li key={index}>{line}</li>
+            ))}
           </ul>
         </div>
 

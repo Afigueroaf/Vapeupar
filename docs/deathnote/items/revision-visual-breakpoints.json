@@ -3,16 +3,40 @@
   "status": "pendiente",
   "priority": "alta",
   "area": "diseño",
-  "summary": "Nadie ha revisado en navegador el sitio ni las pantallas de la consola (formularios largos, modal +18, footer en móvil); estaba bloqueado por la extensión de Chrome.",
-  "suggestions": [
-    {
-      "label": "Revisión con Claude in Chrome",
-      "prompt": "Lee docs/design-execution-plan.md (Pendientes abiertos, estado actual) y docs/design-reset-inventory.md §11. Levanta el sitio con npm run build y npm start (frontend y backend), y con la extensión de Chrome revisa a 375, 768 y 1440 px: portada, catálogo, /producto/[slug], carrito, modal +18, FAQ, footer y las pantallas /admin (stock, brands, suppliers, products, showcase). Recorre cada una con Tab comprobando foco visible y orden lógico. Entrega una lista de defectos priorizada con capturas y corrige solo los triviales; ejecuta npm run lint --workspace=frontend y npm run build y marca el pendiente #1 en el plan."
-    }
-  ],
+  "summary": "Nadie ha revisado en navegador el sitio ni la consola (formularios largos, modal +18, footer en móvil, panel INFO). Ya no está bloqueado: Claude in Chrome está disponible.",
+  "suggestions": [],
   "source": "docs/design-execution-plan.md (Pendientes abiertos #1) + docs/admin-console-execution-plan.md (A5 No verificado)",
   "evidence": "Todos los registros de V3–V7 y A5 marcan «No verificado en navegador»",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-16T21:41:14.151Z"
+  "updatedAt": "2026-11-19T03:09:42.867Z",
+  "plan": [
+    "Pon al día el alcance antes de empezar: las rutas que existen hoy son /, /producto/[slug], /coleccion/[categoria], /nosotros y /admin (login, stock, brands, suppliers, products, showcase, users), según frontend/src/app/**/page.tsx. /tienda no existe. El carrito es un cajón y la FAQ es la sección #faq de la portada. Apunta la lista en docs/design-execution-plan.md («Pendientes abiertos (estado actual)», fila #1).",
+    "Levanta producción en local: npm run build y después npm start --workspace=backend y npm start --workspace=frontend con backend y frontend, y un .env que tenga NEXT_PUBLIC_WHATSAPP_NUMBER para que salgan los CTA de WhatsApp. Nunca next dev.",
+    "Con Claude in Chrome (ya disponible: lo que bloqueaba este pendiente ya no existe) revisa a 375×667, 768×1024 y 1440×900 la portada (hero, escenario VITRINA/INFO de trust-stage.tsx en vertical y en horizontal, catálogo, FAQ y footer), el modal +18, la ficha /producto/[slug] con el carrito abierto, /coleccion/[categoria] y /nosotros. Una captura por vista.",
+    "Recorre cada vista con Tab y Shift+Tab: foco visible, orden lógico, el foco pasa del tirador INFO a VOLVER, Escape cierra el panel INFO, el modal +18 atrapa el foco y el cajón del carrito lo devuelve al cerrarse. Mide los objetivos táctiles de 44 px.",
+    "Revisa la consola /admin a 375 y a 1440: formularios largos de products, stock (alertas, kardex), brands, suppliers, showcase y users.",
+    "Entrega una lista de defectos priorizada (bloqueante, alta, media, baja) con captura, ruta, ancho y archivo sospechoso. Corrige solo lo trivial (clases Tailwind, aria-*, focus-visible) y abre un item del Deathnote por cada defecto no trivial.",
+    "Marca la fila #1 como resuelta en docs/design-execution-plan.md y los «No verificado en navegador» de A5 en docs/admin-console-execution-plan.md.",
+    "Verificación: npm run build && npm start --workspace=backend (y en otra terminal npm start --workspace=frontend) · Claude in Chrome: 375×667, 768×1024 y 1440×900 con captura por ruta · Tab, Shift+Tab y Escape en cada vista · Lighthouse móvil > Accessibility en portada y ficha · npm run lint --workspace=frontend && npm run build"
+  ],
+  "acceptance": [
+    "Capturas de cada ruta a 375, 768 y 1440 px, incluido el panel INFO abierto en vertical y en horizontal.",
+    "Las tres tarjetas del panel INFO caben a 375×667 sin recortarse, o queda anotado como defecto.",
+    "Recorrido con Tab documentado por pantalla: foco visible siempre, sin trampas salvo el modal +18, Escape cierra el panel INFO y el modal.",
+    "Todos los objetivos táctiles de la tienda miden al menos 44×44 px a 375 px, o quedan listados.",
+    "La fila #1 de Pendientes abiertos queda cerrada o sustituida por items concretos del Deathnote.",
+    "npm run lint --workspace=frontend y npm run build sin errores."
+  ],
+  "risks": [
+    "Sin NEXT_PUBLIC_WHATSAPP_NUMBER los CTA de WhatsApp no se pintan y la revisión no los ve.",
+    "Sin backend con datos, el catálogo y la vitrina caen al respaldo y se revisa un estado que no es el real.",
+    "El viewport emulado no reproduce la barra dinámica de Chrome Android, que mueve el alto del escenario (--vp-screen).",
+    "Si se rediseñan las tarjetas del panel INFO, su parte de la revisión hay que repetirla."
+  ],
+  "blockedBy": [
+    "dec-revision-visual-quien-revisa-y-en-que-aparato",
+    "dec-revision-visual-alcance"
+  ],
+  "claudeNote": "Plan 2026-11-18: El summary dice que estaba bloqueado por la extensión de Chrome; ya no es así. El prompt antiguo no incluye /admin/users, /admin/login, /coleccion/[categoria] ni /nosotros, que ya existen."
 }

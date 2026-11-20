@@ -1,0 +1,37 @@
+{
+  "title": "Docs: qué hacer con los documentos históricos",
+  "status": "hecho",
+  "priority": "media",
+  "area": "producto",
+  "summary": "Más de diez archivos del código (comentarios en navbar.tsx, footer.tsx, hero.tsx, globals.css, page-glitch.tsx, entre otros), varios items del Deathnote y otros docs los citan por su ruta. Moverlos o borrarlos obliga a reescribir esas referencias; dejarlos con nota no rompe nada, pero sigue habiendo ruido en docs/.",
+  "question": "Los documentos que ya solo cuentan el pasado (traspaso del 27-10, auditoría inicial, plan de mejora y el inventario del reset visual), ¿los dejo en su sitio con una nota, los muevo a una carpeta de históricos o los borro?",
+  "options": [
+    {
+      "label": "Nota de histórico en su sitio",
+      "detail": "Cero enlaces rotos; cada uno abre con «Histórico al <fecha>: el estado vigente está en …»",
+      "prompt": "Añade al inicio de docs/session-handoff-2026-10-27-inventory-images.md, docs/audit-and-fragile-points.md, docs/improvement-plan.md y docs/design-reset-inventory.md una nota en cita: «Documento histórico (estado al <fecha del documento>). No describe el estado actual: ver <doc vigente>». Remite a admin-console-execution-plan.md, el Deathnote o design-execution-plan.md según el caso, y lista en una línea lo que ya cambió (p. ej. imágenes subidas el 2026-11-17; los 14 puntos frágiles corregidos). No toques el resto del texto. Aceptación: git diff solo añade líneas al inicio de esos 4 archivos. Muestra el diff antes del commit.",
+      "recommended": true
+    },
+    {
+      "label": "Mover a docs/historico/",
+      "detail": "docs/ queda limpio, pero hay que reescribir las referencias en docs, código y Deathnote",
+      "prompt": "Mueve con git mv docs/session-handoff-2026-10-27-inventory-images.md, docs/audit-and-fragile-points.md, docs/improvement-plan.md y docs/design-reset-inventory.md a docs/historico/, con la misma nota de histórico al inicio. Actualiza todas las referencias: grep -rn por los cuatro nombres en README.md, GEMINI.md, docs/, docs/deathnote/items/*.json (source, evidence), .claude/skills, frontend/src y backend/src (comentarios). Aceptación: el grep no devuelve rutas antiguas y npm run deathnote no falla. Muestra el diff antes del commit."
+    },
+    {
+      "label": "Borrarlos",
+      "detail": "Se pierden de la vista; quedan solo en el historial de git",
+      "prompt": "Borra con git rm los cuatro documentos (session-handoff-2026-10-27-inventory-images.md, audit-and-fragile-points.md, improvement-plan.md y design-reset-inventory.md). Antes, pasa al Deathnote como pendiente nuevo lo que aún no se haya hecho de improvement-plan.md Fase 2 (p. ej. el costo de domicilio en Valledupar, si no existe ya). Sustituye cada referencia por la del doc vigente o por el hash del commit donde se borró. Aceptación: el grep por los cuatro nombres no devuelve nada fuera de git log. Muestra el diff antes del commit."
+    }
+  ],
+  "parent": "actualizar-docs-obsoletos",
+  "source": "Plan de desarrollo 2026-11-18 (actualizar-docs-obsoletos)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.748Z",
+  "updatedAt": "2026-11-19T06:24:49.451Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:24:49.450Z",
+  "queued": false
+}

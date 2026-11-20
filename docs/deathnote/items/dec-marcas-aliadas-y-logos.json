@@ -1,0 +1,37 @@
+{
+  "title": "Datos reales: marcas aliadas y logos",
+  "status": "hecho",
+  "priority": "baja",
+  "area": "datos",
+  "summary": "La consola solo acepta logos WebP, JPEG o PNG; un SVG tiene que entrar por assets/brands y la semilla. Hoy la web pública no muestra logos, solo los nombres en la FAQ (GET /api/brands/partners), así que el logo solo se ve en la consola por ahora.",
+  "question": "¿Qué marcas aliadas, además de LifePod, deben aparecer ya, y en qué formato tienes sus logos?",
+  "options": [
+    {
+      "label": "Las creas en /admin con logo PNG o WebP",
+      "detail": "Sin código; cada marca con isPartner, y el logo se sube desde su ficha",
+      "prompt": "No hay código que cambiar. Lee docs/backend.md (POST /api/admin/brands y POST /api/admin/uploads/presign) y deja en docs/frontend.md, sección de la consola, una nota de cómo dar de alta una marca aliada con su logo (PNG o WebP de hasta 5 MB, fondo transparente). Aceptación: la nota existe y GET /api/brands/partners lista las marcas nuevas tras crearlas.",
+      "recommended": true
+    },
+    {
+      "label": "Me pasas los SVG y van por la semilla",
+      "detail": "Se guardan en assets/brands/<marca>/ y se cargan con db:seed y db:upload-images",
+      "prompt": "Por cada SVG entregado, crea assets/brands/<slug>/<logo>.svg y añade su entrada en CATALOG (backend/src/catalog/catalog-assets.ts) con isPartner true y lines: []. Comprueba que prisma/seed.ts y scripts/upload-catalog-images.ts toleran una marca sin líneas (si no, corrígelo con su test). Aceptación: npm run test:backend en verde y npm run db:upload-images --workspace=backend -- --dry-run lista solo los logos nuevos. No ejecutes la carga sin la confirmación del dueño."
+    },
+    {
+      "label": "Aplazar logos",
+      "detail": "Solo nombres de marca por ahora; los logos esperan a que la web los muestre",
+      "prompt": "En el item carga-datos-reales del Deathnote (docs/deathnote/items/carga-datos-reales.json), saca los logos del alcance y anota que esperan a que la web pública los muestre. Aceptación: el summary del item ya no menciona logos."
+    }
+  ],
+  "parent": "carga-datos-reales",
+  "source": "Plan de desarrollo 2026-11-18 (carga-datos-reales)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.748Z",
+  "updatedAt": "2026-11-19T06:31:27.274Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:31:27.273Z",
+  "queued": false
+}

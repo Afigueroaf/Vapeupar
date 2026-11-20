@@ -3,6 +3,7 @@ import { Oxanium, Press_Start_2P } from "next/font/google";
 import { PageGlitch } from "@/components/page-glitch";
 import { SmoothScroll } from "@/components/smooth-scroll";
 import { VP_BLACK } from "@/lib/brand";
+import { getContent } from "@/lib/content";
 import { siteUrl } from "@/lib/site-url";
 import "./globals.css";
 
@@ -55,47 +56,46 @@ export const viewport: Viewport = {
   colorScheme: "dark",
 };
 
-export const metadata: Metadata = {
-  // Sin `metadataBase`, Next resuelve las URL de OpenGraph contra localhost y
-  // ningún cliente de WhatsApp ni de X puede recuperar la imagen. El origen
-  // viene de `NEXT_PUBLIC_SITE_URL` (ver `lib/site-url.ts`).
-  metadataBase: new URL(siteUrl()),
-  title: "Vapeupar | Tienda de Vaporizadores & Catálogo en Valledupar",
-  description: "Catálogo exclusivo de vaporizadores desechables, pods recargables, sales de nicotina y accesorios en Valledupar. Envíos express contra entrega en moto.",
-  keywords: [
-    "vape valledupar",
-    "vaporizadores valledupar",
-    "pods desechables valledupar",
-    "sales de nicotina colombia",
-    "lost mary",
-    "geekvape",
-    "oxva"
-  ],
-  authors: [{ name: "Vapeupar" }],
-  robots: {
-    index: true,
-    follow: true,
-  },
-  openGraph: {
-    title: "Vapeupar | Tienda de Vaporizadores en Valledupar",
-    description: "Vaporizadores 100% auténticos, pods y sales de nicotina con entrega inmediata en Valledupar. Pide directamente por WhatsApp.",
-    url: siteUrl(),
-    siteName: "Vapeupar",
-    locale: "es_CO",
-    type: "website",
-    // La imagen la aporta `app/opengraph-image.png` por convención de archivo:
-    // Next emite `og:image`, su tamaño y su tipo, y toma el texto alternativo de
-    // `opengraph-image.alt.txt`. Antes apuntaba a una foto de Unsplash.
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "Vapeupar | Vaporizadores en Valledupar",
-    description: "Catálogo de vaporizadores con envíos inmediatos contra entrega en Valledupar.",
-    // Sin `images` aquí a propósito: de `app/opengraph-image.png` Next deriva
-    // también `twitter:image`, su alt y su tamaño. Una `app/twitter-image.png`
-    // solo haría falta para un recorte distinto del de OpenGraph.
-  },
-};
+/**
+ * Metadatos del sitio. Título, descripción, keywords y tarjetas sociales salen
+ * de la clave `seo` del contenido (A7.4); sin API, del valor por defecto.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const seo = await getContent("seo");
+
+  return {
+    // Sin `metadataBase`, Next resuelve las URL de OpenGraph contra localhost y
+    // ningún cliente de WhatsApp ni de X puede recuperar la imagen. El origen
+    // viene de `NEXT_PUBLIC_SITE_URL` (ver `lib/site-url.ts`).
+    metadataBase: new URL(siteUrl()),
+    title: seo.title,
+    description: seo.description,
+    keywords: seo.keywords,
+    authors: [{ name: "Vapeupar" }],
+    robots: {
+      index: true,
+      follow: true,
+    },
+    openGraph: {
+      title: seo.openGraph.title,
+      description: seo.openGraph.description,
+      url: siteUrl(),
+      siteName: "Vapeupar",
+      locale: "es_CO",
+      type: "website",
+      // La imagen la aporta `app/opengraph-image.png` por convención de archivo:
+      // Next emite `og:image`, su tamaño y su tipo, y toma el texto alternativo de
+      // `opengraph-image.alt.txt`.
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: seo.twitter.title,
+      description: seo.twitter.description,
+      // Sin `images` a propósito: de `app/opengraph-image.png` Next deriva
+      // también `twitter:image`, su alt y su tamaño.
+    },
+  };
+}
 
 export default function RootLayout({
   children,

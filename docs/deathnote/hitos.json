@@ -110,5 +110,47 @@
     "title": "Consola en producción con MFA",
     "detail": "Primer login del dueño en https://vapeupar.ddns.net/admin con TOTP. El 502 inicial venía del búfer de cabeceras de nginx (cookies con tokens de Cognito); /api/ pasa a 16 KB.",
     "ref": "PR #16 · 547bc97 · run 44162588030"
+  },
+  {
+    "id": "h20261117-17",
+    "date": "2026-11-17",
+    "title": "Cola en curso fusionada en main",
+    "detail": "A6 (filtros sobre variantes y brandSlug), V8 (/coleccion/[categoria] y /nosotros), WebGL fase 2, script de carga de imágenes y bucket con RETAIN y versionado. Release pendiente de aprobación; el bucket se aplica aparte con cdk deploy.",
+    "ref": "PR #18 · 00e31b1"
+  },
+  {
+    "id": "h20261117-18",
+    "date": "2026-11-17",
+    "title": "Colecciones, nosotros y catálogo por variantes en producción",
+    "detail": "Release 00e31b1: /coleccion/[categoria], /nosotros, búsqueda sobre variantes, brandSlug y WebGL fase 2. Dry-run de imágenes: 75 por subir al bucket.",
+    "ref": "PR #18 · 00e31b1 · run 44183642513"
+  },
+  {
+    "id": "h20261117-19",
+    "date": "2026-11-17",
+    "title": "Imágenes del catálogo en el bucket",
+    "detail": "75 imágenes subidas con db:upload-images; las 82 URLs de imagen de la API responden 200.",
+    "ref": "db:upload-images · bucket 13 → 88 objetos"
+  },
+  {
+    "id": "h20261117-20",
+    "date": "2026-11-17",
+    "title": "Bucket del catálogo con RETAIN y versionado",
+    "detail": "cdk deploy de Vapeupar-dev-Storage tras copiar los 88 objetos. Sin pérdida: 88 antes y después.",
+    "ref": "cdk deploy Vapeupar-dev-Storage"
+  },
+  {
+    "id": "h20261118-1",
+    "date": "2026-11-18",
+    "title": "Contenido del sitio editable (A7.1, A7.2, A7.4)",
+    "detail": "Esquemas por clave, GET /api/content/:key y /api/brands/partners, y hero, banda de confianza, FAQ, pie y SEO leyendo de la API con respaldo en código. La FAQ ya no nombra marcas a mano.",
+    "ref": "feat/a7-contenido-editable · cffcb3a"
+  },
+  {
+    "id": "h20261118-2",
+    "date": "2026-11-18",
+    "title": "Planes de desarrollo y decisiones para todos los pendientes",
+    "detail": "17 pendientes con plan, criterios de aceptación y riesgos, redactados por cuatro agentes planificadores y verificados contra el repo por un agente revisor (37 correcciones aplicadas). 36 decisiones del dueño como items dec-* enlazados a su pendiente.",
+    "ref": "feat/a7-contenido-editable"
   }
 ]

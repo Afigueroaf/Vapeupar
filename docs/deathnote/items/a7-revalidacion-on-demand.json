@@ -14,5 +14,36 @@
   "evidence": "No existe frontend/src/app/api/revalidate; docs/aws-full-deployment-plan.md F2 hallazgo 5: REVALIDATE_SECRET no se usa en el código",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-16T21:41:14.151Z"
+  "updatedAt": "2026-11-19T03:09:42.867Z",
+  "plan": [
+    "Frontend: crea frontend/src/app/internal/revalidate/route.ts (POST), fuera de /api porque nginx manda /api/* al backend (infra/deploy/nginx/vapeupar-site.inc). Lee REVALIDATE_SECRET de process.env. Si falta, responde 503. Compara la cabecera Authorization: Bearer <secreto> con crypto.timingSafeEqual sobre los hashes SHA-256 de ambos valores, para que el largo no filtre nada. El cuerpo {tags: ('catalogo'|'contenido')[]} se valida con Zod y cualquier etiqueta fuera de esa lista es 400. Llama a revalidateTag(tag, { expire: 0 }). Next 16.4 exige el segundo argumento: con 'max' la primera visita seguiría recibiendo la versión vieja, y el criterio es verla al recargar.",
+    "Frontend: exporta CATALOG_TAG = 'catalogo' junto a CONTENT_TAG (frontend/src/lib/content.ts) y úsala en lugar del literal de frontend/src/lib/api.ts (getJson) y de getPartnerBrands en content.ts. Revisa frontend/src/app/coleccion/[categoria]/page.tsx (revalidate = 60). Deja los 60 s de ISR como red de seguridad.",
+    "Backend: crea backend/src/services/site-revalidation.service.ts con una única función, notifySite(tags). Hace POST a REVALIDATE_URL (por defecto http://127.0.0.1:3000/internal/revalidate) con AbortSignal.timeout(3000). Nunca lanza: si falla, deja un console.warn y devuelve false. Sin REVALIDATE_SECRET o sin URL, no hace nada (tests y local sin frontend).",
+    "Backend: inyecta el revalidador como dependencia opcional (igual que guard o settings en backend/src/routes/admin/index.ts) y llámalo después de cada escritura que ya respondió bien. 'contenido' va en PUT /content/:key (content.routes.ts). 'catalogo' va en las altas y ediciones de marca (afectan a la lista de aliadas, así que también 'contenido'), línea y variante (products.routes.ts, brands.routes.ts) y, según la decisión, en los movimientos de stock (stock.routes.ts). La respuesta HTTP no espera la revalidación o la espera con un tope corto, y añade un meta.revalidated booleano para que la consola avise «se verá en ≤60 s» si falló.",
+    "Infra: en infra/lib/app-stack.ts (o auth-stack.ts, siguiendo el patrón de cognito-backend-client), crea un secretsmanager.Secret 'vapeupar/<env>/revalidate' con generateSecretString de 32 bytes en hex. Publica su ARN en SSM como REVALIDATE_SECRET_ARN y añade 'revalidate' a la lista del permiso GetSecretValue del rol de la EC2.",
+    "Despliegue: infra/deploy/write-env.mjs escribe REVALIDATE_SECRET y REVALIDATE_URL en backend.env. Escribe además un /etc/vapeupar/frontend.env (0600, root) que lleve SOLO REVALIDATE_SECRET: el frontend no debe recibir las credenciales de base de datos ni las de Cognito. En infra/deploy/systemd/vapeupar-frontend.service añade EnvironmentFile=/etc/vapeupar/frontend.env y Wants/After=vapeupar-env.service. En vapeupar-site.inc añade location /internal/ { return 404; }: solo el backend, por loopback, llega a esa ruta. En local, infra/scripts/write-backend-env.mjs copia el mismo secreto a frontend/.env.local.",
+    "Tests (vitest del backend): el revalidador recibe un fetch inyectado y se prueba con timeout, con respuesta 500 y sin secreto. Las rutas de contenido, catálogo y stock comprueban que se llama con las etiquetas correctas y que un fallo del revalidador no cambia el 201/200. La comparación del secreto vive en una función pura (frontend/src/lib/revalidate-auth.ts), probada desde el backend como content-parity.test.ts o con los tests del frontend cuando existan.",
+    "Documentación: actualiza docs/backend.md (variables y el efecto colateral de las escrituras), docs/frontend.md (la ruta interna y las etiquetas), el «Registro A7» de docs/admin-console-execution-plan.md con A7.3, y el hallazgo 5 de F2 en docs/aws-full-deployment-plan.md. Muestra `VAPEUPAR_ALERT_EMAIL=<tu correo> npm run infra:diff` (solo debe cambiar el stack del secreto). Con mi aprobación, despliega solo ese stack (`cd infra && VAPEUPAR_ALERT_EMAIL=... npx cdk deploy -c env=dev -e <stack>`) y después saca la release dev → produccion. Nunca `npm run infra:deploy` (es --all).",
+    "Verificación: npm run test:backend · npm run lint --workspace=frontend · npm run build · npm run typecheck --workspace=infra · npm run infra:diff · Tras desplegar: curl -i -X POST https://<sitio>/internal/revalidate (debe dar 404) y journalctl -u vapeupar-backend -n 50"
+  ],
+  "acceptance": [
+    "Publicar una FAQ con PUT /api/admin/content/faq y recargar la portada muestra el texto nuevo a la primera, sin esperar 60 s.",
+    "Pasar una línea a borrador la saca de la portada y de /coleccion/<categoria> al recargar.",
+    "Desde fuera, POST https://<sitio>/internal/revalidate responde 404 (nginx). Por loopback, sin secreto o con un secreto incorrecto, responde 401, y una etiqueta desconocida responde 400.",
+    "Con el frontend apagado, publicar contenido o editar una línea responde igual que antes (201/200) y deja solo un aviso en el log.",
+    "/etc/vapeupar/frontend.env contiene solo REVALIDATE_SECRET. Ni DATABASE_URL ni COGNITO_* están en el entorno del proceso del frontend.",
+    "Hay un único secreto por entorno: lo crea el CDK y lo leen backend y frontend."
+  ],
+  "risks": [
+    "Si REVALIDATE_SECRET difiere entre backend.env y frontend.env (por ejemplo, porque se rota solo uno), todas las revalidaciones dan 401 sin que nadie se entere. Por eso se escriben los dos desde la misma lectura en write-env.mjs.",
+    "revalidateTag con { expire: 0 } hace que la siguiente visita espere al backend. Si el backend está lento en ese momento, esa visita es lenta, pero sigue cayendo al respaldo.",
+    "Si el CDK no crea el secreto antes del despliegue, write-env.mjs falla y el backend no arranca. El secreto tiene que ser opcional en el primer despliegue, o el orden tiene que ser infra:deploy antes de app:deploy.",
+    "Secrets Manager cuesta unos 0,40 USD al mes por secreto, dentro del presupuesto de 30 USD.",
+    "Si la ruta se monta en /api/revalidate, como dice el plan original, nginx la manda al backend y nunca llega a Next."
+  ],
+  "blockedBy": [
+    "a7-contenido-editable",
+    "dec-que-cambios-refrescan-el-sitio-al-instante"
+  ],
+  "claudeNote": "Plan 2026-11-18: El plan y el prompt del item proponen frontend/src/app/api/revalidate/route.ts: esa ruta choca con location /api/ de nginx y hay que moverla (por ejemplo, a /internal/revalidate). Ya existen CONTENT_TAG='contenido' y la doble etiqueta de getPartnerBrands (rama feat/a7-contenido-editable, sin fusionar). La etiqueta 'catalogo' ya está en getJson (frontend/src/lib/api.ts), pero como literal: falta exportar CATALOG_TAG. REVALIDATE_SECRET solo lo genera infra/scripts/write-backend-env.mjs en local; infra/deploy/write-env.mjs no lo escribe y el CDK no lo crea, así que «ambos entornos del servidor» significa dev (que ES producción) y prod en config.ts. En Next 16, revalidateTag sin segundo argumento está obsoleto."
 }

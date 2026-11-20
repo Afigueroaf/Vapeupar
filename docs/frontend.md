@@ -109,6 +109,28 @@ primeras colecciones. «Tienda» y «Colecciones» siguen apuntando a la portada
 `#pods`, `#liquidos`, `#nosotros`) se conservan por los enlaces ya
 compartidos. La ficha vuelve a la colección de su línea.
 
+## Contenido editable (A7)
+
+Los textos de la intro (`hero.tsx`), las tarjetas de información
+(`trust-band.tsx`), la FAQ, el pie (`footer.tsx`) y los metadatos de
+`layout.tsx` ya no están escritos en los componentes: los lee
+`lib/content.ts` de `GET /api/content/:clave`, en Server Component, con la
+etiqueta de caché `contenido` y ISR de 60 s.
+
+- Cada lectura se valida con el esquema de su clave
+  (`lib/content/schemas.ts`, espejo del backend). Si la API no responde o el
+  valor no encaja, se usa el **valor por defecto**, que es el texto de antes:
+  la página nunca se queda sin texto.
+- La FAQ es de cliente (acordeón), así que `app/page.tsx` lee el contenido y
+  se lo pasa por props, con las marcas aliadas ya sustituidas en el marcador
+  `{marcas}` (`withPartnerBrands`). Sin API, la frase dice «nuestras marcas
+  aliadas» en vez de nombrar marcas a mano.
+- Para cambiar un texto por defecto hay que cambiarlo **en los dos esquemas**
+  (frontend y backend); si no, `npm run test:backend` falla en la prueba de
+  paridad.
+- Lo que falta: la revalidación on-demand (A7.3; hasta entonces un cambio
+  tarda hasta 60 s en verse) y la pantalla de edición en la consola (A5.4).
+
 ## Estructura de Componentes
 ```
 frontend/src/

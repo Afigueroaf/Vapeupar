@@ -1,0 +1,32 @@
+{
+  "title": "Datos reales: precios de las líneas sin publicar",
+  "status": "hecho",
+  "priority": "media",
+  "area": "datos",
+  "summary": "Una línea no se publica sin precio (PATCH devuelve 409 con lo que falta). El precio es por línea, no por variante, así que son 3 o 4 valores; el import de stock no los toca.",
+  "question": "¿Pones tú en /admin el precio de ECO 3, ECO PRO y FIT, o me pasas la lista?",
+  "options": [
+    {
+      "label": "Los pones tú en /admin",
+      "detail": "Tres cambios en la ficha de cada línea; quedan auditados con tu usuario",
+      "prompt": "No hay código que cambiar. Tras el conteo, revisa con GET /api/admin/products?status=draft qué líneas siguen en borrador y, para cada una, GET /api/admin/products/:id para leer meta.readiness, y entrégale al dueño la lista de lo que le falta a cada una para publicar. Aceptación: lista entregada; no publiques nada tú.",
+      "recommended": true
+    },
+    {
+      "label": "Me pasas la lista y la aplico",
+      "detail": "Los cargo por la API con tu sesión o por script auditado, y quedan firmados con tu usuario",
+      "prompt": "Con la lista de precios del dueño (pesos enteros, y precio tachado si hay oferta), aplica cada uno con catalogService.updateProduct en un script de un solo uso con --dry-run y --user-email, igual que se hizo con FIT en lineas-lifepod-publicar. No publiques: deja el estado como está. Aceptación: GET /api/admin/products/:id muestra el precio y AuditLog tiene la fila product.update."
+    }
+  ],
+  "parent": "carga-datos-reales",
+  "source": "Plan de desarrollo 2026-11-18 (carga-datos-reales)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:56:10.748Z",
+  "updatedAt": "2026-11-19T06:21:31.371Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:21:31.370Z",
+  "queued": false
+}

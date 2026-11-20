@@ -115,7 +115,7 @@ nace protegida.
 | `GET /api/admin/content` | sesión | Las claves de contenido disponibles |
 | `GET /api/admin/content/:key` | sesión | Última versión publicada de la clave. `404` si nunca se publicó |
 | `GET /api/admin/content/:key/versions` | sesión | Historial para volver atrás. `?limit=` |
-| `PUT /api/admin/content/:key` | **owner** | Publica una **versión nueva**; no sobrescribe. `201` |
+| `PUT /api/admin/content/:key` | **owner** | Publica una **versión nueva**; no sobrescribe. `201`. El `value` se valida con el esquema de su clave (`schemas/content/`, A7.1): campos desconocidos, que falte uno o textos fuera de límite son `400` con el campo culpable (`value.items.0.title: …`) |
 | `GET /api/admin/audit` | **owner** | Registro de escrituras. `?entity=&entityId=&action=&userId=&from=&to=&page=&limit=` |
 | `GET /api/admin/users` | **owner** | Todas las cuentas de la consola, activas e inactivas, por correo |
 | `POST /api/admin/users/invite` | **owner** | Invita a la consola y crea la fila en `User` |
@@ -351,3 +351,60 @@ la consulta por WhatsApp.
 El precio es de la línea, no de la variante (ADR-002 §3). No hay endpoint de
 pedidos: el carrito vive en el navegador y el pedido se envía por WhatsApp
 (ADR-001 §3, `frontend/src/lib/cart.ts`).
+
+### 6. `GET /api/content/:key` (A7.2)
+
+Texto vigente de una clave del contenido editable del sitio, sin sesión.
+Claves: `hero`, `trust-band`, `faq`, `seo`, `contact`. Cualquier otra —incluidos
+los ajustes internos `setting.*`, que viven en la misma tabla— es `400`.
+
+```json
+{
+  "success": true,
+  "data": {
+    "key": "faq",
+    "value": { "title": "Preguntas frecuentes", "intro": "…", "items": [ … ] },
+    "source": "published",
+    "version": 3,
+    "publishedAt": "2026-11-18T15:00:00.000Z"
+  }
+}
+```
+
+- Una clave nunca publicada **no es 404**: responde con el valor por defecto en
+  código y `source: "default"`, `version: null`. Lo mismo si la última fila no
+  cumple el esquema (una anterior a A7.1); el backend lo avisa en el log.
+- Si la base falla, `500`: el frontend cae entonces a su propio respaldo.
+
+**Esquemas** (`backend/src/schemas/content/`, uno por clave, con límites de
+longitud y objetos estrictos):
+
+| Clave | Forma | Dónde se pinta |
+|---|---|---|
+| `hero` | `label` (32), `tagline` (32) | Etiqueta pixel y reclamo de la intro |
+| `trust-band` | `items`: **exactamente 3** de `label` (16), `title` (48), `detail` (80) | Tarjetas del panel de información |
+| `faq` | `title` (60), `intro` (200), `items`: 1–12 de `question` (160), `answer` (800) | FAQ de la portada |
+| `seo` | `title` (70), `description` (160), `keywords` 1–20 (40), `openGraph` y `twitter` con `title` (70) y `description` (200) | Metadatos de `layout.tsx` |
+| `contact` | `about` (240), `location` (80), `hours` 1–4 (60), `service` 1–6 (60) | Pie de página |
+
+El teléfono y el WhatsApp **no** son contenido editable: siguen en variables de
+entorno, para que nadie pueda desviar pedidos cambiando un número sin desplegar.
+
+Una respuesta de la FAQ puede llevar el marcador `{marcas}`: el sitio lo cambia
+por las marcas aliadas de `GET /api/brands/partners` («LifePod», «A y B»…), o
+por «nuestras marcas aliadas» si no hay lista. Así la FAQ no nombra marcas que
+ya no se venden (ADR-002 §5). El marcador solo vale en la FAQ: en cualquier
+otra clave, publicar es `400`.
+
+El frontend lleva un **espejo** de estos esquemas en
+`frontend/src/lib/content/schemas.ts`; `content-parity.test.ts` compara ambos
+(JSON Schema y valores por defecto) y falla si divergen.
+
+### 7. `GET /api/brands/partners` (A7.4)
+
+Marcas aliadas **activas** (`isPartner` y `active`), en el orden de la consola.
+Solo nombre y slug:
+
+```json
+{ "success": true, "data": [{ "name": "LifePod", "slug": "lifepod" }] }
+```

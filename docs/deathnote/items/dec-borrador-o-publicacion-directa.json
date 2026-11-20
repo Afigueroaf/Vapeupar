@@ -1,0 +1,32 @@
+{
+  "title": "Consola de contenido: borrador o publicación directa",
+  "status": "hecho",
+  "priority": "media",
+  "area": "admin",
+  "summary": "Hoy, publicar crea una versión que es pública al instante. No existe el estado de borrador. Añadirlo exige cambiar el esquema de SiteContent y la API. La publicación directa con vista previa y «Restaurar» cubre el error típico sin tocar la base.",
+  "question": "Cuando editas un texto, ¿quieres que «Publicar» lo ponga en el sitio de inmediato (con vista previa antes), o prefieres guardar borradores que se publican después?",
+  "options": [
+    {
+      "label": "Publicación directa con vista previa",
+      "detail": "Sin cambios de esquema. Un error se deshace con «Restaurar» en un clic.",
+      "prompt": "Decisión A5.4: publicación directa. Lee docs/admin-console-execution-plan.md (A5.4 y Registro A7), frontend/src/lib/content/schemas.ts y los componentes de frontend/src/components/admin/. Construye /admin/content siguiendo el plan del item a5-4-consola-contenido: editor por clave con validación en vivo, vista previa con los componentes reales (separa HeroView, TrustBandView y ContactView), historial con Ver y Restaurar (que vuelve a publicar como versión nueva) y publicar solo para owner. Criterio: cambiar una FAQ y verla en el sitio sin desplegar. Ejecuta npm run lint --workspace=frontend, npm run test:backend y npm run build, y añade el Registro A5.4.",
+      "recommended": true
+    },
+    {
+      "label": "Borradores guardados",
+      "detail": "Puedes preparar cambios durante días. Requiere una migración (estado draft en SiteContent), endpoints nuevos y más estados en la UI.",
+      "prompt": "Decisión A5.4: contenido con borradores. Lee ADR-002 §5, backend/prisma/schema.prisma (SiteContent), backend/src/services/content.service.ts y backend/src/routes/admin/content.routes.ts. Propón primero la migración (columna status draft/published, o tabla de borradores) y los endpoints PUT /content/:key/draft y POST /content/:key/publish, manteniendo que getPublic solo sirve lo publicado y que todo queda auditado. Espera mi visto bueno antes de implementar. Después construye /admin/content con Guardar borrador y Publicar. Ejecuta npm run test:backend, npm run lint --workspace=frontend y npm run build."
+    }
+  ],
+  "parent": "a5-4-consola-contenido",
+  "source": "Plan de desarrollo 2026-11-18 (a5-4-consola-contenido)",
+  "origin": "docs",
+  "createdAt": "2026-11-19T02:58:52.620Z",
+  "updatedAt": "2026-11-19T06:08:57.049Z",
+  "choice": {
+    "kind": "option",
+    "index": 0
+  },
+  "completedAt": "2026-11-19T06:08:57.048Z",
+  "queued": false
+}

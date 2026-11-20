@@ -3,17 +3,42 @@
   "status": "en_curso",
   "priority": "alta",
   "area": "infra",
-  "summary": "Sin HTTPS la consola /admin no funciona en producción (cookies Secure) y las subidas fallan por CORS; hay que apuntar el nombre No-IP, emitir certificado, redirigir a https y actualizar uploadOrigins y metadataBase.",
+  "summary": "HTTPS en producción desde el 2026-11-17 (Let's Encrypt, 301 a https, CORS de subida). Solo falta activar HSTS a partir del 2026-11-24, con la duración que decidas.",
   "suggestions": [
     {
-      "label": "Preparar F4 con el nombre de No-IP",
-      "prompt": "Lee docs/aws-full-deployment-plan.md (F4 y F3, nota de activate.sh sobre vapeupar.conf con TLS), infra/deploy/nginx/, infra/deploy/activate.sh e infra/lib/config.ts. Te daré el nombre de No-IP. Prepara: config.app.publicOrigin y storage.uploadOrigins con https://<nombre>, metadataBase de frontend/src/app/layout.tsx leído de una variable pública, un vapeupar.conf versionado que incluya el bloque TLS y la redirección 301 (decidiendo cómo convive con certbot sin que activate.sh lo pise) y los comandos exactos de certbot --nginx y certbot renew --dry-run para ejecutar por SSM. No despliegues: muéstrame npm run infra:diff y el orden de pasos. Ejecuta npm run build."
+      "label": "Activar HSTS según la decisión",
+      "detail": "Ver dec-duracion-del-hsts",
+      "prompt": "Lee la opción elegida en dec-duracion-del-hsts y ejecútala siguiendo el plan de este item (vapeupar-tls.conf, comentario de nginx.conf, aviso en infrastructure-aws.md §5.2.1). Sin release a producción hasta mi aprobación."
     }
   ],
   "source": "docs/aws-full-deployment-plan.md (F4 — Dominio, TLS y CORS)",
   "evidence": "Runs 44149941854 y 44153613004",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-17T19:26:30.191Z",
-  "claudeNote": "En producción desde el 2026-11-17: http → 301 → https, certificado Let's Encrypt válido (vence 2027-02-15, renovación automática), CORS solo para https://vapeupar.ddns.net. La comprobación final del despliegue se corrigió (PR #15) y la release a305f89 salió en verde verificando https://vapeupar.ddns.net. Queda: activar HSTS en infra/deploy/nginx/vapeupar-tls.conf tras unos días sin problemas (a partir del 2026-11-24)."
+  "updatedAt": "2026-11-19T03:09:42.867Z",
+  "claudeNote": "En producción desde el 2026-11-17: http → 301 → https, certificado Let's Encrypt válido (vence 2027-02-15, renovación automática), CORS solo para https://vapeupar.ddns.net. La comprobación final del despliegue se corrigió (PR #15) y la release a305f89 salió en verde verificando https://vapeupar.ddns.net. Queda: activar HSTS en infra/deploy/nginx/vapeupar-tls.conf tras unos días sin problemas (a partir del 2026-11-24).\n\nPlan 2026-11-18: Lo obsoleto: el prompt de la sugerencia pide preparar F4 de cero (certbot --nginx, metadataBase, uploadOrigins). Todo eso ya está en producción y se usó certbot certonly, no --nginx. El summary dice que la consola no funciona: ya funciona. Solo falta HSTS. El comentario de infra/deploy/nginx/nginx.conf todavía dice que certbot edita el sitio.\n\n2026-11-19: el dueño aplaza HSTS hasta que el sitio salga abierto al público (ver dec-duracion-del-hsts). F4 queda completo salvo eso.",
+  "plan": [
+    "Desde el 2026-11-24, comprueba por SSM (AWS-RunShellScript en APP_INSTANCE_ID) que todo sigue bien: `certbot renew --dry-run`, `systemctl is-active certbot-renew.timer` y `openssl x509 -enddate -noout -in /etc/letsencrypt/live/vapeupar/fullchain.pem` (vence 2027-02-15). Confirma también en el panel de No-IP que el nombre vapeupar.ddns.net está confirmado y no vence pronto.",
+    "En una rama chore/hsts desde dev, en infra/deploy/nginx/vapeupar-tls.conf, descomenta `add_header Strict-Transport-Security \"max-age=<N>\" always;` dentro del server 443, con el max-age que elijas en la decisión. Sin includeSubDomains ni preload. Reescribe el comentario para decir cuándo se activó y por qué no lleva preload.",
+    "Revisa infra/deploy/nginx/vapeupar-site.inc: `location /_next/static/` tiene su propio add_header (Cache-Control), y eso hace que no herede el HSTS del server. Es aceptable porque el documento HTML y /api sí lo llevan; déjalo anotado en el comentario en vez de duplicar la cabecera.",
+    "Corrige un comentario que ya no es cierto en infra/deploy/nginx/nginx.conf, el que dice «certbot (F4) edita el bloque server del sitio». Ahora certbot solo hace certonly y no edita nginx.",
+    "PR a dev y después release dev → produccion con .github/workflows/deploy-produccion.yml. activate.sh instala vapeupar-tls.conf porque el certificado existe, pasa `nginx -t` y verifica por https.",
+    "Si eliges el escalonado: tras 1–2 semanas sin incidencias, y solo cuando exista la alarma CertDaysLeft de F6 (o un aviso equivalente de caducidad), segunda release con max-age=31536000.",
+    "Documenta: marca como hecho el paso 5 de F4 en docs/aws-full-deployment-plan.md. En docs/infrastructure-aws.md, en «Volver atrás» (§5.2.1), añade el aviso de que con HSTS activo no se puede volver a una release anterior al esquema TLS (solo http). Pasa el item a hecho.",
+    "Verificación: curl -sI https://vapeupar.ddns.net/ | grep -i strict-transport-security · curl -sI http://vapeupar.ddns.net/ | head -3 · curl -sI 'https://vapeupar.ddns.net/api/products?limit=1' | grep -i strict-transport-security · aws ssm send-command --instance-ids <APP_INSTANCE_ID> --document-name AWS-RunShellScript --parameters 'commands=[\"nginx -t\",\"certbot renew --dry-run\"]'"
+  ],
+  "acceptance": [
+    "`curl -sI https://vapeupar.ddns.net/` devuelve 200 con la cabecera `strict-transport-security: max-age=<N>`, sin includeSubDomains ni preload.",
+    "`curl -sI http://vapeupar.ddns.net/` sigue devolviendo 301 a https.",
+    "El login de /admin con MFA y la subida de una imagen funcionan después de la release.",
+    "La release sale en verde en deploy-produccion y `certbot renew --dry-run` sigue pasando."
+  ],
+  "risks": [
+    "Volver atrás a una release anterior al esquema TLS (anterior a vapeupar-tls.conf) reinstala el vapeupar.conf que solo sirve http. Con HSTS, el sitio dejaría de funcionar para quien ya tenga la cabecera.",
+    "Si el nombre de No-IP caduca o la renovación del certificado falla, HSTS bloquea a los visitantes sin opción de saltarse el error.",
+    "No hay alarma sobre la caducidad del certificado hasta que exista f6-vigilancia-alarmas."
+  ],
+  "blockedBy": [
+    "dec-duracion-del-hsts"
+  ]
 }
