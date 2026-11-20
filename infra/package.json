@@ -8,6 +8,7 @@
     "diff": "cdk diff --all",
     "deploy": "cdk deploy --all",
     "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test \"test/**/*.test.ts\"",
     "db:tunnel": "node scripts/db-tunnel.mjs",
     "env:backend": "node scripts/write-backend-env.mjs",
     "app:deploy": "node scripts/deploy-app.mjs",

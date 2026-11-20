@@ -80,3 +80,8 @@ jobs:
 
       - name: Infra · tipos
         run: npm run typecheck --workspace=infra
+
+      # Sintetiza la app en memoria, sin AWS: no más de 10 alarmas (capa
+      # gratuita compartida con DeliPan) y PutMetricData acotado (F6).
+      - name: Infra · tests
+        run: npm run test --workspace=infra
