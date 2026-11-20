@@ -40,7 +40,7 @@ backend/
 │   ├── routes/          # Rutas Express; routes/admin/ es la superficie autenticada
 │   ├── schemas/         # Esquemas de validación Zod; schemas/admin/ los del admin
 │   ├── services/        # Catálogo público y de consola, inventario, contenido, auditoría y sesión
-│   ├── types/           # Interfaces y tipos TypeScript compartidos (product.types.ts)
+│   ├── types/           # Interfaces y tipos TypeScript (producto, stock, pedidos)
 │   ├── app.ts           # Armado de la aplicación (middlewares, CORS, límites, rutas)
 │   └── index.ts         # Arranque del proceso: escucha el puerto y cierra elegante
 ├── tsconfig.json        # Configuración TypeScript NodeNext / ES2022 (strict: true)
@@ -69,7 +69,10 @@ colores— viven ahí y no en las rutas.
 **Inventario.** `stock.service.ts` es el único código que escribe movimientos y
 `Variant.stockCache`: cada operación bloquea la variante, valida signo, motivo,
 negativos e idempotencia (`operationKey`), y escribe movimiento, caché y
-auditoría en una sola transacción. Ver el registro de A3 en
+auditoría en una sola transacción. `recordMovementIn` hace lo mismo sobre una
+transacción que abre quien llama: lo usan los pedidos para confirmar todas sus
+líneas y su estado juntos (ADR-003). Las ventas admiten `unitPrice` (precio
+cobrado); ningún otro tipo. Ver el registro de A3 en
 `docs/admin-console-execution-plan.md`. El cliente generado vive en `src/generated/prisma`
 (ignorado por git; `npm run db:generate` o `prebuild` lo regeneran).
 
@@ -385,6 +388,18 @@ npm run db:upload-images --workspace=backend                # subirlas y rellena
 - **Nueva migración:** `npm run db:migrate:create --workspace=backend -- --name <nombre>`
   una sola vez, revisar el SQL y aplicar con `npm run db:migrate`. Si crea una
   tabla, la misma migración debe conceder sus permisos a `vapeupar_app`.
+  Sin base a mano, la migración se puede escribir desde el esquema anterior:
+  `npx prisma migrate diff --from-schema <anterior.prisma> --to-schema prisma/schema.prisma --script`
+  (desde `backend/`; no conecta a nada).
+- **Pedidos (ADR-003), migración `20261120120000_orders` todavía sin aplicar.**
+  Crea `orders`, `order_lines` y `order_consents` y añade
+  `stock_movements.unit_price`; solo es aditiva. Concede a `vapeupar_app`
+  `SELECT`/`INSERT` en las tres, `UPDATE` solo en las columnas que cambian las
+  transiciones y la anonimización (`orders`) y el precio cobrado
+  (`order_lines.unit_price`), y ningún `DELETE`; `order_consents` es solo
+  inserción. `db:sync-app-role` no cambia: solo gestiona la contraseña. Hasta
+  aplicarla, `POST /api/orders` y `/api/admin/orders` responden 500 contra la
+  base.
 
 ## Endpoints Disponibles
 
