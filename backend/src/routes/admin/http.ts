@@ -17,7 +17,8 @@ const STOCK_STATUS: Record<StockErrorCode, number> = {
   VALIDATION: 400,
   NOT_FOUND: 404,
   INSUFFICIENT_STOCK: 409,
-  OPERATION_KEY_CONFLICT: 409
+  OPERATION_KEY_CONFLICT: 409,
+  STOCK_CHANGED: 409
 };
 
 const AUTH_STATUS: Record<AuthErrorCode, number> = {
