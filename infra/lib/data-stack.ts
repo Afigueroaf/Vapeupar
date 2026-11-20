@@ -59,9 +59,25 @@ export class DataStack extends Stack {
       securityGroups: [dbSecurityGroup],
       publiclyAccessible: false,
       databaseName: 'vapeupar',
-      credentials: rds.Credentials.fromGeneratedSecret('vapeupar_admin', {
-        secretName: `vapeupar/${config.envName}/rds-master`,
-      }),
+      // CONTRASEÑA MAESTRA GESTIONADA POR RDS (F7,
+      // dec-como-rotar-la-contrasena-maestra-de-rds, opción 1). RDS crea el
+      // secreto (`rds!db-<id>`, clave KMS `aws/secretsmanager`) y lo rota solo
+      // cada 7 días: sin Lambda de rotación ni endpoint de VPC, a 0 USD.
+      //
+      // ES UNA MODIFICACIÓN IN-PLACE de la instancia: `MasterUsername` sigue
+      // siendo `vapeupar_admin` (cambiarlo SÍ la reemplazaría) y
+      // `ManageMasterUserPassword` / `MasterUserPassword` se actualizan sin
+      // interrupción. infra/test/data.test.ts lo fija. Desaparecen el secreto
+      // `vapeupar/<env>/rds-master` y su SecretTargetAttachment: la contraseña
+      // que guardaban deja de valer en cuanto RDS aplica la suya.
+      //
+      // Quien lee el maestro (infra/deploy/migrate.mjs y
+      // infra/scripts/write-backend-env.mjs) lo hace por el parámetro
+      // DB_SECRET_ARN en cada ejecución, y el secreto nuevo tiene las mismas
+      // claves `username` y `password`. El permiso de la EC2 para leerlo
+      // (app-stack.ts) usa el ARN exacto, leído de ese mismo parámetro.
+      manageMasterUserPassword: true,
+      credentials: rds.Credentials.fromUsername('vapeupar_admin'),
       allocatedStorage: config.db.allocatedStorageGb,
       maxAllocatedStorage: config.db.maxAllocatedStorageGb,
       storageType: rds.StorageType.GP3,
@@ -96,6 +112,7 @@ export class DataStack extends Stack {
       DB_HOST: this.db.dbInstanceEndpointAddress,
       DB_PORT: this.db.dbInstanceEndpointPort,
       DB_NAME: 'vapeupar',
+      // `MasterUserSecret.SecretArn` de la instancia: el secreto que gestiona RDS.
       DB_SECRET_ARN: this.db.secret!.secretArn,
       DB_APP_SECRET_ARN: appSecret.secretArn,
     };

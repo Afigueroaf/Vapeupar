@@ -165,21 +165,33 @@ export class AppStack extends Stack {
     // Los secretos del entorno, por nombre. Secrets Manager añade seis
     // caracteres aleatorios al ARN, de ahí el `-??????`: así no hace falta
     // importar los ARN de otros stacks, y el comodín no alcanza a ningún otro
-    // secreto. El maestro de RDS está porque las migraciones se ejecutan desde
-    // la instancia (F5); el backend en marcha usa solo `rds-app`.
+    // secreto. El backend en marcha usa solo `rds-app`.
     // Cifrados con la clave gestionada de Secrets Manager: no hace falta KMS.
+    //
+    // El MAESTRO DE RDS va aparte porque desde F7 lo gestiona RDS
+    // (data-stack.ts): se llama `rds!db-<id>`, sin prefijo `vapeupar/`, y un
+    // comodín `rds!db-*` alcanzaría también al de DeliPan en la cuenta
+    // compartida. Por eso se da el ARN EXACTO, leído en cada despliegue del
+    // parámetro DB_SECRET_ARN que publica Data (sin export entre stacks, que
+    // bloquearía el valor si un día cambia). Lo leen las migraciones (F5,
+    // infra/deploy/migrate.mjs), que se ejecutan desde la instancia. Si el
+    // ARN cambia, hay que desplegar Data y DESPUÉS App, como en F7.
+    const masterSecretArn = ssm.StringParameter.valueForStringParameter(this, paramName(config, 'DB_SECRET_ARN'));
     role.addToPolicy(
       new iam.PolicyStatement({
         actions: ['secretsmanager:GetSecretValue'],
-        resources: ['rds-app', 'rds-master', 'cognito-backend-client', 'revalidate'].map((name) =>
-          this.formatArn({
-            service: 'secretsmanager',
-            resource: 'secret',
-            // `secret:<nombre>`, con dos puntos, no `secret/<nombre>`.
-            arnFormat: ArnFormat.COLON_RESOURCE_NAME,
-            resourceName: `vapeupar/${config.envName}/${name}-??????`,
-          }),
-        ),
+        resources: [
+          masterSecretArn,
+          ...['rds-app', 'cognito-backend-client', 'revalidate'].map((name) =>
+            this.formatArn({
+              service: 'secretsmanager',
+              resource: 'secret',
+              // `secret:<nombre>`, con dos puntos, no `secret/<nombre>`.
+              arnFormat: ArnFormat.COLON_RESOURCE_NAME,
+              resourceName: `vapeupar/${config.envName}/${name}-??????`,
+            }),
+          ),
+        ],
       }),
     );
 
