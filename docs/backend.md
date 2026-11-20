@@ -409,10 +409,17 @@ longitud y objetos estrictos):
 | Clave | Forma | Dónde se pinta |
 |---|---|---|
 | `hero` | `label` (32), `tagline` (32) | Etiqueta pixel y reclamo de la intro |
-| `trust-band` | `items`: **exactamente 3** de `label` (16), `title` (48), `detail` (80) | Tarjetas del panel de información |
+| `trust-band` | `items`: **exactamente 3** de `label` (16), `title` (48), `detail` (80) y, opcionales, `icon` (`delivery` \| `original` \| `payment`), `highlight` (24) y `points` 1–2 (60). Sin enlaces | Tarjetas del panel de información |
 | `faq` | `title` (60), `intro` (200), `items`: 1–11 de `question` (160), `answer` (800), **sin** la pregunta legal | FAQ de la portada |
 | `seo` | `title` (70), `description` (160), `keywords` 1–20 (40), `openGraph` y `twitter` con `title` (70) y `description` (200) | Metadatos de `layout.tsx` |
 | `contact` | `about` (240), `location` (80), `hours` 1–4 (60), `service` 1–6 (60) | Pie de página |
+
+Los campos opcionales de `trust-band` llegaron con el rediseño de las tarjetas
+(2026-11): son opcionales para que una fila publicada antes, con solo `label`,
+`title` y `detail`, siga validando sin migración. El sitio pone el icono de la
+posición si falta y no pinta el dato ni las líneas que no vengan. El copy por
+defecto es prudente a propósito (sin tiempos, horarios ni zonas fuera de
+Valledupar; el QR condicionado) hasta que el dueño confirme entrega y pago.
 
 El teléfono y el WhatsApp **no** son contenido editable: siguen en variables de
 entorno, para que nadie pueda desviar pedidos cambiando un número sin desplegar.
