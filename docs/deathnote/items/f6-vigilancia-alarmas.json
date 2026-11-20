@@ -1,6 +1,6 @@
 {
   "title": "Vigilancia: alarmas de EC2 y RDS, agente de CloudWatch y logs (F6)",
-  "status": "pendiente",
+  "status": "en_curso",
   "priority": "media",
   "area": "infra",
   "summary": "Alarmas de StatusCheckFailed, CPU, memoria y disco de la instancia, CPU/almacenamiento/conexiones de RDS, tema SNS y límites de journald y nginx.",
@@ -14,7 +14,7 @@
   "evidence": "No hay ningún cloudwatch.Alarm en infra/lib/; presupuesto sigue en 30 USD",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z",
+  "updatedAt": "2026-11-20T07:27:31.980Z",
   "plan": [
     "Crea infra/lib/monitoring-stack.ts (Vapeupar-dev-Monitoring) compuesto en infra/bin/vapeupar.ts después de App. Lleva un tema SNS vapeupar-dev-alerts con suscripción de correo a alertEmail (el mismo VAPEUPAR_ALERT_EMAIL del presupuesto). Toma el id de la instancia con ssm.StringParameter.valueForStringParameter(APP_INSTANCE_ID) y el de RDS por su nombre fijo vapeupar-dev-db, para no crear exports entre stacks que bloqueen un reemplazo de la EC2.",
     "Alarmas de la EC2 (5 minutos, enviadas al SNS): StatusCheckFailed_System con la acción de recuperar la instancia, StatusCheckFailed_Instance, CPUUtilization > 80 % durante 15 minutos y CPUCreditBalance < 20. La instancia está en créditos STANDARD: sin créditos, la CPU baja a su mínimo y no hay ningún cargo que lo delate.",
@@ -45,5 +45,5 @@
     "dec-chequeo-de-caida-desde-fuera",
     "dec-enviar-logs-a-cloudwatch"
   ],
-  "claudeNote": "Plan 2026-11-18: El prompt de la sugerencia pide instalar el agente en el user-data. No sirve: userDataCausesReplacement está en false y cloud-init no lo repite, así que tiene que ir por activate.sh o SSM. La subida del presupuesto a 45 USD ya está en chore/aws-plan-pago. `npm run build --workspace=infra` no existe: el script es `typecheck`. §8.3 de infrastructure-aws.md habla de alarmas de 5xx del ALB, y no hay ALB. La línea «Copias» de F6 la cubren endurecer-entorno-vivo y plan-pago-aws."
+  "claudeNote": "Plan 2026-11-18: El prompt de la sugerencia pide instalar el agente en el user-data. No sirve: userDataCausesReplacement está en false y cloud-init no lo repite, así que tiene que ir por activate.sh o SSM. La subida del presupuesto a 45 USD ya está en chore/aws-plan-pago. `npm run build --workspace=infra` no existe: el script es `typecheck`. §8.3 de infrastructure-aws.md habla de alarmas de 5xx del ALB, y no hay ALB. La línea «Copias» de F6 la cubren endurecer-entorno-vivo y plan-pago-aws.\n2026-11-20: implementado en la rama infra/f6-alarmas (sin desplegar). Stack Vapeupar-dev-Monitoring con el tema vapeupar-dev-alerts (solo correo) y 10 alarmas (sin CPU de RDS ni alarma del timer; BREACHING en mem, disk y cert), recuento comprobado por infra/test/monitoring.test.ts (npm test y CI). Métricas por vapeupar-metrics.timer (put-metric-data, namespace Vapeupar, sin agente ni logs a CloudWatch), journald a 200M/14 días y logrotate de nginx solo si falta, todo instalado por activate.sh tras verificar; PutMetricData acotado por cloudwatch:namespace. Sin chequeo externo: riesgo aceptado en aws-full-deployment-plan.md §5. Falta: infra:diff y despliegue con aprobación de Vapeupar-dev-App (solo la política) y después Vapeupar-dev-Monitoring; confirmar la suscripción SNS por correo (es nueva); sacar una release para instalar el timer y journald; probar una alarma con set-alarm-state (vapeupar-dev-rds-connections, ya no existe rds-cpu) y comprobar logrotate en la instancia por SSM. Si DeliPan ya usa alarmas o métricas gratuitas, las de Vapeupar se cobran (0,10 USD/alarma, 0,30 USD/métrica)."
 }
