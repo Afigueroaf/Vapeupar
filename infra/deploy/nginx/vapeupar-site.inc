@@ -3,7 +3,8 @@
 # instala en /etc/nginx/vapeupar/site.inc, fuera de conf.d para que nginx no
 # lo cargue por su cuenta como si fuera un sitio.
 #
-#   /api/admin/auth/* -> backend, con límite estricto (zona vapeupar_auth)
+#   /api/admin/auth/* -> backend, con límite estricto (zona vapeupar_auth);
+#                        regex, sin distinguir mayúsculas tras /api/
 #   /api/admin/*      -> backend, con límite holgado (zona vapeupar_admin)
 #   /api/*            -> backend  127.0.0.1:4000
 #   /internal/*       -> 404 (solo el backend llega, por loopback)
@@ -55,7 +56,16 @@ proxy_set_header X-Real-IP $remote_addr;
 # espera: un inicio de sesión completo son 2 o 3 peticiones, y de la 7.ª
 # seguida en adelante responde nginx con 429 sin despertar a Node. Varios
 # administradores detrás de la misma IP comparten el cupo (ver riesgos de F7).
-location /api/admin/auth/ {
+#
+# EXPRESIONES REGULARES Y NO PREFIJOS, a propósito: Express enruta sin
+# distinguir mayúsculas, así que `POST /api/admin/AUTH/login` es el mismo login
+# y con un prefijo (`location /api/admin/auth/`) caería en el límite holgado.
+# `/api/` sigue distinguiendo mayúsculas como la location de abajo (`/API/...`
+# va al frontend, no al backend); `(?i:...)` solo afloja el resto.
+# nginx prueba las regex EN ORDEN y gana la primera: la del login va antes que
+# la del resto de la consola. Las dos ganan a los prefijos `/api/` y `/`, pero
+# no a `^~ /internal/`, que corta la búsqueda de regex.
+location ~ ^/api/(?i:admin/auth/) {
     limit_req zone=vapeupar_auth burst=5 nodelay;
     proxy_pass http://vapeupar_api;
     # Los mismos búferes que /api/ (ver allí): /mfa es justo la respuesta que
@@ -69,7 +79,7 @@ location /api/admin/auth/ {
 # límite que nota un administrador es el de Express (30/min); este solo frena
 # inundaciones. Una pantalla de la consola pide varias cosas a la vez, de ahí
 # la ráfaga grande.
-location /api/admin/ {
+location ~ ^/api/(?i:admin/) {
     limit_req zone=vapeupar_admin burst=60 nodelay;
     proxy_pass http://vapeupar_api;
     proxy_buffer_size 16k;
