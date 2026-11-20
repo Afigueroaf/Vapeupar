@@ -152,5 +152,12 @@
     "title": "Planes de desarrollo y decisiones para todos los pendientes",
     "detail": "17 pendientes con plan, criterios de aceptación y riesgos, redactados por cuatro agentes planificadores y verificados contra el repo por un agente revisor (37 correcciones aplicadas). 36 decisiones del dueño como items dec-* enlazados a su pendiente.",
     "ref": "feat/a7-contenido-editable"
+  },
+  {
+    "id": "h20261120-1",
+    "date": "2026-11-20",
+    "title": "Cadena de pendientes ejecutada sin intervención del dueño (sin fusionar ni desplegar)",
+    "detail": "Ramas apiladas, cada una revisada por un agente independiente y corregida: feat/a7-3-revalidacion → test/frontend-vitest → feat/a5-4-consola-contenido → feat/tarjetas-info → perf/glitch-saltos-guardas → infra/f6-alarmas → infra/f7-perimetro → feat/importador-conteo → feat/pedidos-backend → feat/pedidos-frontend → docs/barrido-obsoletos → fix/pedidos-revision. Pedidos detrás de ORDERS_ENABLED y política en borrador.",
+    "ref": "fix/pedidos-revision"
   }
 ]
