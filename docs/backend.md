@@ -156,6 +156,13 @@ que está bloqueado (`FOR UPDATE`): todas las líneas o ninguna. La auditoría
 `order.anonymize`, `order.retention`) **no copia nombre, teléfono, barrio ni el
 motivo de cancelación**.
 
+**Regla operativa: un pedido se descuenta confirmándolo, nunca a mano.** No se
+registra en `POST /api/admin/stock/movements` una venta de un pedido que se va a
+confirmar en `/orders`: el stock se restaría dos veces. Si ya se hizo, se corrige
+con un movimiento `return` con la referencia en el lote antes de confirmar. Las
+`operationKey` que empiezan por `order:` están reservadas a los pedidos y la
+ruta manual las rechaza con `400`.
+
 **No hay DELETE en ninguna de estas entidades.** El libro de inventario
 referencia variantes y proveedores con `onDelete: Restrict`, y las líneas
 referencian marcas igual: borrar de verdad rompería el rastro contable. Retirar

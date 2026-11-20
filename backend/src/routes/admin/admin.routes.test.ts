@@ -329,6 +329,19 @@ describe('superficie /api/admin', () => {
   });
 
   describe('inventario', () => {
+    it('rechaza una operationKey con el prefijo reservado a los pedidos', async () => {
+      const { url, recordMovement } = await start();
+      for (const operationKey of ['order:019299a4-0000-7000-8000-000000000001:sale:x', 'ORDER:cualquier-cosa']) {
+        const response = await call(url, '/api/admin/stock/movements', {
+          method: 'POST',
+          cookies: asOwner,
+          body: { variantId: VARIANT, type: 'sale', quantity: 1, operationKey }
+        });
+        expect(response.status).toBe(400);
+      }
+      expect(recordMovement).not.toHaveBeenCalled();
+    });
+
     it('firma el movimiento con la sesión e ignora el userId del cuerpo', async () => {
       const { url, recordMovement } = await start();
       const response = await call(url, '/api/admin/stock/movements', {
