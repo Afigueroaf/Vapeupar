@@ -597,7 +597,9 @@ encienden); sin él responde el 404 genérico. Se enciende **junto con**
 `NEXT_PUBLIC_ORDERS_ENABLED=true` del frontend, que es la que hace que el
 carrito pida los datos y llame aquí (`docs/frontend.md`, «Pedidos
 registrados»); con solo una de las dos, el carrito sigue en el modo solo
-WhatsApp. Se enciende tras la aprobación del
+WhatsApp. **Guarda de la política**: mientras `DATA_POLICY_VERSION` empiece por
+«borrador», la ruta tampoco se monta aunque `ORDERS_ENABLED` esté encendido
+(el mismo 404, con un aviso en el registro al arrancar). Se enciende tras la aprobación del
 dueño y la revisión legal de la política (ADR-003, Estado).
 
 Público, con límite propio de **10 pedidos por IP cada 15 minutos**
