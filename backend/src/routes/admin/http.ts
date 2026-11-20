@@ -84,7 +84,14 @@ export function sendDomainError(res: Response, error: unknown): boolean {
     return true;
   }
   if (error instanceof ContentError) {
-    res.status(CONTENT_STATUS[error.code]).json({ success: false, message: error.message, code: error.code });
+    res.status(CONTENT_STATUS[error.code]).json({
+      success: false,
+      message: error.message,
+      code: error.code,
+      // Cada campo inválido, con la misma forma que `sendValidationError`: la
+      // consola lo proyecta sobre su campo (A5.4).
+      ...(error.fields && { errors: error.fields })
+    });
     return true;
   }
   if (error instanceof InventoryNoteError) {

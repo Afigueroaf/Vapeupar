@@ -1,3 +1,4 @@
+import type { ContentKey } from "@/lib/content/schemas";
 import type { ProductCategory } from "@/types/product";
 import type {
   AdminRole,
@@ -9,6 +10,8 @@ import type {
   BrandInput,
   BrandRow,
   CdnInvalidation,
+  ContentPublishResult,
+  ContentVersionRow,
   Kardex,
   InventoryNote,
   ImageUploadTarget,
@@ -241,6 +244,13 @@ function toLoginStep(data: LoginStepBody, email: string): LoginStep {
     default:
       return { status: "authenticated", email: data.email ?? email, role: data.role ?? "operator" };
   }
+}
+
+type PublishBody = { data: ContentVersionRow; meta?: { revalidated?: boolean } };
+
+function toPublishResult(body: PublishBody): ContentPublishResult {
+  // Sin `meta` (un backend anterior a A7.3) no se sabe: se asume el plazo de 60 s.
+  return { version: body.data, revalidated: body.meta?.revalidated === true };
 }
 
 export const adminApi = {
@@ -515,5 +525,50 @@ export const adminApi = {
       { method: "PATCH", body: JSON.stringify(patch) },
     );
     return body.data;
+  },
+
+  // ---- Contenido del sitio (A5.4). Leer, cualquier sesión; publicar, solo el dueño. ----
+
+  content: {
+    async keys(): Promise<ContentKey[]> {
+      const body = await request<{ data: ContentKey[] }>("/content");
+      return body.data;
+    },
+
+    /** Última versión publicada, o `null` si la clave nunca se publicó (se usa el texto por defecto). */
+    async get(key: ContentKey): Promise<ContentVersionRow | null> {
+      try {
+        const body = await request<{ data: ContentVersionRow }>(`/content/${key}`);
+        return body.data;
+      } catch (error) {
+        if (error instanceof AdminApiError && error.status === 404) return null;
+        throw error;
+      }
+    },
+
+    /** De la más reciente a la más antigua; el backend admite hasta 50. */
+    async versions(key: ContentKey, limit = 20): Promise<ContentVersionRow[]> {
+      const body = await request<{ data: ContentVersionRow[] }>(
+        `/content/${key}/versions${toSearchParams({ limit })}`,
+      );
+      return body.data;
+    },
+
+    /** Publica al instante: no hay borradores (decisión A5.4). */
+    async publish(key: ContentKey, value: unknown): Promise<ContentPublishResult> {
+      return toPublishResult(
+        await request<PublishBody>(`/content/${key}`, {
+          method: "PUT",
+          body: JSON.stringify({ value }),
+        }),
+      );
+    },
+
+    /** Vuelve a publicar la versión `version` como una nueva: el historial no se reescribe. */
+    async restore(key: ContentKey, version: number): Promise<ContentPublishResult> {
+      return toPublishResult(
+        await request<PublishBody>(`/content/${key}/versions/${version}/restore`, { method: "POST" }),
+      );
+    },
   },
 };

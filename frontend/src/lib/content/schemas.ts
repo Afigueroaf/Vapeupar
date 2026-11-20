@@ -37,6 +37,9 @@ export const TrustBandContentSchema = z.strictObject({
     .length(3),
 });
 
+/** Hasta 11 editables: la pregunta legal (`LEGAL_FAQ_ITEM`) completa las 12. */
+export const FAQ_MAX_ITEMS = 11;
+
 export const FaqContentSchema = z.strictObject({
   title: text(60),
   intro: text(200),
@@ -48,7 +51,7 @@ export const FaqContentSchema = z.strictObject({
       }),
     )
     .min(1)
-    .max(12),
+    .max(FAQ_MAX_ITEMS),
 });
 
 const SocialCardSchema = z.strictObject({
@@ -76,6 +79,77 @@ export type TrustBandContent = z.infer<typeof TrustBandContentSchema>;
 export type FaqContent = z.infer<typeof FaqContentSchema>;
 export type SeoContent = z.infer<typeof SeoContentSchema>;
 export type ContactContent = z.infer<typeof ContactContentSchema>;
+export type FaqItem = FaqContent["items"][number];
+
+// --- Pregunta legal +18: fija en código, no editable ---
+
+/**
+ * La pregunta de la cédula obligatoria (Ley 1335 de 2009) no se edita desde la
+ * consola (decisión `dec-texto-legal-de-mayoria-de-edad`). `faq.items` guarda
+ * solo las editables; `FAQ` (`components/faq.tsx`) inserta esta siempre en
+ * `LEGAL_FAQ_INDEX`, y la consola la enseña bloqueada en ese mismo sitio.
+ */
+export const LEGAL_FAQ_ITEM: FaqItem = {
+  question: '¿Es obligatoria la cédula de ciudadanía para recibir el pedido?',
+  answer: 'Sí, de manera obligatoria y sin excepciones. Cumpliendo con la legislación colombiana (Ley 1335 de 2009), la venta de productos de vapeo y nicotina está estrictamente restringida a mayores de 18 años. Nuestro domiciliario te solicitará presentar el documento físico de identidad al momento de la entrega.'
+};
+
+/** Cuarta posición: donde estaba cuando era una pregunta más. */
+export const LEGAL_FAQ_INDEX = 3;
+
+/** Sin tildes, sin signos de puntuación, sin mayúsculas y con los espacios colapsados. */
+export function comparableQuestion(question: string): string {
+  return question
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[¿?¡!.,;:]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+/** `true` si la pregunta es la legal, escrita con o sin tildes, signos o mayúsculas. */
+export function isLegalFaqQuestion(question: string): boolean {
+  return comparableQuestion(question) === comparableQuestion(LEGAL_FAQ_ITEM.question);
+}
+
+/**
+ * Quita de un valor de FAQ (aún sin validar) cualquier pregunta igual a la
+ * legal: una versión publicada antes de la regla no la duplica. Lo que no
+ * tenga forma de FAQ se devuelve tal cual. Mismo comportamiento que el backend
+ * (lo comprueba la prueba de paridad).
+ */
+export function stripLegalFaqItem(value: unknown): unknown {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) return value;
+  const items = (value as { items?: unknown }).items;
+  if (!Array.isArray(items)) return value;
+  return {
+    ...value,
+    items: items.filter((item) => {
+      const question = (item as { question?: unknown } | null)?.question;
+      return !(typeof question === "string" && isLegalFaqQuestion(question));
+    }),
+  };
+}
+
+/**
+ * Normalización de lectura (igual que el backend): quita la legal y, si una
+ * fila antigua deja más de `FAQ_MAX_ITEMS`, se queda con las primeras en vez de
+ * caer al texto por defecto. Al publicar el máximo se exige.
+ */
+export function normalizeFaqForRead(value: unknown): unknown {
+  const stripped = stripLegalFaqItem(value);
+  const items = (stripped as { items?: unknown } | null)?.items;
+  if (!Array.isArray(items) || items.length <= FAQ_MAX_ITEMS) return stripped;
+  console.warn(`[content] La FAQ guardada tiene ${items.length} preguntas editables; se sirven las ${FAQ_MAX_ITEMS} primeras`);
+  return { ...(stripped as object), items: items.slice(0, FAQ_MAX_ITEMS) };
+}
+
+/** Las preguntas editables con la legal insertada en su sitio fijo. */
+export function withLegalFaqItem(items: readonly FaqItem[]): FaqItem[] {
+  const at = Math.min(LEGAL_FAQ_INDEX, items.length);
+  return [...items.slice(0, at), LEGAL_FAQ_ITEM, ...items.slice(at)];
+}
 
 // --- Valores por defecto: el texto que el sitio tenía escrito a mano ---
 
@@ -107,10 +181,6 @@ export const FAQ_DEFAULT: FaqContent = {
     {
       question: '¿Cómo sé que los vaporizadores son 100% originales?',
       answer: `Todos nuestros productos provienen directamente de distribuidores autorizados de ${PARTNER_BRANDS_TOKEN}. Cada caja incluye un sello de seguridad con código QR raspable que puedes escanear en el sitio oficial del fabricante para verificar su autenticidad.`
-    },
-    {
-      question: '¿Es obligatoria la cédula de ciudadanía para recibir el pedido?',
-      answer: 'Sí, de manera obligatoria y sin excepciones. Cumpliendo con la legislación colombiana (Ley 1335 de 2009), la venta de productos de vapeo y nicotina está estrictamente restringida a mayores de 18 años. Nuestro domiciliario te solicitará presentar el documento físico de identidad al momento de la entrega.'
     },
     {
       question: '¿Tienen garantía los dispositivos?',

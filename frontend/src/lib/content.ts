@@ -1,6 +1,7 @@
 import {
   CONTENT_SCHEMAS,
   PARTNER_BRANDS_TOKEN,
+  normalizeFaqForRead,
   type ContentKey,
   type ContentValue,
 } from "@/lib/content/schemas";
@@ -51,7 +52,8 @@ export async function getContent<K extends ContentKey>(key: K): Promise<ContentV
   const { schema, defaults } = CONTENT_SCHEMAS[key];
   const data = await fetchData(`/content/${key}`, [CONTENT_TAG]);
   const value = (data as { value?: unknown } | undefined)?.value;
-  const parsed = schema.safeParse(value);
+  // La API ya normaliza la FAQ; esto cubre un backend de antes de la regla.
+  const parsed = schema.safeParse(key === "faq" ? normalizeFaqForRead(value) : value);
   return (parsed.success ? parsed.data : defaults) as ContentValue<K>;
 }
 

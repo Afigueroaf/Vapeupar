@@ -414,6 +414,7 @@ describe('CRUD de /api/admin', () => {
       });
       expect(mala.status).toBe(400);
       expect(String(mala.body?.message)).toContain('value.label');
+      expect(mala.body?.errors).toEqual(expect.arrayContaining([expect.objectContaining({ field: 'value.label' })]));
       expect(content.audits).toHaveLength(0);
     });
 
@@ -433,6 +434,30 @@ describe('CRUD de /api/admin', () => {
       // Las claves disponibles se pueden consultar.
       const claves = await call(url, '/api/admin/content', { as: OWNER });
       expect(claves.body?.data).toContain('hero');
+    });
+
+    it('restaurar publica la versión elegida como una nueva, y solo lo hace el owner', async () => {
+      const { url, content } = await start();
+      const hero = (tagline: string) => ({ label: 'SYSTEM ONLINE', tagline });
+      await call(url, '/api/admin/content/hero', { method: 'PUT', as: OWNER, body: { value: hero('uno') } });
+      await call(url, '/api/admin/content/hero', { method: 'PUT', as: OWNER, body: { value: hero('dos') } });
+
+      const operador = await call(url, '/api/admin/content/hero/versions/1/restore', { method: 'POST', as: OPERATOR });
+      expect(operador.status).toBe(403);
+
+      const restaurada = await call(url, '/api/admin/content/hero/versions/1/restore', { method: 'POST', as: OWNER });
+      expect(restaurada.status).toBe(201);
+      expect(data(restaurada)).toMatchObject({ version: 3, value: hero('uno'), userId: OWNER });
+      expect(restaurada.body?.meta).toEqual({ revalidated: true });
+      expect(content.audits.at(-1)).toMatchObject({ action: 'content.restore', after: { restoredFrom: 1 } });
+
+      const ausente = await call(url, '/api/admin/content/hero/versions/9/restore', { method: 'POST', as: OWNER });
+      expect(ausente.status).toBe(404);
+      const mala = await call(url, '/api/admin/content/hero/versions/cero/restore', { method: 'POST', as: OWNER });
+      expect(mala.status).toBe(400);
+      // Más allá del `Int` de PostgreSQL: 400, no un 500 de Prisma.
+      const enorme = await call(url, '/api/admin/content/hero/versions/99999999999/restore', { method: 'POST', as: OWNER });
+      expect(enorme.status).toBe(400);
     });
 
     it('404 en una clave sin publicar todavía', async () => {

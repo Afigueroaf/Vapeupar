@@ -22,6 +22,11 @@ export const ContentBodySchema = z.object({
   value: jsonObject(64 * 1024)
 });
 
+export const ContentVersionParamSchema = ContentKeyParamSchema.extend({
+  // Tope de `Int` en PostgreSQL: más allá, Prisma lanzaría y sería un 500.
+  version: z.coerce.number().int().positive().max(2_147_483_647)
+});
+
 export const ContentVersionsQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(50).default(10)
 });

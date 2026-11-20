@@ -36,4 +36,7 @@ void _allKeysListed;
 
 export type ContentValue<K extends ContentKey> = z.infer<typeof CONTENT_SCHEMAS[K]['schema']>;
 
-export { PARTNER_BRANDS_TOKEN } from './faq.js';
+export {
+  FAQ_MAX_ITEMS, LEGAL_FAQ_INDEX, LEGAL_FAQ_ITEM, PARTNER_BRANDS_TOKEN, comparableQuestion, isLegalFaqQuestion,
+  normalizeFaqForRead, stripLegalFaqItem
+} from './faq.js';

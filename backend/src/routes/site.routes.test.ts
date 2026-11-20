@@ -70,6 +70,7 @@ describe('GET /api/content/:key', () => {
     const roto: SiteContentRepository = {
       transaction: async () => { throw new Error('sin base'); },
       findLatest: async () => { throw new Error('sin base'); },
+      findVersion: async () => undefined,
       listVersions: async () => []
     };
     const { url } = await start(roto);
