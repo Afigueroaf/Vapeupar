@@ -99,10 +99,17 @@ const returnKey = (orderId: string, variantId: string) => `order:${orderId}:retu
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function sameLines(order: Order, body: PublicOrderBody): boolean {
+/** Mismo envío: mismas líneas y mismos datos del cliente (ya normalizados). */
+function sameSubmission(order: Order, body: PublicOrderBody): boolean {
   if (order.lines.length !== body.lines.length) return false;
   const wanted = new Map(body.lines.map(l => [l.variantId, l.quantity]));
-  return order.lines.every(l => wanted.get(l.variantId) === l.quantity);
+  const c = order.customer;
+  // Un pedido anonimizado ya no permite comparar: no se trata como el mismo envío.
+  return order.lines.every(l => wanted.get(l.variantId) === l.quantity)
+    && !!c
+    && c.name === body.customer.name
+    && c.phone === body.customer.phone
+    && c.neighborhood === body.customer.neighborhood;
 }
 
 export class OrderService {
@@ -191,8 +198,8 @@ export class OrderService {
   private async replayOf(body: PublicOrderBody): Promise<SubmitResult | undefined> {
     const existing = await this.repository.findBySubmissionKey(body.submissionKey);
     if (!existing) return undefined;
-    if (!sameLines(existing, body)) {
-      throw new OrderError('CONFLICT', 'Ese envío ya se registró con otros productos');
+    if (!sameSubmission(existing, body)) {
+      throw new OrderError('CONFLICT', 'Ese envío ya se registró con otros datos');
     }
     return { reference: existing.reference, subtotal: existing.subtotal, replayed: true };
   }
@@ -392,19 +399,30 @@ export class OrderService {
    */
   public async applyRetention(actor: Actor): Promise<{ cancelled: number; anonymized: number }> {
     const now = this.now().getTime();
-    const candidates = await this.repository.listRetentionCandidates({
+    const cutoffs = {
       closedBefore: new Date(now - RETENTION.closedDays * DAY_MS),
       receivedBefore: new Date(now - RETENTION.receivedDays * DAY_MS)
-    });
+    };
+    const candidates = await this.repository.listRetentionCandidates(cutoffs);
     let cancelled = 0;
     let anonymized = 0;
     for (const candidate of candidates) {
       await this.inTransaction(async tx => {
-        if (candidate.status === 'received') {
-          const result = await this.cancelIn(tx, candidate.id, EXPIRED_REASON, actor.userId);
+        // La lista se leyó fuera de la transacción: entre medias el pedido pudo
+        // confirmarse o anonimizarse. Se vuelve a decidir con el pedido bloqueado.
+        const order = await tx.lockOrder(candidate.id);
+        if (!order || order.anonymizedAt) return;
+        const closedAt = order.status === 'delivered' ? order.deliveredAt
+          : order.status === 'cancelled' ? order.cancelledAt : null;
+        const expiredReceived = order.status === 'received' && order.createdAt < cutoffs.receivedBefore;
+        const expiredClosed = !!closedAt && closedAt < cutoffs.closedBefore;
+        if (!expiredReceived && !expiredClosed) return;
+
+        if (expiredReceived) {
+          const result = await this.cancelIn(tx, order.id, EXPIRED_REASON, actor.userId);
           if (!result.replayed) cancelled++;
         }
-        const result = await this.anonymizeIn(tx, candidate.id, actor.userId, 'order.retention');
+        const result = await this.anonymizeIn(tx, order.id, actor.userId, 'order.retention');
         if (!result.replayed) anonymized++;
       });
     }

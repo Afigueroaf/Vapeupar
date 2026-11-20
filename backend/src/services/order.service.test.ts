@@ -155,6 +155,15 @@ describe('OrderService.submit', () => {
     await expectOrderError(service.submit({ ...input, lines: [{ variantId: MANGO, quantity: 1 }] }), 'CONFLICT');
   });
 
+  it('la misma clave con otros datos del cliente es un conflicto, no se descartan en silencio', async () => {
+    const input = body();
+    await service.submit(input);
+    await expectOrderError(service.submit({ ...input, customer: { ...input.customer, phone: '+573109998877' } }), 'CONFLICT');
+    await expectOrderError(service.submit({ ...input, customer: { ...input.customer, neighborhood: 'Centro' } }), 'CONFLICT');
+    expect(orders.all).toHaveLength(1);
+    expect(orders.all[0].customer?.phone).toBe('+573001234567');
+  });
+
   it('dice qué líneas no se pueden pedir y no crea nada', async () => {
     const error = await expectOrderError(service.submit(body({
       lines: [
@@ -228,6 +237,31 @@ describe('OrderService.confirm', () => {
     expect(order.lines.find(l => l.variantId === MANGO)!.unitPrice).toBe(40000);
     expect(order.total).toBe(2 * 40000 + 120000);
     expect(stock.movements.find(m => m.variantId === MANGO)!.unitPrice).toBe(40000);
+  });
+
+  it('todo o nada: un fallo después del primer movimiento revierte pedido, líneas, stock y auditoría', async () => {
+    const id = await submitted();
+    const original = orders.transaction.bind(orders);
+    orders.transaction = work => original(tx => {
+      let calls = 0;
+      return work({
+        ...tx,
+        setLineUnitPrice: async (lineId, price) => {
+          // La primera línea ya escribió su venta y su precio; la segunda falla.
+          if (++calls === 2) throw new Error('fallo a mitad');
+          return tx.setLineUnitPrice(lineId, price);
+        }
+      });
+    });
+
+    await expect(service.confirm(id, { deliveryFee: 5000 }, OPERATOR)).rejects.toThrow('fallo a mitad');
+    expect(stock.movements).toHaveLength(0);
+    expect(stockOf(MANGO)).toBe(5);
+    expect(stockOf(GRAY)).toBe(3);
+    const order = await service.get(id);
+    expect(order).toMatchObject({ status: 'received', deliveryFee: null });
+    expect(order.lines.every(l => l.unitPrice === null)).toBe(true);
+    expect(stock.audits.map(a => a.action)).toEqual(['order.create']);
   });
 
   it('el operator puede repetir el precio de catálogo de forma explícita', async () => {
@@ -369,6 +403,24 @@ describe('OrderService.applyRetention', () => {
     expect(stock.movements.filter(m => m.type === 'return')).toHaveLength(0);
 
     expect(await service.applyRetention(OWNER)).toEqual({ cancelled: 0, anonymized: 0 });
+  });
+
+  it('no caduca un pedido que se confirmó entre la lista y su transacción', async () => {
+    const id = await submitted();
+    orders.backdate(id, { createdAt: new Date(clock.getTime() - 31 * 24 * 60 * 60 * 1000) });
+    const list = orders.listRetentionCandidates.bind(orders);
+    orders.listRetentionCandidates = async cutoffs => {
+      const candidates = await list(cutoffs);
+      // El operador confirma justo después de que se leyó la lista.
+      await service.confirm(id, { deliveryFee: 0 }, OPERATOR);
+      return candidates;
+    };
+
+    expect(await service.applyRetention(OWNER)).toEqual({ cancelled: 0, anonymized: 0 });
+    const order = await service.get(id);
+    expect(order.status).toBe('confirmed');
+    expect(order.customer).not.toBeNull();
+    expect(stock.movements.filter(m => m.type === 'return')).toHaveLength(0);
   });
 });
 
