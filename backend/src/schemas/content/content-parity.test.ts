@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
-  CONTENT_KEYS, CONTENT_SCHEMAS, LEGAL_FAQ_INDEX, LEGAL_FAQ_ITEM, PARTNER_BRANDS_TOKEN, stripLegalFaqItem
+  CONTENT_KEYS, CONTENT_SCHEMAS, FAQ_MAX_ITEMS, LEGAL_FAQ_INDEX, LEGAL_FAQ_ITEM, PARTNER_BRANDS_TOKEN,
+  comparableQuestion, normalizeFaqForRead, stripLegalFaqItem
 } from './index.js';
 import * as mirror from '../../../../frontend/src/lib/content/schemas.js';
 
@@ -51,12 +52,29 @@ describe('paridad con el espejo del frontend', () => {
     const casos: unknown[] = [
       { items: [LEGAL_FAQ_ITEM, { question: 'Otra', answer: 'x' }] },
       { items: [{ question: `  ${LEGAL_FAQ_ITEM.question.toUpperCase()}  `, answer: 'cambiada' }] },
+      { items: [{ question: 'Es obligatoria la cedula de ciudadania, para recibir el pedido', answer: 'x' }] },
       { items: 'no es lista' },
       null,
       [LEGAL_FAQ_ITEM]
     ];
     for (const caso of casos) {
       expect(mirror.stripLegalFaqItem(caso)).toEqual(stripLegalFaqItem(caso));
+    }
+    for (const texto of ['¿Qué tal?', '  ¡ÁRBOL!  ', 'a.b,c;d:e']) {
+      expect(mirror.comparableQuestion(texto)).toBe(comparableQuestion(texto));
+    }
+  });
+
+  it('al leer recorta igual una FAQ antigua con más de 11 preguntas', () => {
+    expect(mirror.FAQ_MAX_ITEMS).toBe(FAQ_MAX_ITEMS);
+    const items = Array.from({ length: 13 }, (_, i) => ({ question: `P${i}`, answer: 'x' }));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      for (const caso of [{ items }, { items: [...items.slice(0, 11), LEGAL_FAQ_ITEM] }, null]) {
+        expect(mirror.normalizeFaqForRead(caso)).toEqual(normalizeFaqForRead(caso));
+      }
+    } finally {
+      warn.mockRestore();
     }
   });
 });

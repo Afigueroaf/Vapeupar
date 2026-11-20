@@ -5,7 +5,7 @@ import {
 import { PrismaSiteContentRepository } from '../repositories/prisma-site-content.repository.js';
 import { ContentBodySchema } from '../schemas/admin/content.schema.js';
 import {
-  CONTENT_SCHEMAS, ContentKey, PARTNER_BRANDS_TOKEN, stripLegalFaqItem
+  CONTENT_SCHEMAS, ContentKey, PARTNER_BRANDS_TOKEN, normalizeFaqForRead, stripLegalFaqItem
 } from '../schemas/content/index.js';
 
 /**
@@ -72,9 +72,14 @@ function validationError(issues: Issue[], prefix: string): ContentError {
   return new ContentError('VALIDATION', fields.map(f => `${f.field}: ${f.message}`).join('; '), fields);
 }
 
-/** Lo que se quita antes de validar: hoy, solo la pregunta legal de la FAQ. */
+/** Lo que se quita antes de validar al publicar: hoy, solo la pregunta legal de la FAQ. */
 function normalize(key: ContentKey, value: unknown): unknown {
   return key === 'faq' ? stripLegalFaqItem(value) : value;
+}
+
+/** Al leer, además, una FAQ antigua con más de 11 preguntas se recorta en vez de descartarse. */
+function normalizeForRead(key: ContentKey, value: unknown): unknown {
+  return key === 'faq' ? normalizeFaqForRead(value) : value;
 }
 
 export class ContentService {
@@ -100,7 +105,7 @@ export class ContentService {
   public async getPublic(key: ContentKey): Promise<PublicContent> {
     const latest = await this.repository.findLatest(key);
     if (latest) {
-      const parsed = CONTENT_SCHEMAS[key].schema.safeParse(normalize(key, latest.value));
+      const parsed = CONTENT_SCHEMAS[key].schema.safeParse(normalizeForRead(key, latest.value));
       if (parsed.success) {
         return {
           key,

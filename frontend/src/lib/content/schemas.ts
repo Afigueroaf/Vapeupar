@@ -37,10 +37,12 @@ export const TrustBandContentSchema = z.strictObject({
     .length(3),
 });
 
+/** Hasta 11 editables: la pregunta legal (`LEGAL_FAQ_ITEM`) completa las 12. */
+export const FAQ_MAX_ITEMS = 11;
+
 export const FaqContentSchema = z.strictObject({
   title: text(60),
   intro: text(200),
-  // Hasta 11: la pregunta legal (`LEGAL_FAQ_ITEM`) completa las 12.
   items: z
     .array(
       z.strictObject({
@@ -49,7 +51,7 @@ export const FaqContentSchema = z.strictObject({
       }),
     )
     .min(1)
-    .max(11),
+    .max(FAQ_MAX_ITEMS),
 });
 
 const SocialCardSchema = z.strictObject({
@@ -95,11 +97,20 @@ export const LEGAL_FAQ_ITEM: FaqItem = {
 /** Cuarta posición: donde estaba cuando era una pregunta más. */
 export const LEGAL_FAQ_INDEX = 3;
 
-const sameQuestion = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+/** Sin tildes, sin signos de puntuación, sin mayúsculas y con los espacios colapsados. */
+export function comparableQuestion(question: string): string {
+  return question
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[¿?¡!.,;:]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
 
-/** `true` si la pregunta es la legal, con otros espacios o mayúsculas. */
+/** `true` si la pregunta es la legal, escrita con o sin tildes, signos o mayúsculas. */
 export function isLegalFaqQuestion(question: string): boolean {
-  return sameQuestion(question, LEGAL_FAQ_ITEM.question);
+  return comparableQuestion(question) === comparableQuestion(LEGAL_FAQ_ITEM.question);
 }
 
 /**
@@ -119,6 +130,19 @@ export function stripLegalFaqItem(value: unknown): unknown {
       return !(typeof question === "string" && isLegalFaqQuestion(question));
     }),
   };
+}
+
+/**
+ * Normalización de lectura (igual que el backend): quita la legal y, si una
+ * fila antigua deja más de `FAQ_MAX_ITEMS`, se queda con las primeras en vez de
+ * caer al texto por defecto. Al publicar el máximo se exige.
+ */
+export function normalizeFaqForRead(value: unknown): unknown {
+  const stripped = stripLegalFaqItem(value);
+  const items = (stripped as { items?: unknown } | null)?.items;
+  if (!Array.isArray(items) || items.length <= FAQ_MAX_ITEMS) return stripped;
+  console.warn(`[content] La FAQ guardada tiene ${items.length} preguntas editables; se sirven las ${FAQ_MAX_ITEMS} primeras`);
+  return { ...(stripped as object), items: items.slice(0, FAQ_MAX_ITEMS) };
 }
 
 /** Las preguntas editables con la legal insertada en su sitio fijo. */

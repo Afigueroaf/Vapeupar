@@ -455,6 +455,9 @@ describe('CRUD de /api/admin', () => {
       expect(ausente.status).toBe(404);
       const mala = await call(url, '/api/admin/content/hero/versions/cero/restore', { method: 'POST', as: OWNER });
       expect(mala.status).toBe(400);
+      // Más allá del `Int` de PostgreSQL: 400, no un 500 de Prisma.
+      const enorme = await call(url, '/api/admin/content/hero/versions/99999999999/restore', { method: 'POST', as: OWNER });
+      expect(enorme.status).toBe(400);
     });
 
     it('404 en una clave sin publicar todavía', async () => {

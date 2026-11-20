@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContentError, ContentService } from './content.service.js';
 import { InMemorySiteContentRepository } from '../repositories/in-memory-site-content.repository.js';
 import { CONTENT_KEYS, CONTENT_SCHEMAS, LEGAL_FAQ_ITEM, PARTNER_BRANDS_TOKEN } from '../schemas/content/index.js';
@@ -183,6 +183,33 @@ describe('pregunta legal +18 fija en código', () => {
       .resolves.toMatchObject({ version: 1 });
     await expect(service.publish('faq', { value: { ...faq('x'), items: items(12) } }, AUTHOR))
       .rejects.toMatchObject({ code: 'VALIDATION', fields: [expect.objectContaining({ field: 'value.items' })] });
+  });
+
+  it('la reconoce sin tildes ni signos de puntuación', async () => {
+    const sinTildes = { question: 'es obligatoria la CEDULA de ciudadania para recibir el pedido', answer: 'No.' };
+    const version = await service.publish('faq', {
+      value: { ...faq('¿Abren hoy?'), items: [{ question: '¿Abren hoy?', answer: 'Sí.' }, sinTildes] }
+    }, AUTHOR);
+    expect(version.value).toEqual(faq('¿Abren hoy?'));
+  });
+
+  it('una FAQ antigua con 12 preguntas editables se sirve recortada a 11, no cae al defecto', async () => {
+    const doce = Array.from({ length: 12 }, (_, i) => ({ question: `¿Pregunta ${i}?`, answer: 'Sí.' }));
+    await repo.transaction(tx => tx.insert({
+      key: 'faq', value: { ...faq('x'), items: [...doce, LEGAL_FAQ_ITEM] }, version: 1, publishedAt: NOW, userId: AUTHOR.userId
+    }));
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    try {
+      const leido = await service.getPublic('faq');
+      expect(leido).toMatchObject({ source: 'published', version: 1 });
+      expect((leido.value as { items: unknown[] }).items).toEqual(doce.slice(0, 11));
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+    // Al publicar, el máximo se exige.
+    await expect(service.publish('faq', { value: { ...faq('x'), items: doce } }, AUTHOR))
+      .rejects.toMatchObject({ code: 'VALIDATION' });
   });
 
   it('una FAQ con solo la pregunta legal se queda sin preguntas y no se publica', async () => {
