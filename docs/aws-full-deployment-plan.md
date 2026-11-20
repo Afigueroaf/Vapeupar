@@ -324,8 +324,13 @@ Hallazgos que **condicionan F3**:
 4. **La consola `/admin` no funcionará por HTTP plano**: las cookies de sesión
    llevan `secure` en producción (`session-cookies.ts:31`). Es lo correcto. La
    tienda pública sí funciona desde F3; la consola, desde F4 (TLS).
-5. `REVALIDATE_SECRET` lo genera el script local pero nada en el código lo
-   usa: no se lleva a producción.
+5. ~~`REVALIDATE_SECRET` lo genera el script local pero nada en el código lo
+   usa: no se lleva a producción.~~ Resuelto en A7.3 (2026-11-19, sin
+   desplegar): el secreto `vapeupar/<env>/revalidate` lo crea el stack App y
+   `write-env.mjs` lo lleva a `backend.env` y a `frontend.env` (que solo lleva
+   ese valor). Si el parámetro aún no existe, el despliegue sigue sin
+   revalidación on-demand. Ver «Registro A7.3» en
+   `docs/admin-console-execution-plan.md`.
 
 ### F3 — Entrega: artefacto en S3 y despliegue por SSM ✅
 

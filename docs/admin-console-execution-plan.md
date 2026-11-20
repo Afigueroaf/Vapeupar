@@ -23,7 +23,7 @@ V4 y V5.
 | **A4** | Autenticación y superficie `/api/admin/*` | `backend/src/routes/admin/`, `backend/src/middleware/` | ✅ **Ejecutada** (2026-10-27): sesión, roles, endurecimiento, inventario y el CRUD completo. Solo queda fuera el puente AdminJS (A4.4), opcional y descartado |
 | **A5** | Consola `/admin` en Next | `frontend/src/app/(admin)/` | 🟡 **Parcial** (2026-10-27): A5.1 (stock), A5.2 (marcas y proveedores) y A5.3 (lineas y variantes), ejecutadas; falta A5.4, que depende de A7.1 |
 | **A6** | Catálogo público con variantes | `product-card.tsx`, `product-catalog.tsx`, tipos | ✅ **Ejecutada** (2026-11-17): contratos con `variants` y `brandSlug`, tarjeta «Ver N sabores» con la elección en la ficha, y filtros sobre variantes. Ver «Registro A6» |
-| **A7** | `SiteContent` + revalidación + barrido de textos | `faq.tsx`, `layout.tsx`, `trust-band.tsx` | 🟡 **Parcial** (2026-11-18): A7.1, A7.2 y A7.4 ejecutadas; falta A7.3 (revalidación on-demand). Ver «Registro A7» |
+| **A7** | `SiteContent` + revalidación + barrido de textos | `faq.tsx`, `layout.tsx`, `trust-band.tsx` | 🟡 **Parcial** (2026-11-19): A7.1, A7.2 y A7.4 ejecutadas; A7.3 implementada en `feat/a7-3-revalidacion`, sin desplegar. Ver «Registro A7» |
 | **A8** | Imágenes en S3 + CloudFront | `next.config.ts`, `storage.service.ts` | 🟡 **Parcial** (2026-10-27): código terminado y verificado de extremo a extremo —migración aplicada, subida real con URL prefirmada y lectura `200` por CloudFront—. Falta subir las imágenes del catálogo al bucket. Ver `docs/session-handoff-2026-10-27-inventory-images.md` |
 
 Orden recomendado de valor entregado: A1 → A2 → A3 → A4 → **A5.1 (pantalla de
@@ -1099,9 +1099,10 @@ la API no responde, devuelve el default. La página nunca se queda sin texto.
 
 ### A7.3 — Revalidación on-demand
 
-Route handler `frontend/src/app/api/revalidate/route.ts` que valida
-`REVALIDATE_SECRET` y ejecuta `revalidateTag('catalogo' | 'contenido')`. El
-backend lo invoca tras publicar. El catálogo sigue renderizándose en servidor.
+Route handler `frontend/src/app/internal/revalidate/route.ts` (no `api/`:
+nginx manda `/api/*` al backend) que valida `REVALIDATE_SECRET` y ejecuta
+`revalidateTag('catalogo' | 'contenido', { expire: 0 })`. El backend lo invoca
+tras publicar. El catálogo sigue renderizándose en servidor. Ver «Registro A7.3».
 
 ### A7.4 — Barrido de lo que hoy está escrito a mano
 
@@ -1171,6 +1172,69 @@ marcar una marca como no aliada y verla desaparecer del texto de autenticidad.
 - **Pendiente con el entorno vivo**: publicar una FAQ desde la API y verla en el
   sitio (hasta 60 s sin A7.3), y marcar una marca como no aliada y verla
   desaparecer del texto de autenticidad.
+
+### Registro A7.3 (2026-11-19) — Revalidación on-demand
+
+Rama `feat/a7-3-revalidacion`, **sin desplegar**. Decisión del dueño: refrescan
+al instante el catálogo, el contenido **y el stock** (ventas, ingresos,
+ajustes).
+
+| Archivo | Rol |
+|---|---|
+| `frontend/src/app/internal/revalidate/route.ts` | `POST` con Bearer; `503`/`401`/`400`; `revalidateTag(tag, { expire: 0 })` |
+| `frontend/src/lib/revalidate-auth.ts` | Comparación en tiempo constante sobre SHA-256 |
+| `frontend/src/lib/cache-tags.ts` | `CATALOG_TAG`, `CONTENT_TAG`, `SITE_TAGS`; `api.ts` y `content.ts` dejan el literal |
+| `backend/src/services/site-revalidation.service.ts` | `notifySite(tags)`: tope de 3 s, nunca lanza, sin secreto no hace nada |
+| `backend/src/routes/admin/*.routes.ts` | Avisan tras contenido, marcas, líneas, variantes y movimientos; `meta.revalidated` |
+| `infra/lib/app-stack.ts` | Secreto `vapeupar/<env>/revalidate`, `REVALIDATE_SECRET_ARN` en SSM, permiso de lectura |
+| `infra/deploy/write-env.mjs` | `backend.env` + `frontend.env` (solo `REVALIDATE_SECRET`) desde una sola lectura |
+| `infra/deploy/systemd/vapeupar-frontend.service`, `nginx/vapeupar-site.inc` | `EnvironmentFile=-…/frontend.env`; `/internal/` → `404` |
+
+**Decisiones tomadas durante la ejecución**
+
+- **El secreto es opcional en `write-env.mjs`**: si `REVALIDATE_SECRET_ARN` no
+  existe todavía (release desplegada antes que el stack App), avisa y sigue;
+  backend y frontend arrancan y el sitio se refresca por ISR. Si el parámetro
+  existe pero el secreto no se lee, falla como los demás. El orden recomendado
+  sigue siendo stack App primero y release después, pero equivocarse ya no
+  tumba el backend.
+- **`frontend.env` se escribe siempre**, aunque vaya vacío, y el frontend lo
+  carga con `EnvironmentFile=-`: sin archivo, Next arranca y la ruta da `503`.
+- **El secreto vive en el stack App**, con el rol que lo lee: el diff solo toca
+  ese stack. 64 caracteres alfanuméricos (Secrets Manager no genera hex).
+- **Marcas: solo `catalogo`**: `getPartnerBrands` lleva las dos etiquetas, así
+  que invalidar `catalogo` ya regenera la lista de aliadas sin regenerar todo
+  el contenido.
+- **La respuesta espera el aviso** (tope 3 s) para poder devolver
+  `meta.revalidated`. Un reintento de movimiento (`replayed`) también avisa.
+- **Proveedores, umbral de bajo stock y las rutas de subida de imágenes no
+  avisan.** Proveedores y umbral no cambian nada de lo que ve el visitante. Una
+  imagen nueva se sube a una clave nueva (versionada), y el cambio llega al
+  sitio por el `PATCH` de `imageKey`/`logoKey` de la línea, la variante o la
+  marca, que ya revalida `catalogo`; `presign` e `invalidate` no tocan nada
+  publicado.
+- **La ruta invalida también todas las rutas** (`revalidatePath('/',
+  'layout')`): el build de producción se compila sin `API_URL`, así que `/`,
+  `/coleccion/*` y el layout quedan prerenderizados sin las etiquetas
+  (`.next/server/app/index.meta`), y `revalidateTag` solo no los alcanzaría
+  hasta su primera regeneración por ISR. Comprobado con `next start`: tras la
+  llamada, `/` y `/coleccion/pods` pasan de `HIT` a `MISS`.
+- **`frontend.env` aparte es mínimo privilegio de configuración, no
+  aislamiento**: los dos servicios corren como `vapeupar`. El usuario propio
+  para el frontend queda propuesto en `f7-endurecimiento-perimetral`.
+
+**Verificación**: `npm run test:backend`, `npm run lint --workspace=frontend`,
+`npm run build`, `npm run typecheck --workspace=infra`; `infra:diff` muestra en
+App solo el secreto, su parámetro y el permiso (más el hash de la lambda de
+borrado de S3, que es deriva de la versión de CDK).
+
+**Pendiente**: desplegar con aprobación solo el stack App
+(`cd infra && VAPEUPAR_ALERT_EMAIL=… npx cdk deploy -c env=dev -e Vapeupar-dev-App`),
+después la release; y comprobar en producción: `POST /internal/revalidate` desde
+fuera da `404`, publicar una FAQ y registrar una venta que deja una variante en
+0 se ven al recargar, y `journalctl -u vapeupar-backend` sin avisos de
+revalidación. La consola todavía no muestra el aviso «se verá en ≤60 s» cuando
+`meta.revalidated` es `false`.
 
 ## Fase A8 — Imágenes en S3 + CloudFront
 

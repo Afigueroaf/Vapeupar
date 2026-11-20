@@ -6,7 +6,8 @@ import {
 } from '../../schemas/admin/stock.schema.js';
 import { requireRole } from '../../middleware/require-role.js';
 import { SettingsError, SettingsReader } from '../../services/settings.service.js';
-import { sendDomainError, sendValidationError } from './http.js';
+import { SiteRevalidator } from '../../services/site-revalidation.service.js';
+import { revalidateSite, sendDomainError, sendValidationError } from './http.js';
 
 /**
  * Inventario para la consola (plan A4.2). Es la superficie que consume la
@@ -14,11 +15,16 @@ import { sendDomainError, sendValidationError } from './http.js';
  *
  * Las dos rutas de lectura pasan por el repositorio de vista; la de escritura,
  * por `StockService`, que es el único autorizado a tocar el libro.
+ *
+ * Cada movimiento refresca `catalogo` en el sitio (A7.3, decisión del dueño):
+ * la tarjeta muestra «N disponibles» y «AGOTADO», y no puede esperar 60 s a
+ * enterarse de una venta.
  */
 export interface StockRoutesDeps {
   stockService: Pick<StockService, 'recordMovement' | 'getKardex'>;
   stockView: StockViewRepository;
   settings: SettingsReader;
+  revalidate: SiteRevalidator;
 }
 
 export function createStockRouter(deps: StockRoutesDeps): Router {
@@ -106,10 +112,14 @@ export function createStockRouter(deps: StockRoutesDeps): Router {
       // El autor lo pone la sesión, nunca el cuerpo: un movimiento queda firmado
       // por quien lo hizo y eso es lo que audita `AuditLog`.
       const result = await deps.stockService.recordMovement({ ...parsed.data, userId });
+      // También en un reintento: si la primera vez el aviso se perdió, este
+      // lo repara, y revalidar dos veces no cuesta nada.
+      const revalidated = await revalidateSite(deps.revalidate, ['catalogo']);
       // 200 y no 201 cuando fue un reintento: no se creó nada nuevo.
       res.status(result.replayed ? 200 : 201).json({
         success: true,
-        data: { movement: result.movement, stock: result.stock, replayed: result.replayed }
+        data: { movement: result.movement, stock: result.stock, replayed: result.replayed },
+        meta: { revalidated }
       });
     } catch (error) {
       if (sendDomainError(res, error)) return;

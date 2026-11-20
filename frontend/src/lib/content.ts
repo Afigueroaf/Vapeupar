@@ -5,21 +5,23 @@ import {
   type ContentValue,
 } from "@/lib/content/schemas";
 import { apiBase } from "@/lib/api";
+import { CATALOG_TAG, CONTENT_TAG } from "@/lib/cache-tags";
 
 /**
  * Lectura del contenido editable del sitio (plan A7.2).
  *
  * Solo en Server Components. Cada lectura va etiquetada con `contenido`, para
- * que la revalidación on-demand (A7.3) pueda invalidarla sin esperar los 60 s,
+ * que la revalidación on-demand (A7.3) la invalide sin esperar los 60 s,
  * y se valida con el esquema de su clave: si la API no responde, contesta con
  * error o devuelve algo que no encaja, se sirve el valor por defecto. La página
  * nunca se queda sin texto (ADR-002, invariante 6).
  */
 
-/** Etiqueta de caché del contenido. La invalida `revalidateTag` en A7.3. */
-export const CONTENT_TAG = "contenido";
+// Las etiquetas viven en `lib/cache-tags.ts`; se reexportan para quien ya las
+// importaba de aquí.
+export { CATALOG_TAG, CONTENT_TAG };
 
-/** Mismo plazo que el catálogo (`lib/api.ts`) mientras no haya revalidación on-demand. */
+/** Mismo plazo que el catálogo (`lib/api.ts`): la red de seguridad de A7.3. */
 const REVALIDATE_SECONDS = 60;
 
 const FETCH_TIMEOUT_MS = 3000;
@@ -59,7 +61,7 @@ export async function getContent<K extends ContentKey>(key: K): Promise<ContentV
  * aliada es un cambio de catálogo.
  */
 export async function getPartnerBrands(): Promise<string[] | null> {
-  const data = await fetchData("/brands/partners", [CONTENT_TAG, "catalogo"]);
+  const data = await fetchData("/brands/partners", [CONTENT_TAG, CATALOG_TAG]);
   if (!Array.isArray(data)) return null;
   return data
     .map((brand) => (brand as { name?: unknown }).name)

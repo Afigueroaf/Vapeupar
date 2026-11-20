@@ -1,4 +1,4 @@
-// Genera /etc/vapeupar/backend.env EN LA INSTANCIA, leyendo SSM y Secrets
+// Genera /etc/vapeupar/backend.env y /etc/vapeupar/frontend.env EN LA INSTANCIA, leyendo SSM y Secrets
 // Manager con el rol de la propia EC2. Lo ejecuta `vapeupar-env.service`
 // (como root) antes de arrancar el backend; ver
 // docs/aws-full-deployment-plan.md F2.
@@ -15,6 +15,14 @@
 //   - El archivo queda 0600 de root. systemd lo lee como root antes de soltar
 //     privilegios, así que el usuario `vapeupar` no necesita poder leerlo, y no
 //     puede.
+//   - frontend.env lleva SOLO REVALIDATE_SECRET (A7.3): mínimo privilegio de
+//     configuración, Next no recibe en su entorno la base ni Cognito. NO es una
+//     barrera: frontend y backend corren con el mismo usuario (`vapeupar`), así
+//     que un proceso puede leer el entorno del otro en /proc/<pid>/environ.
+//     Aislarlos de verdad pide un usuario propio para el frontend (item
+//     f7-endurecimiento-perimetral). Sale de la MISMA lectura que el de
+//     backend.env, para que los dos lados nunca tengan secretos distintos (si
+//     difieren, toda revalidación da 401 sin que nadie se entere).
 //
 // No imprime valores, solo nombres.
 //
@@ -61,6 +69,7 @@ const param = (key) => {
   if (!(key in params)) throw new Error(`No existe /vapeupar/${envName}/${key}`);
   return params[key];
 };
+const optionalParam = (key) => params[key];
 const secret = (arn) =>
   JSON.parse(aws(['secretsmanager', 'get-secret-value', '--secret-id', arn])).SecretString;
 
@@ -84,6 +93,26 @@ const databaseUrl =
 
 const publicOrigin = param('PUBLIC_ORIGIN');
 
+// Revalidación on-demand (A7.3). OPCIONAL a propósito: el parámetro lo crea el
+// stack App, y una release con este script puede llegar a una instancia antes
+// de que ese stack se despliegue. Sin él, backend y frontend arrancan igual,
+// el backend no avisa al sitio y los cambios se ven por ISR (≤60 s). Si el
+// parámetro existe pero el secreto no se puede leer, falla como los demás: eso
+// ya es un error de configuración, no un orden de despliegue.
+const revalidateArn = optionalParam('REVALIDATE_SECRET_ARN');
+const revalidateSecret = revalidateArn ? secret(revalidateArn).trim() : undefined;
+if (!revalidateArn) {
+  console.warn(
+    `Aviso: no existe /vapeupar/${envName}/REVALIDATE_SECRET_ARN; sin revalidación on-demand ` +
+      '(el sitio se refresca por ISR). Despliega el stack App para activarla.',
+  );
+} else if (!revalidateSecret) {
+  console.warn(
+    `Aviso: el secreto de ${revalidateArn} está vacío; sin revalidación on-demand ` +
+      '(el sitio se refresca por ISR). Regenera el valor en Secrets Manager.',
+  );
+}
+
 const values = {
   AWS_REGION: region,
   DATABASE_URL: databaseUrl,
@@ -97,23 +126,36 @@ const values = {
   // misma URL, así que el CORS solo tiene que aceptar esa.
   FRONTEND_URL: publicOrigin,
   ADMIN_URL: publicOrigin,
+  ...(revalidateSecret && {
+    REVALIDATE_SECRET: revalidateSecret,
+    // Next en la misma máquina, por loopback (vapeupar-frontend.service).
+    REVALIDATE_URL: 'http://127.0.0.1:3000/internal/revalidate',
+  }),
 };
+
+const frontendValues = revalidateSecret ? { REVALIDATE_SECRET: revalidateSecret } : {};
 
 // Formato de EnvironmentFile de systemd: KEY="valor". Las comillas dobles y
 // las barras invertidas se escapan; ninguno de estos valores lleva salto de
 // línea.
 const escape = (v) => String(v).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
-const body =
+const render = (entries) =>
   `# Generado por infra/deploy/write-env.mjs el ${new Date().toISOString()}; no editar a mano.\n` +
-  Object.entries(values).map(([k, v]) => `${k}="${escape(v)}"`).join('\n') + '\n';
+  Object.entries(entries).map(([k, v]) => `${k}="${escape(v)}"`).join('\n') + '\n';
 
-// Escritura atómica: si el proceso muere a medias, el backend sigue teniendo
-// el archivo anterior entero, no uno truncado.
+// Escritura atómica: si el proceso muere a medias, cada servicio sigue
+// teniendo el archivo anterior entero, no uno truncado.
+function writeEnvFile(name, entries) {
+  const target = join(outDir, name);
+  const tmp = `${target}.tmp`;
+  writeFileSync(tmp, render(entries), { mode: 0o600 });
+  chmodSync(tmp, 0o600);
+  renameSync(tmp, target);
+  console.log(`${target} actualizado (${envName}): ${Object.keys(entries).join(', ') || '(vacío)'}`);
+}
+
 mkdirSync(outDir, { recursive: true, mode: 0o700 });
-const target = join(outDir, 'backend.env');
-const tmp = `${target}.tmp`;
-writeFileSync(tmp, body, { mode: 0o600 });
-chmodSync(tmp, 0o600);
-renameSync(tmp, target);
-
-console.log(`${target} actualizado (${envName}): ${Object.keys(values).join(', ')}`);
+writeEnvFile('backend.env', values);
+// Siempre se escribe, aunque vaya vacío: así un secreto retirado también
+// desaparece del frontend y no queda uno viejo que ya no coincide.
+writeEnvFile('frontend.env', frontendValues);

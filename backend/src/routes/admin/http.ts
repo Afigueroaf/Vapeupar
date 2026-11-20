@@ -5,6 +5,7 @@ import { CatalogError, CatalogErrorCode } from '../../services/catalog.service.j
 import { ContentError, ContentErrorCode } from '../../services/content.service.js';
 import { StockError, StockErrorCode } from '../../services/stock.service.js';
 import { InventoryNoteError } from '../../services/inventory-note.service.js';
+import { SiteRevalidator, SiteTag } from '../../services/site-revalidation.service.js';
 import { ImageUploadError } from '../../services/image-upload.service.js';
 
 /**
@@ -132,4 +133,19 @@ export function sendPage<T>(
       totalPages: Math.max(1, Math.ceil(page.total / paging.limit))
     }
   });
+}
+
+/**
+ * Pide al sitio que refresque `tags` después de una escritura que ya se hizo
+ * (A7.3). Devuelve si se confirmó, para `meta.revalidated`. No lanza aunque el
+ * revalidador inyectado lo haga: un fallo aquí no puede convertir en 500 una
+ * escritura que salió bien.
+ */
+export async function revalidateSite(revalidate: SiteRevalidator, tags: SiteTag[]): Promise<boolean> {
+  try {
+    return await revalidate(tags);
+  } catch (error) {
+    console.warn(`[revalidación] fallo inesperado: ${error instanceof Error ? error.message : String(error)}`);
+    return false;
+  }
 }

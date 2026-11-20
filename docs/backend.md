@@ -206,6 +206,32 @@ cuerpo: `POST /stock/movements` y todo el CRUD lo toman de la sesión, así que 
 que queda en `AuditLog` es quien lo hizo de verdad. Un `userId` colado en el
 cuerpo se descarta antes de llegar al servicio.
 
+**Las escrituras publicadas refrescan el sitio (A7.3).** Después de una
+escritura que ya salió bien, el backend avisa a Next con
+`POST /internal/revalidate` (`services/site-revalidation.service.ts`,
+`notifySite`), y el cambio se ve al recargar sin esperar el ISR de 60 s:
+
+| Escritura | Etiqueta |
+|---|---|
+| `PUT /api/admin/content/:key` | `contenido` |
+| `POST`/`PATCH` de marcas, líneas y variantes | `catalogo` (también basta para las marcas aliadas: `getPartnerBrands` lleva las dos) |
+| `POST /api/admin/stock/movements` (ventas, ingresos, ajustes; también un reintento) | `catalogo` |
+
+La respuesta espera el aviso como mucho 3 s y lleva `meta.revalidated`: `false`
+si el frontend no contestó, rechazó el secreto o no hay secreto; el cambio se
+verá igual en ≤60 s. **Nunca cambia el `201`/`200`**: un fallo deja solo un
+`console.warn` en el journal. El revalidador se inyecta en
+`createAdminRouter({ revalidate })`; los tests pasan uno falso.
+
+| Variable | Por defecto | Qué es |
+|---|---|---|
+| `REVALIDATE_SECRET` | — | Secreto compartido con el frontend. Sin él no se avisa |
+| `REVALIDATE_URL` | `http://127.0.0.1:3000/internal/revalidate` | Next en la misma máquina |
+
+En la instancia los escribe `infra/deploy/write-env.mjs` desde el secreto
+`vapeupar/<env>/revalidate` (stack App); en local, `npm run infra:env-backend`,
+que copia el mismo valor a `frontend/.env.local`.
+
 **Primer acceso.** La ruta de invitación exige ser `owner`, así que el primero
 entra por script:
 

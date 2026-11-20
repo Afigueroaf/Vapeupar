@@ -2,12 +2,14 @@
 # docs/aws-full-deployment-plan.md F2.
 [Unit]
 Description=Vapeupar frontend (Next.js, 127.0.0.1:3000)
-Wants=network-online.target
+# `vapeupar-env` escribe /etc/vapeupar/frontend.env (A7.3). `Wants` y no
+# `Requires`, como en el backend: si falla, se arranca con el archivo anterior.
+Wants=network-online.target vapeupar-env.service
 # Después del backend: el render del servidor pide productos a la API. No es
 # una dependencia dura, porque la portada aguanta la API caída (cae en los
 # productos de respaldo, `src/app/page.tsx`), pero arrancar en orden evita que
 # la primera página generada salga con el respaldo sin necesidad.
-After=network-online.target vapeupar-backend.service
+After=network-online.target vapeupar-env.service vapeupar-backend.service
 
 [Service]
 Type=simple
@@ -28,6 +30,12 @@ Environment=PORT=3000
 Environment=API_URL=http://127.0.0.1:4000/api
 Environment=NEXT_TELEMETRY_DISABLED=1
 Environment=NODE_OPTIONS=--max-old-space-size=384
+# SOLO REVALIDATE_SECRET (A7.3): las credenciales de la base y de Cognito van
+# en backend.env y no entran en el entorno de Next. Es mínimo privilegio de
+# configuración, no aislamiento: los dos servicios corren como `vapeupar`. El `-` lo hace opcional: sin
+# el archivo, Next arranca igual y `/internal/revalidate` responde 503, y el
+# sitio se refresca solo por ISR (60 s).
+EnvironmentFile=-/etc/vapeupar/frontend.env
 
 ExecStart=/usr/local/bin/node server.js
 Restart=always

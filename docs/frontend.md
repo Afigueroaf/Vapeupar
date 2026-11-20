@@ -128,8 +128,34 @@ etiqueta de caché `contenido` y ISR de 60 s.
 - Para cambiar un texto por defecto hay que cambiarlo **en los dos esquemas**
   (frontend y backend); si no, `npm run test:backend` falla en la prueba de
   paridad.
-- Lo que falta: la revalidación on-demand (A7.3; hasta entonces un cambio
-  tarda hasta 60 s en verse) y la pantalla de edición en la consola (A5.4).
+- Lo que falta: la pantalla de edición en la consola (A5.4).
+
+### Revalidación on-demand (A7.3)
+
+Las etiquetas de caché viven en `lib/cache-tags.ts`: `catalogo`
+(`CATALOG_TAG`: productos, marcas aliadas, stock) y `contenido`
+(`CONTENT_TAG`). El backend las invalida con
+`POST /internal/revalidate` (`app/internal/revalidate/route.ts`) después de
+cada escritura de catálogo, contenido o stock.
+
+- Va en `/internal/` y no en `/api/` porque nginx manda `/api/*` al backend.
+  Desde fuera nginx responde `404`; solo el backend llega, por loopback.
+- `Authorization: Bearer <REVALIDATE_SECRET>`, comparado en tiempo constante
+  sobre SHA-256 (`lib/revalidate-auth.ts`). `503` sin secreto en el servidor,
+  `401` con uno incorrecto, `400` con una etiqueta fuera de la lista.
+- `revalidateTag(tag, { expire: 0 })`: la visita siguiente ya recibe la
+  versión nueva (con `'max'` recibiría la vieja mientras se regenera).
+- El ISR de 60 s sigue como red de seguridad si el aviso falla.
+- Además invalida todas las rutas (`revalidatePath('/', 'layout')`): el build
+  de producción se compila sin `API_URL`, así que las páginas prerenderizadas
+  no llevan las etiquetas y `revalidateTag` solo no las alcanzaría.
+- En la instancia el secreto llega por `/etc/vapeupar/frontend.env`, que lleva
+  solo `REVALIDATE_SECRET`; en local, `frontend/.env.local` (lo escribe
+  `npm run infra:env-backend`). Separarlo de `backend.env` es mínimo privilegio
+  de configuración, **no una barrera**: frontend y backend corren con el mismo
+  usuario (`vapeupar`) y uno puede leer el entorno del otro en
+  `/proc/<pid>/environ`. Un usuario propio para el frontend está propuesto en
+  `f7-endurecimiento-perimetral`.
 
 ## Estructura de Componentes
 ```

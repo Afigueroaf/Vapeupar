@@ -18,7 +18,7 @@
   "evidence": "Nada de esto existe en infra/lib/",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z",
+  "updatedAt": "2026-11-20T05:40:33.750Z",
   "plan": [
     "Rotación del secreto maestro: infra/deploy/migrate.mjs lee el secreto en cada ejecución (get-secret-value con DB_SECRET_ARN, línea 85) y el backend usa solo rds-app (write-env.mjs). Por eso rotar el maestro solo afecta a las migraciones y a infra/scripts/write-backend-env.mjs.",
     "Pasa la base a contraseña gestionada por RDS en infra/lib/data-stack.ts, salvo que elijas otra opción. Con escape hatch sobre CfnDBInstance: manageMasterUserPassword true y quitar MasterUserPassword. DB_SECRET_ARN pasa a apuntar a attrMasterUserSecretSecretArn. Rota sola, sin Lambda y sin endpoint de VPC. En infra/lib/app-stack.ts, cambia el permiso de secretsmanager:GetSecretValue del maestro al ARN nuevo (por parámetro SSM o prop, nunca un comodín rds!db-* que alcanzaría a DeliPan).",
@@ -41,5 +41,5 @@
     "Con CloudFront delante, si TRUST_PROXY y X-Forwarded-For no se cambian a la vez, express-rate-limit trata a todos como una sola IP o se puede saltar con una IP falsa (ver comentario en vapeupar-site.inc).",
     "La rotación cada 7 días de RDS invalida la contraseña del túnel local que tengas abierta: hay que volver a leer el secreto."
   ],
-  "claudeNote": "Plan 2026-11-18: blockedBy f4-tls-no-ip ya no bloquea la rotación ni el rate limit (el TLS está en producción). CloudFront delante de la app, en cambio, depende de un dominio propio, que D2 descartó por ahora. `npm run build --workspace=infra` no existe: el script es `typecheck`. La sugerencia de la Lambda de rotación no menciona que, sin NAT, necesita un endpoint de VPC de pago.\n\nSolo la parte de CloudFront + WAF depende de dominio-definitivo; la rotación y el límite en nginx no tienen bloqueos."
+  "claudeNote": "Plan 2026-11-18: blockedBy f4-tls-no-ip ya no bloquea la rotación ni el rate limit (el TLS está en producción). CloudFront delante de la app, en cambio, depende de un dominio propio, que D2 descartó por ahora. `npm run build --workspace=infra` no existe: el script es `typecheck`. La sugerencia de la Lambda de rotación no menciona que, sin NAT, necesita un endpoint de VPC de pago.\n\nSolo la parte de CloudFront + WAF depende de dominio-definitivo; la rotación y el límite en nginx no tienen bloqueos.\n2026-11-20 (de A7.3, rama feat/a7-3-revalidacion): propuesta: dar al frontend un usuario systemd propio (vapeupar-web) en vez de compartir User=vapeupar con el backend. Hoy /etc/vapeupar/frontend.env solo lleva REVALIDATE_SECRET, pero como los dos procesos corren con el mismo usuario, Next puede leer DATABASE_URL y COGNITO_* del backend en /proc/<pid>/environ; separar los usuarios convierte esa separación de configuración en aislamiento real. Hay que ajustar el chown de .next en activate.sh y ReadWritePaths del servicio."
 }
