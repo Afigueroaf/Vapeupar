@@ -1,5 +1,7 @@
 # Auditoría Técnica y Diagnóstico de Puntos Frágiles - Vapeupar
 
+> **Histórico al 2026-10-21: el estado vigente está en el Deathnote ([`deathnote/`](deathnote/), item `auditoria-puntos-fragiles`), [`backend.md`](backend.md) y [`security.md`](security.md).** Desde entonces: los 14 puntos frágiles (F-01 a F-14) están corregidos. No describe el estado actual.
+
 Fecha de Auditoría: 21 de Octubre de 2026  
 Estado del Proyecto: Fase Inicial (Setup e Infraestructura Base)  
 Alcance: Backend (`backend/`), Frontend (`frontend/`), Documentación (`docs/`) y Skills (`.agents/skills/`, `.claude/skills/`).

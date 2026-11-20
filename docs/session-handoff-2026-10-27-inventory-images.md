@@ -1,5 +1,7 @@
 # Traspaso de sesión — Imágenes de inventario (2026-10-27)
 
+> **Histórico al 2026-10-27: el estado vigente está en [`admin-console-execution-plan.md`](admin-console-execution-plan.md) (Fase A8) y en el Deathnote ([`deathnote/`](deathnote/), `npm run deathnote`).** Desde entonces: las imágenes del catálogo se subieron al bucket el 2026-11-17 (75 imágenes, de 13 a 88 objetos) y la carga de proveedores y del conteo físico se sigue en el item `carga-datos-reales`. No describe el estado actual.
+
 Documento de continuidad. Recoge las decisiones tomadas, lo que ya está
 implementado y lo que queda pendiente, con rutas, contratos y comandos
 concretos.

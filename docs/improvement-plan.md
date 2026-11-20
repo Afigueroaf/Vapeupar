@@ -1,5 +1,7 @@
 # Plan de Mejora Integral y Evolución Arquitectónica - Vapeupar
 
+> **Histórico al 2026-10-22: el estado vigente está en [`admin-console-execution-plan.md`](admin-console-execution-plan.md), [`architecture.md`](architecture.md) y el Deathnote ([`deathnote/`](deathnote/)).** Desde entonces: PostgreSQL en RDS, la consola de administración (A1–A5) y la ficha con carrito y pedido por WhatsApp están hechos; el registro de pedidos sigue en `registro-ventas` (ADR-003). No describe el estado actual.
+
 Este documento detalla el plan de acción ejecutado para subsanar los puntos frágiles detectados durante la auditoría técnica inicial, así como la hoja de ruta para las siguientes iteraciones.
 
 ---

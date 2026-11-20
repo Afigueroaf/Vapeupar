@@ -1,5 +1,7 @@
 # Inventario de Reemplazo de Diseño (Design Reset)
 
+> **Histórico al 2026-10-25: el estado vigente está en [`design-execution-plan.md`](design-execution-plan.md).** Desde entonces: el reset está hecho (sistema VP, fases V0–V8: Oxanium + Press Start 2P, lima/violeta sobre negro) y las fotos de Unsplash se sustituyeron por las reales. Se conserva como registro del porqué. No describe el estado actual.
+
 > **Premisa del proyecto**: la interfaz actual es un **lienzo de trabajo**, no un diseño.
 > Fue construida con los valores por defecto de `create-next-app` + Tailwind (fuentes Geist,
 > paleta `zinc`/`emerald`/`cyan`, esquinas redondeadas, iconos Lucide) para validar la
