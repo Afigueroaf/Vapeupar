@@ -288,7 +288,7 @@ npm run db:upload-images --workspace=backend                # subirlas y rellena
   | `lineSlug`, `variantSlug` | exportador | Se comprueban contra `variantId`: detectan filas desplazadas al ordenar |
   | `stockSistema` | exportador | `stockCache` al exportar; si cambió, el import avisa |
   | `cantidad` | dueño | Entero ≥ 0 contado. Obligatoria: 0 si no hay |
-  | `costoUnitario` | dueño | Pesos por unidad, entero > 0 (`21000`, `21.000` o `$ 21.000`); el de la línea, repetido en cada variante. Obligatorio si es un ingreso |
+  | `costoUnitario` | dueño | Pesos por unidad, entero > 0 (`21000`, `21.000` o `$ 21.000`; el formato moneda de Excel con decimales, `$ 21.000,00`, se rechaza: quítale los decimales); el de la línea, repetido en cada variante. Obligatorio si es un ingreso |
   | `proveedor` | dueño | Opcional; nombre de un proveedor activo creado en `/admin`, sin distinguir mayúsculas |
 
   ```
@@ -301,7 +301,8 @@ npm run db:upload-images --workspace=backend                # subirlas y rellena
   `inbound` con costo y proveedor. Si ya tenía stock, un `adjustment` por la
   diferencia con motivo «Conteo físico inicial `<lote>`» (el libro solo guarda
   costo y proveedor en ingresos: en ese caso se ignoran con un aviso). Si la
-  cantidad coincide con el stock, nada. Cada movimiento pasa por
+  cantidad coincide con el stock, nada (si había costo escrito, un aviso dice
+  que se descarta). Cada movimiento pasa por
   `stockService.recordMovement`: bloquea la variante, queda en `AuditLog` firmado
   por el owner de `--user-email` y lleva la `operationKey`
   `conteo-inicial:<lote>:<lineSlug>/<variantSlug>`. Repetir el mismo `--batch`
@@ -311,28 +312,46 @@ npm run db:upload-images --workspace=backend                # subirlas y rellena
   *Validación.* Sin `--apply` es un dry-run que lee la base y no escribe nada.
   El informe lista los movimientos, los errores con su número de fila de Excel
   (cantidad o costo inválidos, `variantId` inexistente o inactivo, filas
-  repetidas o desplazadas, proveedor inexistente, inactivo o ambiguo, ingreso
-  sin costo), las variantes activas sin fila, los avisos y los totales por línea.
+  repetidas o desplazadas, proveedor inexistente, inactivo o ambiguo entre los
+  activos, ingreso sin costo), las variantes activas sin fila, los avisos y los totales por línea.
   Con un solo error o una variante sin fila, `--apply` no escribe nada. Con
-  `--apply` pide escribir el lote para confirmar y se detiene si el stock de una
-  variante cambia durante la importación; repetir el mismo lote continúa donde
-  quedó.
+  `--apply` pide escribir el lote para confirmar, recalcula el plan y aborta si
+  difiere de la vista previa confirmada (variante, tipo, cantidad, costo o
+  proveedor). Cada movimiento lleva el stock con el que se calculó
+  (`expectedStock`) y `recordMovement` lo comprueba bajo el bloqueo de la
+  variante: si una venta entró en medio, se detiene con `STOCK_CHANGED`. Ante
+  cualquier fallo informa cuántos movimientos se aplicaron; repetir el mismo
+  lote continúa donde quedó sin duplicarlos. Para reconocer las filas ya
+  registradas se usa el saldo del libro tras el movimiento del lote, que
+  `listMovements` ordena por fecha y desempata por id (UUIDv7).
+
+  **El dry-run se revisa fila a fila.** Ordenar una sola columna en Excel
+  (p. ej. `cantidad` sin extender la selección) mueve las cantidades a otras
+  variantes sin tocar `variantId` ni los slugs, y eso no se puede detectar:
+  compara en el informe cada «fila N: ingreso/ajuste» con lo contado.
 
   *Procedimiento* (decisiones `dec-quien-cuenta-y-cuando` y
   `dec-proveedores-y-costo-del-inventario-inicial`): los proveedores se crean
   antes en `/admin`; el conteo se hace de una vez con la tienda cerrada y **sin
-  ventas entre el conteo y el `--apply`**. npm ejecuta los scripts desde
-  `backend/`, así que `../../` es la carpeta que contiene el repo: la planilla
-  lleva costos y el exportador se niega a escribirla dentro del repo (salvo en
-  `backend/scripts/data/`, ignorada por git) o a sobrescribir un archivo.
+  ventas entre el conteo y el `--apply`**. Ejecutar los comandos desde
+  **PowerShell o cmd**: en Git Bash el script no detecta la terminal y la
+  confirmación del `--apply` no llega. npm los ejecuta desde `backend/`, así
+  que las rutas relativas parten de ahí. Sin `--out` la planilla va a
+  `backend/scripts/data/conteo-<fecha>.csv`, ignorada por git; la alternativa es
+  Documentos (`--out "%USERPROFILE%\Documents\conteo.csv"` en cmd o
+  `--out "$env:USERPROFILE\Documents\conteo.csv"` en PowerShell). No usar
+  `../../`: desde `backend/` es `C:\`, donde un usuario normal no puede
+  escribir. La planilla lleva costos: el exportador se niega a escribirla en
+  otro sitio del repo y a sobrescribir un archivo sin `--force`.
 
-  ```bash
-  npm run infra:env-backend && npm run infra:db-tunnel   # túnel en otra terminal
-  npm run db:count-template --workspace=backend -- --out ../../conteo-2026-11.csv
-  # rellenar en Excel y guardar como CSV
-  npm run db:import-stock --workspace=backend -- --file ../../conteo-2026-11.csv --user-email <owner> --batch 2026-11
-  npm run db:import-stock --workspace=backend -- --file ../../conteo-2026-11.csv --user-email <owner> --batch 2026-11 --apply
-  npm run db:import-stock --workspace=backend -- --file ../../conteo-2026-11.csv --user-email <owner> --batch 2026-11 --apply   # 0 creados
+  ```powershell
+  npm run infra:env-backend
+  npm run infra:db-tunnel        # en otra terminal; dejarla abierta
+  npm run db:count-template --workspace=backend          # escribe backend/scripts/data/conteo-<fecha>.csv
+  # rellenar en Excel y guardar como CSV (UTF-8 o delimitado por comas)
+  npm run db:import-stock --workspace=backend -- --file scripts/data/conteo-<fecha>.csv --user-email <owner> --batch 2026-11
+  npm run db:import-stock --workspace=backend -- --file scripts/data/conteo-<fecha>.csv --user-email <owner> --batch 2026-11 --apply
+  npm run db:import-stock --workspace=backend -- --file scripts/data/conteo-<fecha>.csv --user-email <owner> --batch 2026-11 --apply   # 0 creados
   ```
 
   Después, revisar el kardex de algunas variantes y `GET
