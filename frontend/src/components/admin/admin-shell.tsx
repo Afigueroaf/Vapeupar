@@ -45,6 +45,7 @@ const NAV = [
   { href: "/admin/showcase", label: "Vitrina" },
   { href: "/admin/brands", label: "Marcas" },
   { href: "/admin/suppliers", label: "Proveedores" },
+  { href: "/admin/content", label: "Contenido" },
   // Solo el dueño decide quién más entra (el backend responde 403 al resto).
   { href: "/admin/users", label: "Usuarios", ownerOnly: true }
 ];
