@@ -30,8 +30,9 @@ Environment=PORT=3000
 Environment=API_URL=http://127.0.0.1:4000/api
 Environment=NEXT_TELEMETRY_DISABLED=1
 Environment=NODE_OPTIONS=--max-old-space-size=384
-# SOLO REVALIDATE_SECRET (A7.3): el frontend no recibe las credenciales de la
-# base ni las de Cognito, que van en backend.env. El `-` lo hace opcional: sin
+# SOLO REVALIDATE_SECRET (A7.3): las credenciales de la base y de Cognito van
+# en backend.env y no entran en el entorno de Next. Es mínimo privilegio de
+# configuración, no aislamiento: los dos servicios corren como `vapeupar`. El `-` lo hace opcional: sin
 # el archivo, Next arranca igual y `/internal/revalidate` responde 503, y el
 # sitio se refresca solo por ISR (60 s).
 EnvironmentFile=-/etc/vapeupar/frontend.env

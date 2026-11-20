@@ -49,8 +49,13 @@ const current = new Map(
   lines.filter((l) => /^[A-Z0-9_]+=/.test(l)).map((l) => [l.slice(0, l.indexOf('=')), l]),
 );
 
-// REVALIDATE_SECRET no viene de AWS: se genera una vez y se conserva.
-if (!current.has('REVALIDATE_SECRET')) {
+// REVALIDATE_SECRET no viene de AWS: se genera una vez y se conserva. También
+// se genera si la línea está vacía (`REVALIDATE_SECRET=` de .env.example).
+const currentRevalidate = (current.get('REVALIDATE_SECRET') ?? '')
+  .slice('REVALIDATE_SECRET='.length)
+  .trim()
+  .replace(/^"(.*)"$/, '$1');
+if (!currentRevalidate) {
   managed.REVALIDATE_SECRET = randomBytes(32).toString('hex');
 }
 
@@ -69,9 +74,7 @@ for (const key of Object.keys(managed)) console.log(`  ${key}`);
 // El mismo REVALIDATE_SECRET en frontend/.env.local, para que la ruta
 // /internal/revalidate de Next acepte los avisos del backend (A7.3). Se
 // sustituye solo esa línea; el resto del archivo se conserva.
-const revalidateSecret =
-  managed.REVALIDATE_SECRET ??
-  current.get('REVALIDATE_SECRET').slice('REVALIDATE_SECRET='.length).replace(/^"(.*)"$/, '$1');
+const revalidateSecret = managed.REVALIDATE_SECRET ?? currentRevalidate;
 if (revalidateSecret) {
   const frontLines = existsSync(frontendEnvPath)
     ? readFileSync(frontendEnvPath, 'utf8').split(/\r?\n/).filter((l) => !l.startsWith('REVALIDATE_SECRET='))

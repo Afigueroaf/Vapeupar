@@ -15,8 +15,12 @@
 //   - El archivo queda 0600 de root. systemd lo lee como root antes de soltar
 //     privilegios, así que el usuario `vapeupar` no necesita poder leerlo, y no
 //     puede.
-//   - frontend.env lleva SOLO REVALIDATE_SECRET (A7.3): Next no necesita ni
-//     debe tener la base ni Cognito. Sale de la MISMA lectura que el de
+//   - frontend.env lleva SOLO REVALIDATE_SECRET (A7.3): mínimo privilegio de
+//     configuración, Next no recibe en su entorno la base ni Cognito. NO es una
+//     barrera: frontend y backend corren con el mismo usuario (`vapeupar`), así
+//     que un proceso puede leer el entorno del otro en /proc/<pid>/environ.
+//     Aislarlos de verdad pide un usuario propio para el frontend (item
+//     f7-endurecimiento-perimetral). Sale de la MISMA lectura que el de
 //     backend.env, para que los dos lados nunca tengan secretos distintos (si
 //     difieren, toda revalidación da 401 sin que nadie se entere).
 //
@@ -97,10 +101,15 @@ const publicOrigin = param('PUBLIC_ORIGIN');
 // ya es un error de configuración, no un orden de despliegue.
 const revalidateArn = optionalParam('REVALIDATE_SECRET_ARN');
 const revalidateSecret = revalidateArn ? secret(revalidateArn).trim() : undefined;
-if (!revalidateSecret) {
+if (!revalidateArn) {
   console.warn(
     `Aviso: no existe /vapeupar/${envName}/REVALIDATE_SECRET_ARN; sin revalidación on-demand ` +
       '(el sitio se refresca por ISR). Despliega el stack App para activarla.',
+  );
+} else if (!revalidateSecret) {
+  console.warn(
+    `Aviso: el secreto de ${revalidateArn} está vacío; sin revalidación on-demand ` +
+      '(el sitio se refresca por ISR). Regenera el valor en Secrets Manager.',
   );
 }
 
