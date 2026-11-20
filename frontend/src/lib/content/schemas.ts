@@ -25,13 +25,25 @@ export const HeroContentSchema = z.strictObject({
   tagline: text(32),
 });
 
+/** Iconos pixel de las tarjetas, en el orden por defecto (posición 0, 1, 2). */
+export const TRUST_BAND_ICONS = ["delivery", "original", "payment"] as const;
+export type TrustBandIcon = (typeof TRUST_BAND_ICONS)[number];
+
+/**
+ * `icon`, `highlight` y `points` son opcionales: una fila publicada antes del
+ * rediseño (solo `label`, `title`, `detail`) sigue validando. `detail` es la
+ * primera línea concreta y `points`, hasta dos más.
+ */
 export const TrustBandContentSchema = z.strictObject({
   items: z
     .array(
       z.strictObject({
+        icon: z.enum(TRUST_BAND_ICONS).optional(),
         label: text(16),
+        highlight: text(24).optional(),
         title: text(48),
         detail: text(80),
+        points: z.array(text(60)).min(1).max(2).optional(),
       }),
     )
     .length(3),
@@ -158,11 +170,33 @@ export const HERO_DEFAULT: HeroContent = {
   tagline: 'Virtual Vape Shop'
 };
 
+/** Copy prudente hasta que el dueño confirme entrega y pago: ver el backend. */
 export const TRUST_BAND_DEFAULT: TrustBandContent = {
   items: [
-    { label: 'Envío', title: 'Domicilio en Valledupar', detail: 'Entrega rápida en tu puerta' },
-    { label: 'Original', title: 'Productos 100% originales', detail: 'Verificables con código QR' },
-    { label: 'Pago', title: 'Pago contra entrega', detail: 'Efectivo, Nequi y Daviplata' }
+    {
+      icon: 'delivery',
+      label: 'Envío',
+      highlight: 'En moto',
+      title: 'Domicilio en Valledupar',
+      detail: 'Entrega rápida en tu puerta',
+      points: ['Pides por WhatsApp y coordinamos la entrega', 'Cédula al recibir: solo mayores de 18']
+    },
+    {
+      icon: 'original',
+      label: 'Original',
+      highlight: '100% original',
+      title: 'Productos originales',
+      detail: 'De distribuidores autorizados',
+      points: ['QR del fabricante en la caja, si la marca lo trae']
+    },
+    {
+      icon: 'payment',
+      label: 'Pago',
+      highlight: 'Al recibir',
+      title: 'Pago contra entrega',
+      detail: 'Efectivo, Nequi o Daviplata',
+      points: ['Nada por adelantado en domicilios locales']
+    }
   ]
 };
 

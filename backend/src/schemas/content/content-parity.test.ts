@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import {
   CONTENT_KEYS, CONTENT_SCHEMAS, FAQ_MAX_ITEMS, LEGAL_FAQ_INDEX, LEGAL_FAQ_ITEM, PARTNER_BRANDS_TOKEN,
-  comparableQuestion, normalizeFaqForRead, stripLegalFaqItem
+  TRUST_BAND_ICONS, comparableQuestion, normalizeFaqForRead, stripLegalFaqItem
 } from './index.js';
 import * as mirror from '../../../../frontend/src/lib/content/schemas.js';
 
@@ -38,6 +38,34 @@ describe('paridad con el espejo del frontend', () => {
       expect(front.success).toBe(back.success);
       if (back.success && front.success) expect(front.data).toEqual(back.data);
     }
+  });
+
+  // El rediseño de las tarjetas añadió `icon`, `highlight` y `points`
+  // opcionales: una fila publicada con el formato antiguo tiene que seguir
+  // valiendo en los dos lados, y el sitio pone el icono por posición.
+  it('trust-band: mismos iconos y acepta igual el formato antiguo', () => {
+    expect(mirror.TRUST_BAND_ICONS).toEqual(TRUST_BAND_ICONS);
+    const antiguo = {
+      items: [
+        { label: 'Envío', title: 'Domicilio en Valledupar', detail: 'Entrega rápida en tu puerta' },
+        { label: 'Original', title: 'Productos 100% originales', detail: 'Verificables con código QR' },
+        { label: 'Pago', title: 'Pago contra entrega', detail: 'Efectivo, Nequi y Daviplata' }
+      ]
+    };
+    const casos: unknown[] = [
+      antiguo,
+      { items: antiguo.items.map(item => ({ ...item, icon: 'otro' })) },
+      { items: antiguo.items.map(item => ({ ...item, points: [] })) },
+      { items: antiguo.items.map(item => ({ ...item, points: ['a', 'b', 'c'] })) },
+      { items: antiguo.items.map(item => ({ ...item, highlight: '   ' })) },
+      { items: antiguo.items.map(item => ({ ...item, link: { label: 'x', href: '/' } })) }
+    ];
+    for (const caso of casos) {
+      const back = CONTENT_SCHEMAS['trust-band'].schema.safeParse(caso);
+      const front = mirror.CONTENT_SCHEMAS['trust-band'].schema.safeParse(caso);
+      expect(front.success).toBe(back.success);
+    }
+    expect(CONTENT_SCHEMAS['trust-band'].schema.safeParse(antiguo).success).toBe(true);
   });
 
   it('usa el mismo marcador de marcas aliadas', () => {
