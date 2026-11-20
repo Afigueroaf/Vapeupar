@@ -146,9 +146,16 @@ cada escritura de catálogo, contenido o stock.
 - `revalidateTag(tag, { expire: 0 })`: la visita siguiente ya recibe la
   versión nueva (con `'max'` recibiría la vieja mientras se regenera).
 - El ISR de 60 s sigue como red de seguridad si el aviso falla.
+- Además invalida todas las rutas (`revalidatePath('/', 'layout')`): el build
+  de producción se compila sin `API_URL`, así que las páginas prerenderizadas
+  no llevan las etiquetas y `revalidateTag` solo no las alcanzaría.
 - En la instancia el secreto llega por `/etc/vapeupar/frontend.env`, que lleva
-  **solo** `REVALIDATE_SECRET`; en local, `frontend/.env.local` (lo escribe
-  `npm run infra:env-backend`).
+  solo `REVALIDATE_SECRET`; en local, `frontend/.env.local` (lo escribe
+  `npm run infra:env-backend`). Separarlo de `backend.env` es mínimo privilegio
+  de configuración, **no una barrera**: frontend y backend corren con el mismo
+  usuario (`vapeupar`) y uno puede leer el entorno del otro en
+  `/proc/<pid>/environ`. Un usuario propio para el frontend está propuesto en
+  `f7-endurecimiento-perimetral`.
 
 ## Estructura de Componentes
 ```

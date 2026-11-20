@@ -1207,9 +1207,21 @@ ajustes).
   el contenido.
 - **La respuesta espera el aviso** (tope 3 s) para poder devolver
   `meta.revalidated`. Un reintento de movimiento (`replayed`) también avisa.
-- **Proveedores, umbral de bajo stock e imágenes no avisan**: no cambian nada
-  de lo que ve el visitante (una imagen reemplazada conserva su URL y la
-  invalida CloudFront).
+- **Proveedores, umbral de bajo stock y las rutas de subida de imágenes no
+  avisan.** Proveedores y umbral no cambian nada de lo que ve el visitante. Una
+  imagen nueva se sube a una clave nueva (versionada), y el cambio llega al
+  sitio por el `PATCH` de `imageKey`/`logoKey` de la línea, la variante o la
+  marca, que ya revalida `catalogo`; `presign` e `invalidate` no tocan nada
+  publicado.
+- **La ruta invalida también todas las rutas** (`revalidatePath('/',
+  'layout')`): el build de producción se compila sin `API_URL`, así que `/`,
+  `/coleccion/*` y el layout quedan prerenderizados sin las etiquetas
+  (`.next/server/app/index.meta`), y `revalidateTag` solo no los alcanzaría
+  hasta su primera regeneración por ISR. Comprobado con `next start`: tras la
+  llamada, `/` y `/coleccion/pods` pasan de `HIT` a `MISS`.
+- **`frontend.env` aparte es mínimo privilegio de configuración, no
+  aislamiento**: los dos servicios corren como `vapeupar`. El usuario propio
+  para el frontend queda propuesto en `f7-endurecimiento-perimetral`.
 
 **Verificación**: `npm run test:backend`, `npm run lint --workspace=frontend`,
 `npm run build`, `npm run typecheck --workspace=infra`; `infra:diff` muestra en
