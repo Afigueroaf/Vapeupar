@@ -16,7 +16,7 @@ V4 y V5.
 
 | Fase | Objetivo | Archivos | Estado |
 |---|---|---|---|
-| **A0** | Decisiones y entorno AWS dev | `infra/`, `docs/infrastructure-aws.md` | 🟡 **En curso**: entorno dev desplegado, 3 decisiones de producto abiertas |
+| **A0** | Decisiones y entorno AWS dev | `infra/`, `docs/infrastructure-aws.md` | ✅ **Ejecutada** (2026-11-16): entorno dev desplegado (2026-10-26) y las 6 decisiones de A0.1 cerradas |
 | **A1** | Esquema Prisma + migración + semilla desde `assets/` | `backend/prisma/`, `backend/src/db/` | ✅ **Ejecutada** (2026-10-26) |
 | **A2** | Desacoplar `ProductService` y reescribir sus tests | `backend/src/services/`, `*.test.ts` | ✅ **Ejecutada** (2026-10-26) |
 | **A3** | Dominio de inventario: movimientos, idempotencia, auditoría | `backend/src/services/stock.service.ts` | ✅ **Ejecutada** (2026-10-26) |
@@ -24,7 +24,7 @@ V4 y V5.
 | **A5** | Consola `/admin` en Next | `frontend/src/app/(admin)/` | ✅ **Ejecutada** (2026-11-20): A5.1 (stock), A5.2 (marcas y proveedores), A5.3 (lineas y variantes) y A5.4 (contenido, en `feat/a5-4-consola-contenido`, sin fusionar). Falta la revisión en navegador. Ver «Registro A5.4» |
 | **A6** | Catálogo público con variantes | `product-card.tsx`, `product-catalog.tsx`, tipos | ✅ **Ejecutada** (2026-11-17): contratos con `variants` y `brandSlug`, tarjeta «Ver N sabores» con la elección en la ficha, y filtros sobre variantes. Ver «Registro A6» |
 | **A7** | `SiteContent` + revalidación + barrido de textos | `faq.tsx`, `layout.tsx`, `trust-band.tsx` | 🟡 **Parcial** (2026-11-19): A7.1, A7.2 y A7.4 ejecutadas; A7.3 implementada en `feat/a7-3-revalidacion`, sin desplegar. Ver «Registro A7» |
-| **A8** | Imágenes en S3 + CloudFront | `next.config.ts`, `storage.service.ts` | 🟡 **Parcial** (2026-10-27): código terminado y verificado de extremo a extremo —migración aplicada, subida real con URL prefirmada y lectura `200` por CloudFront—. Falta subir las imágenes del catálogo al bucket. Ver `docs/session-handoff-2026-10-27-inventory-images.md` |
+| **A8** | Imágenes en S3 + CloudFront | `next.config.ts`, `image-upload.service.ts` | ✅ **Ejecutada** (2026-11-17): código terminado y verificado de extremo a extremo el 2026-10-27 —migración aplicada, subida real con URL prefirmada y lectura `200` por CloudFront— e imágenes del catálogo subidas el 2026-11-17 con `db:upload-images` (bucket de 13 a 88 objetos). Ver «Fase A8» |
 
 Orden recomendado de valor entregado: A1 → A2 → A3 → A4 → **A5.1 (pantalla de
 stock)** → A8 → A5.2–A5.4 → A6 → A7. Con A5.1 y A8 ya se administra el inventario
@@ -1316,6 +1316,17 @@ revalidación. La consola todavía no muestra el aviso «se verá en ≤60 s» c
 
 ## Fase A8 — Imágenes en S3 + CloudFront
 
+> **Se implementó distinto de este diseño (2026-10-27) y está terminada (2026-11-17).**
+> El servicio es `backend/src/services/image-upload.service.ts` (no
+> `storage.service.ts`); las rutas son `POST /api/admin/uploads/presign` y
+> `POST /api/admin/uploads/invalidate`; los tipos admitidos son solo webp, jpeg y
+> png, **sin SVG** (`backend/src/schemas/admin/image-upload.schema.ts`); y la carga
+> inicial no usó `aws s3 sync`, sino el script `npm run db:upload-images
+> --workspace=backend` (`backend/scripts/upload-catalog-images.ts`), que el
+> 2026-11-17 subió 75 imágenes (bucket de 13 a 88 objetos). Detalle vigente en
+> `docs/backend.md` y `docs/infrastructure-aws.md` §2. Lo que sigue es el diseño
+> original, que se conserva como registro.
+
 El bucket `vapeupar-dev-catalog-<cuenta>` y su distribución de CloudFront ya
 existen (stack `Vapeupar-dev-Storage`), con CORS para `PUT` desde
 `http://localhost:3000`. Falta el código que los usa:
@@ -1371,10 +1382,10 @@ imágenes en storage, autenticación y auditoría.
 | # | Dependencia | Bloquea |
 |---|---|---|
 | 1 | ~~Entorno de datos, storage y auth~~ | ✅ Desplegado en AWS dev (A0.2) |
-| 2 | Correo del owner inicial (recibe la invitación de Cognito) | Primer acceso a la consola |
+| 2 | ~~Correo del owner inicial (recibe la invitación de Cognito)~~ | ✅ Resuelto: el owner entra con MFA en producción desde el 2026-11-17 |
 | 3 | Precio real de cada una de las cuatro líneas y conteo físico inicial del inventario | Publicar líneas (A5.3) y primer uso de A5.1 |
 | 4 | Datos de los proveedores reales (contacto, condiciones) | A5.2 |
-| 5 | Cómputo del backend en AWS (ECS Fargate o Lightsail Containers) y alojamiento del frontend | Despliegue público; en dev el backend corre en local. Ver `docs/infrastructure-aws.md` §8 |
+| 5 | ~~Cómputo del backend en AWS y alojamiento del frontend~~ | ✅ Resuelto el 2026-11-06: frontend y backend en una EC2 con nginx y systemd (no ECS ni Lightsail). Ver `docs/aws-full-deployment-plan.md` |
 | 6 | Logos de las demás marcas aliadas en SVG | A5.2 |
 | 7 | Dominio propio verificado en SES | Correo de invitaciones en producción |
 

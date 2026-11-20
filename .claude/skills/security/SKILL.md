@@ -19,6 +19,6 @@ Garantizar el cumplimiento legal de restricción de edad (+18) para productos de
 - `docs/architecture.md`
 
 ## Reglas
-- **Nunca omitir el control de edad**: Es una exigencia legal estricta para la comercialización de vaporizadores y líquidos.
+- **Nunca omitir el control de edad**: Es una exigencia legal estricta para la comercialización de vaporizadores y líquidos. El modal +18 (TTL de 30 días, `frontend/src/lib/age-gate.ts`) y las advertencias sanitarias de nicotina están en todas las vistas públicas.
 - **Sin secretos en código**: Ninguna clave de API, token o secreto debe commitearse al repositorio. Utilizar siempre `.env` y documentar en `.env.example`.
 - **CORS Estricto**: No permitir `*` como origin en el backend para rutas de negocio sensibles.

@@ -10,10 +10,11 @@ El frontend de Vapeupar es la interfaz web del cliente y catálogo interactivo c
 > angular de radio cero y bordes de 2px, y primitivas en `src/components/ui/`. Donde este
 > documento mencione colores, formas o tamaños, manda el plan de ejecución.
 >
-> Siguen siendo de validación, no definitivos: las imágenes de producto (stock de Unsplash)
-> y el copy.
+> Las imágenes de producto son las reales del inventario: salen de CloudFront
+> (`NEXT_PUBLIC_CDN_DOMAIN`) y, como respaldo sin backend, de `public/productos/`. Parte del
+> copy sigue siendo provisional (p. ej. `/nosotros`).
 >
-> - Inventario de reemplazo: [`design-reset-inventory.md`](./design-reset-inventory.md)
+> - Inventario de reemplazo (histórico): [`design-reset-inventory.md`](./design-reset-inventory.md)
 > - Plan de ejecución visual y registro: [`design-execution-plan.md`](./design-execution-plan.md)
 
 ## Principales Funcionalidades y Mejoras de Resiliencia
@@ -26,7 +27,7 @@ El frontend de Vapeupar es la interfaz web del cliente y catálogo interactivo c
 
 2. **Navegación Fluida y Menú Móvil (Mobile-First)**:
    - Barra de navegación con logo, accesos directos, botón de pedido por WhatsApp y badge de carrito.
-   - **Menú hamburguesa responsive** desplegable en pantallas móviles (`< 768px`) con acceso directo a categorías (`#desechables`, `#pods`, `#liquidos`) y preguntas frecuentes (`#faq`).
+   - **Menú hamburguesa responsive** desplegable en pantallas móviles (`< 768px`) con Tienda (`/#catalogo`), Colecciones (`/#colecciones`), Nosotros (`/nosotros`), las tres primeras colecciones (`/coleccion/<slug>`) y preguntas frecuentes (`/#faq`). Ver «Rutas públicas (V8)».
 
 3. **Catálogo Interactivo con Filtros Avanzados**:
    - Filtrado en tiempo real por categoría (Desechables, Pods, Sales, E-líquidos, Mods, Resistencias).

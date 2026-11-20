@@ -1,4 +1,4 @@
-# Plan de Ejecución Visual — VP (Fases V0 a V3)
+# Plan de Ejecución Visual — VP (Fases V0 a V8)
 
 > Plan de los **primeros cambios visuales** del rediseño. Parte del inventario completo de
 > reemplazo en [`design-reset-inventory.md`](./design-reset-inventory.md) y de la dirección

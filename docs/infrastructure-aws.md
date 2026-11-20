@@ -10,11 +10,11 @@ Decisión de origen: [ADR-002](decisions/002-consola-de-administracion-y-persist
 | | |
 |---|---|
 | Cuenta | `342284838697` (compartida con DeliPan staging) |
-| Plan de AWS | **Gratuito** (`FREE`), vence el 2027-03-12; 157,54 USD de crédito al 2026-10-26. Ver §6.1 |
+| Plan de AWS | **Gratuito** (`FREE`) al 2026-10-26, con vencimiento el 2027-03-12. Crédito recalculado en [`aws-full-deployment-plan.md`](aws-full-deployment-plan.md) §7.1; el paso a plan de pago se sigue en el Deathnote (`plan-pago-aws`). Ver §6.1 |
 | Región | `us-east-1` |
 | Código | `infra/` (AWS CDK, TypeScript) |
-| Entorno `dev` | ✅ Desplegado el 2026-10-26 |
-| Entorno `prod` | ⬜ Definido en `infra/lib/config.ts`, **no desplegado** (ver §8) |
+| Entorno `dev` | ✅ Desplegado el 2026-10-26. **Es la producción** desde el 2026-11-06, en https://vapeupar.ddns.net (§2) |
+| Entorno `prod` | ⬜ Entorno futuro, solo definido en `infra/lib/config.ts`: **no desplegado** y sin fecha. No es la tienda en producción, que corre en `dev` (ver §8) |
 
 ---
 
@@ -723,6 +723,9 @@ a ambos proyectos.
 
 ### 6.1 Plan gratuito de AWS y créditos compartidos ⚠️
 
+> Datos del 2026-10-26, cuando se desplegó dev. Se conservan como referencia;
+> lo vigente está en los enlaces de «Qué hacer».
+
 La cuenta está en el **plan gratuito** de AWS (`aws freetier get-account-plan-state`):
 
 | Dato (2026-10-26) | Valor |
@@ -750,8 +753,12 @@ Qué hacer:
 
 - Decidir **antes de enero de 2027** si la cuenta pasa a plan de pago. Es una
   decisión conjunta con DeliPan, porque afecta a ambos.
-- Detener el bastión y la base cuando no se usen (§5.4): baja el consumo de
-  Vapeupar de ~26 a ~3 USD/mes.
+- ~~Detener el bastión y la base cuando no se usen~~: el bastión se retiró el
+  2026-11-06 y, desde ese día, detener la EC2 o la base (§5.4) deja la tienda
+  fuera de línea. Ya no es una forma de ahorrar.
+- Saldo y fecha de agotamiento actualizados: [`aws-full-deployment-plan.md`](aws-full-deployment-plan.md)
+  §7.1. La decisión de pasar a plan de pago está en el item `plan-pago-aws` del
+  Deathnote (`npm run deathnote -- ver plan-pago-aws`).
 - Consultar el saldo: `aws freetier get-account-plan-state`.
 
 ## 7. Verificación del despliegue
@@ -823,19 +830,22 @@ que falta no es código de infraestructura nuevo, sino estas decisiones y tareas
      `cdk-vapeupar-*`.
    - Como mínimo, un usuario o rol IAM `vapeupar-deployer` con MFA, distinto de
      `delipan_admin`.
-2. **CI/CD con OIDC.** Un rol `vapeupar-github-actions-deploy` (el mismo patrón
-   que ya usa DeliPan) que solo pueda asumir los roles `cdk-vapeupar-*`. Sin
-   claves de larga duración en GitHub.
+2. ~~**CI/CD con OIDC.**~~ **Hecho para la aplicación** (PR #1 y #9): el rol
+   `vapeupar-dev-github-deploy` (`infra/lib/app-stack.ts`) solo publica la
+   release en el bucket de artefactos y la activa por SSM, sin claves de larga
+   duración en GitHub (§5.2.1). Los cambios de CDK siguen desplegándose a mano;
+   un rol de CI que asuma los roles `cdk-vapeupar-*` queda para prod.
 3. **Dominio.** DNS (Route 53 u otro), certificados ACM (el de CloudFront debe
    estar en `us-east-1`), dominio propio para imágenes (p. ej.
    `img.<dominio>`) y para la API.
 4. **Correo.** Verificar el dominio en SES (DKIM, SPF, DMARC), solicitar el
    acceso de producción de SES (sale del sandbox en ~24 h) y cambiar el User
    Pool a `UserPoolEmail.withSES`.
-5. **Rol del backend.** Hoy el backend corre en local y firma con la sesión del
-   AWS CLI. Su rol en prod necesita exactamente dos permisos sobre el
-   catálogo, y ninguno más: `s3:PutObject` limitado al prefijo del catálogo y
-   `cloudfront:CreateInvalidation` sobre la distribución del catálogo. Nunca el
+5. **Rol del backend.** Hecho en dev: el backend corre en la EC2 con el rol
+   `vapeupar-dev-app`, que sobre el catálogo solo tiene `s3:PutObject` y
+   `s3:DeleteObject` en los prefijos `marcas/`, `proveedores/` y `productos/`, y
+   `cloudfront:CreateInvalidation` sobre la distribución del catálogo. Prod
+   necesita el mismo recorte. Nunca el
    administrador compartido de la cuenta: quien pueda llamar al presign escribe
    donde ese rol alcance.
 
@@ -897,9 +907,9 @@ Lambda y su rol sí se borraron, así que no queda nada que limpiar a mano.
 
 | Pieza | Propuesta | Nota |
 |---|---|---|
-| **Cómputo del backend** | ECS Fargate en esta VPC detrás de un Application Load Balancer | ~25 USD/mes (ALB ~16 + tarea 0.25 vCPU ~9). Tareas en subred pública con IP pública y grupo de seguridad que solo admite tráfico del ALB, para no pagar NAT. Lightsail Containers es más barato pero no encaja: solo hace peering con la VPC por defecto, no con la de Vapeupar |
-| **Frontend** | Vercel, o Amplify Hosting si se quiere todo en AWS | Requisito: soportar Next.js 16 con SSR y `revalidateTag` on-demand (ADR-002 §7). Verificar el soporte de Amplify para la versión de Next en uso antes de elegirlo |
-| **Rol de la aplicación en PostgreSQL** | `vapeupar_app` con permisos mínimos (plan A1.1) | El usuario maestro queda solo para migraciones |
+| ~~**Cómputo del backend**~~ | **Hecho (F1–F3, 2026-11-06)**: EC2 `t4g.micro` con nginx y systemd, releases en S3 activadas por SSM ([`aws-full-deployment-plan.md`](aws-full-deployment-plan.md)) | Se descartaron ECS Fargate con ALB (~25 USD/mes) y Lightsail Containers (solo hace peering con la VPC por defecto). Un ALB con segunda instancia queda para cuando el tráfico lo pida (F7) |
+| ~~**Frontend**~~ | **Hecho**: Next.js en la misma EC2, detrás del mismo nginx | Se descartaron Vercel y Amplify Hosting: Next 16 con SSR y `revalidateTag` on-demand (ADR-002 §7) corre igual en la instancia, y la revalidación llega por loopback |
+| ~~**Rol de la aplicación en PostgreSQL**~~ | **Hecho (A1)**: `vapeupar_app` con permisos mínimos (`npm run db:sync-app-role`) | El usuario maestro queda solo para migraciones |
 | **Rotación de secretos** | Contraseña maestra gestionada por RDS (`manageMasterUserPassword`), rotación cada 7 días | **Hecho en código (F7, rama `infra/f7-perimetro`), pendiente de desplegar.** Sin Lambda ni endpoint de VPC: 0 USD. Modificación in-place de la instancia, sin reemplazo. Orden en `aws-full-deployment-plan.md` F7 |
 | **Observabilidad** | En dev, las 10 alarmas de F6 (§5.6). En prod hará falta otro juego `vapeupar-prod-*`, que ya no cabe en la capa gratuita, y, si se pone un ALB, sus 5xx | Valorar VPC Flow Logs y un trail de CloudTrail si la cuenta no tiene uno |
 | **Protección perimetral** | Hoy: límite de peticiones en nginx (F7) delante del de Express. Con dominio propio: AWS WAF delante de CloudFront | **nginx hecho en código (F7), pendiente de desplegar**: login 10/min ráfaga 5, resto de `/api/admin` 60/min, 100 simultáneas por IP; tienda sin límite. WAF (~8–10 USD/mes) aplazado hasta tener dominio: ACM no valida `vapeupar.ddns.net` y WAF no se conecta a una EC2 |
