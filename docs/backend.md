@@ -428,9 +428,12 @@ otra clave, publicar es `400`.
 (Ley 1335 de 2009) vive en código como `LEGAL_FAQ_ITEM` y el sitio la inserta
 siempre en la cuarta posición (`LEGAL_FAQ_INDEX`). `faq.items` guarda solo las
 editables, de ahí el máximo de 11. `stripLegalFaqItem` quita cualquier pregunta
-igual (sin mirar espacios ni mayúsculas) **al publicar, al restaurar y al leer**:
-una versión antigua que la lleve dentro no la duplica, y nadie puede quitarla ni
-cambiarla desde la consola. No hizo falta migración de datos.
+igual (sin mirar espacios, mayúsculas, tildes ni signos de puntuación) **al
+publicar, al restaurar y al leer**: una versión antigua que la lleve dentro no la
+duplica, y nadie puede quitarla ni cambiarla desde la consola. Al leer, además,
+una FAQ antigua con más de 11 preguntas editables se recorta a 11
+(`normalizeFaqForRead`, con aviso en el log) en vez de caer al texto por defecto.
+No hizo falta migración de datos.
 
 El frontend lleva un **espejo** de estos esquemas en
 `frontend/src/lib/content/schemas.ts`; `content-parity.test.ts` compara ambos

@@ -1061,27 +1061,38 @@ en código (`dec-texto-legal-de-mayoria-de-edad`).
   sobre la versión vigente ni sobre una que ya no cumple el esquema.
 - **La pregunta legal va en la cuarta posición**, donde estaba: con el texto por
   defecto la portada no cambia. Con menos de tres preguntas editables va al
-  final. Se reconoce por la pregunta, sin mirar espacios ni mayúsculas; una
-  pregunta legal con la respuesta cambiada también se quita. Sin migración de
-  datos: el filtro al leer cubre las versiones ya publicadas.
+  final. Se reconoce por la pregunta, sin mirar espacios, mayúsculas, tildes
+  ni signos de puntuación; una pregunta legal con la respuesta cambiada también
+  se quita. Sin migración de datos: el filtro al leer cubre las versiones ya
+  publicadas. Si alguien la escribe en una tarjeta editable, la consola la
+  marca en esa tarjeta («Esta pregunta ya la añade el sitio») en vez de
+  quitarla en silencio.
+- **Una FAQ antigua con 12 preguntas editables** (el máximo anterior) se lee
+  recortada a 11 con un `console.warn`, en el backend, en el sitio y en el
+  editor, en vez de caer entera al texto por defecto. Al publicar se exige el
+  máximo de 11.
 - **Los límites del formulario salen del esquema** (`z.toJSONSchema`), no de
   constantes: contadores, mínimos y máximos de lista se mueven solos si cambia
   el esquema.
 - **Los borradores son locales y por clave**: cambiar de pestaña no pierde lo
   editado (la pestaña lleva una marca) y el navegador avisa al salir con cambios.
-  No se guardan en ningún sitio, coherente con «sin borradores».
+  No se guardan en ningún sitio, coherente con «sin borradores». «Restaurar» con
+  cambios sin publicar pide confirmación en la fila, y mientras se publica o
+  restaura el editor queda en solo lectura. Un error al restaurar se muestra en
+  el historial.
 - **Los `VALIDATION` de contenido devuelven `errors[]`** además del mensaje, para
   señalar el campo; si la validación en vivo funciona no deberían llegar nunca.
 - **El autor del historial** se muestra como «tú» o con el inicio de su id: la
   lista de usuarios es solo para el owner y usa el `sub` de Cognito, no el id.
 - **Vista previa**: la banda se muestra sin el escenario 3D (solo las tarjetas
   en su `CardField`), y el SEO como tarjeta de buscador y de enlace compartido.
-  En la consola el layout es de dos columnas desde `xl`; por debajo, la vista
+  `FAQ`, `HeroView` y `ContactView` aceptan `preview` para no repetir ids de la
+  página (`#faq`, `#nosotros`) ni un segundo `h1`. En la consola el layout es de dos columnas desde `xl`; por debajo, la vista
   previa va bajo el formulario. Los componentes del sitio responden al ancho de
   la ventana, no al del panel, así que a 1280–1440 px la FAQ y el pie se ven
   algo más apretados que en la portada.
 
-**Verificación**: `npm test` (backend 229, frontend 61, incluida la paridad y
+**Verificación**: `npm test` (backend 232, frontend 63, incluida la paridad y
 `content-form.test.ts`), `npm run lint --workspace=frontend`,
 `npx --workspace=frontend tsc --noEmit`, `npm run build`. El HTML prerenderizado
 de `/` conserva las cinco preguntas en el mismo orden.
