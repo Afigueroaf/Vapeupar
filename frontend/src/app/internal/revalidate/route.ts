@@ -1,4 +1,4 @@
-import { revalidateTag } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { z } from "zod";
 import { SITE_TAGS } from "@/lib/cache-tags";
 import { isRevalidateAuthorized } from "@/lib/revalidate-auth";
@@ -19,6 +19,14 @@ import { isRevalidateAuthorized } from "@/lib/revalidate-auth";
  *   401  sin secreto o con uno incorrecto
  *   400  cuerpo inválido o etiqueta desconocida
  *   200  { revalidated: [...] }
+ *
+ * Además de las etiquetas invalida TODAS las rutas (`revalidatePath('/',
+ * 'layout')`). Hace falta por el build de producción: se compila con
+ * `NEXT_PUBLIC_API_URL=/api` y sin `API_URL`, `apiBase()` devuelve `null` y no
+ * hay fetch, así que las páginas prerenderizadas (`/`, `/coleccion/*`, el
+ * layout) quedan en caché SIN las etiquetas `catalogo`/`contenido`, y
+ * `revalidateTag` no las alcanzaría hasta su primera regeneración por ISR. El
+ * sitio es pequeño: regenerar todo en la visita siguiente cuesta poco.
  */
 
 const BodySchema = z.object({
@@ -45,6 +53,7 @@ export async function POST(request: Request): Promise<Response> {
   // seguiría recibiendo la versión vieja mientras se regenera, y el criterio
   // de A7.3 es ver el cambio al recargar.
   for (const tag of tags) revalidateTag(tag, { expire: 0 });
+  revalidatePath("/", "layout");
 
   return Response.json({ success: true, revalidated: tags });
 }
