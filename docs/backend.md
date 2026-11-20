@@ -5,9 +5,9 @@ El backend de Vapeupar es un servicio REST desarrollado en **TypeScript** con **
 
 ## Seguridad y Resiliencia
 - **Cabeceras de Seguridad (Helmet)**: Configurado para proteger la API contra ataques de scripting entre sitios (XSS), sniffing de tipo MIME y clickjacking.
-- **Limitación de Tasa (Rate Limiting)**: Cuatro límites, del más estricto al más laxo, y todos los que coinciden se aplican: 10 intentos fallidos por 15 minutos en `/api/admin/auth/login`, 5 pedidos (`POST`) por 15 minutos en `/api/orders`, 30 peticiones por minuto en `/api/admin` y 100 por minuto en `/api/*`. Por eso una ráfaga contra la consola se corta antes que la del público.
+- **Limitación de Tasa (Rate Limiting)**: Cuatro límites, del más estricto al más laxo, y todos los que coinciden se aplican: 10 intentos fallidos por 15 minutos en `/api/admin/auth/login`, 10 pedidos creados por 15 minutos en `/api/orders` (los rechazos 4xx no cuentan), 30 peticiones por minuto en `/api/admin` y 100 por minuto en `/api/*`. Por eso una ráfaga contra la consola se corta antes que la del público.
 - **Validación con Esquemas Zod 4**: Toda entrada de parámetros de consulta (`query`), de ruta (`params`) y de cuerpo se somete a validación estricta en tiempo de ejecución. Las claves desconocidas se descartan en lugar de rechazar la petición, de modo que un campo colado en un cuerpo no llega nunca al servicio. **Excepción: los pedidos** (`POST /api/orders` y las transiciones de `/api/admin/orders`) usan objetos estrictos y responden `400` a un campo de más, para que un precio enviado por el cliente se rechace en vez de ignorarse en silencio.
-- **Manejo Centralizado de Errores**: Middleware global que captura excepciones no controladas y enmascara detalles técnicos internos en entornos de producción.
+- **Manejo Centralizado de Errores**: Middleware global que captura excepciones no controladas y enmascara detalles técnicos internos en entornos de producción. Un cuerpo que `express.json` rechaza (JSON mal formado, demasiado grande) responde su `400`/`413` y en el registro queda solo el tipo (`entity.parse.failed`), nunca el cuerpo crudo.
 - **Cierre Elegante (Graceful Shutdown)**: Captura de señales `SIGINT` y `SIGTERM` para finalizar conexiones HTTP de manera ordenada.
 
 ## Ejecución Local
@@ -391,15 +391,16 @@ npm run db:upload-images --workspace=backend                # subirlas y rellena
   Sin base a mano, la migración se puede escribir desde el esquema anterior:
   `npx prisma migrate diff --from-schema <anterior.prisma> --to-schema prisma/schema.prisma --script`
   (desde `backend/`; no conecta a nada).
-- **Pedidos (ADR-003), migración `20261120120000_orders` todavía sin aplicar.**
+- **Pedidos (ADR-003), migración `20261120120000_orders`.** Se aplica con la
+  release (`migrate deploy` al activar): es aditiva y segura. El endpoint
+  público sigue apagado tras `ORDERS_ENABLED` hasta la aprobación del dueño y la
+  revisión legal.
   Crea `orders`, `order_lines` y `order_consents` y añade
   `stock_movements.unit_price`; solo es aditiva. Concede a `vapeupar_app`
   `SELECT`/`INSERT` en las tres, `UPDATE` solo en las columnas que cambian las
   transiciones y la anonimización (`orders`) y el precio cobrado
   (`order_lines.unit_price`), y ningún `DELETE`; `order_consents` es solo
-  inserción. `db:sync-app-role` no cambia: solo gestiona la contraseña. Hasta
-  aplicarla, `POST /api/orders` y `/api/admin/orders` responden 500 contra la
-  base.
+  inserción. `db:sync-app-role` no cambia: solo gestiona la contraseña.
 
 ## Endpoints Disponibles
 
@@ -580,9 +581,16 @@ Solo nombre y slug:
 
 ### 8. `POST /api/orders` (ADR-003)
 
-El sitio registra el pedido antes de abrir WhatsApp. Público, con límite propio
-de **5 pedidos por IP cada 15 minutos** (`rateLimits.ordersMax`) además del
-general, y cuerpo **estricto** (`schemas/order.schema.ts`):
+El sitio registra el pedido antes de abrir WhatsApp. **Apagado por defecto**:
+solo existe con `ORDERS_ENABLED=true` (ni `write-env.mjs` ni `infra/` lo
+encienden); sin él responde el 404 genérico. Se enciende tras la aprobación del
+dueño y la revisión legal de la política (ADR-003, Estado).
+
+Público, con límite propio de **10 pedidos por IP cada 15 minutos**
+(`rateLimits.ordersMax`) además del general; solo cuentan los que crean o
+repiten un pedido (`skipFailedRequests`), porque con CGNAT móvil muchos clientes
+comparten IP y un error de tecleo no debe gastarles el cupo. Cuerpo
+**estricto** (`schemas/order.schema.ts`):
 
 ```json
 {

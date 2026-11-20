@@ -1,9 +1,17 @@
 # ADR-003: Pedidos guardados en la base (entidad Order)
 
 ## Estado
-Aceptado — 2026-11-20. Parte 1 (este ADR, modelo, migración sin aplicar y API)
-en la rama `feat/pedidos-backend`. La migración **no se ha aplicado** en ninguna
-base: se aplica con aprobación del dueño.
+Aceptado — 2026-11-20. Parte 1 (este ADR, modelo, migración y API) en la rama
+`feat/pedidos-backend`.
+
+**Activación en dos pasos.** La migración se aplica con la release, como todas
+(`infra/deploy/migrate.mjs` ejecuta `prisma migrate deploy` al activar): es
+aditiva, no toca datos existentes y es segura. El endpoint público **no**: queda
+apagado tras el interruptor `ORDERS_ENABLED` (por defecto desactivado; ni
+`write-env.mjs` ni `infra/` lo encienden) y solo se activa con la aprobación del
+dueño, la parte 2 desplegada (carrito con datos y autorización) y la política de
+datos revisada por un abogado. Apagado, `POST /api/orders` responde el 404
+genérico de una ruta inexistente; las rutas de consola funcionan igual.
 
 Decisiones del dueño que lo originan (Deathnote, 2026-11-19):
 
@@ -154,10 +162,20 @@ enviar, o registra la diferencia a mano.
 
 ### 5. Superficie pública y abuso
 
-- `POST /api/orders` tiene su **propio límite de peticiones**, más estricto que el
-  general: 5 pedidos por IP cada 15 minutos (`rateLimits.ordersMax`), además
-  del general de `/api`. El cuerpo público ya está limitado a 20 kB y el pedido a
-  20 líneas de hasta 10 unidades (`MAX_PER_LINE` del carrito).
+- `POST /api/orders` tiene su **propio límite de peticiones**: 10 pedidos por IP
+  cada 15 minutos (`rateLimits.ordersMax`), además del general de `/api`. Solo
+  cuentan los que crean o repiten un pedido (`skipFailedRequests`): en redes
+  móviles con CGNAT muchos clientes comparten IP, y un teléfono mal escrito o
+  una línea agotada no deben gastarles el cupo. Los cuerpos inválidos no
+  escriben nada y los frena el límite general. El cuerpo público ya está
+  limitado a 20 kB y el pedido a 20 líneas de hasta 10 unidades (`MAX_PER_LINE`
+  del carrito).
+- **Interruptor `ORDERS_ENABLED`**: sin él a `true`, la ruta no se monta. Se
+  eligió 404 y no 503 porque, mientras está apagado, nada legítimo la llama (el
+  carrito de la parte 2 aún no existe) y un 503 anunciaría una función que no
+  está abierta; el 404 es indistinguible de cualquier ruta inexistente.
+- Un JSON mal formado o demasiado grande responde `400`/`413` y el registro
+  guarda solo el tipo de error, nunca el cuerpo (que traería nombre y teléfono).
 - Un pedido recibido no bloquea stock, así que el spam no puede agotar el
   catálogo: como mucho, ensucia la bandeja de pedidos, y caduca a los 30 días.
 - Sin captcha por ahora. Si aparece spam real, se añade (Turnstile) sin cambiar

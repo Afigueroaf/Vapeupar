@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
 import { createApp } from '../app.js';
@@ -19,7 +19,7 @@ const UVA = '019299a4-0000-7000-8000-0000000000a2';
 const servers: Server[] = [];
 let keySeq = 0;
 
-async function start(options: { ordersMax?: number } = {}) {
+async function start(options: { ordersMax?: number; ordersEnabled?: boolean } = {}) {
   const stock = new InMemoryStockRepository();
   stock.addVariant({ id: MANGO, name: 'Mango Ice', productId: 'eco-3', productName: 'LifePod ECO 3', stockCache: 5 });
   stock.addVariant({ id: UVA, name: 'Uva', productId: 'eco-3', productName: 'LifePod ECO 3', stockCache: 0 });
@@ -27,6 +27,7 @@ async function start(options: { ordersMax?: number } = {}) {
   orders.setProduct('eco-3', { price: 45000, published: true });
   const app = createApp({
     ordersRouter: createOrdersPublicRouter({ service: new OrderService(orders) }),
+    ordersEnabled: options.ordersEnabled ?? true,
     rateLimits: { ordersMax: options.ordersMax ?? 100 }
   });
   const server = await new Promise<Server>(resolve => {
@@ -55,7 +56,7 @@ async function post(url: string, body: unknown, method = 'POST') {
   const response = await fetch(`${url}/api/orders`, {
     method,
     headers: { 'content-type': 'application/json' },
-    body: method === 'POST' ? JSON.stringify(body) : undefined
+    body: method !== 'POST' ? undefined : typeof body === 'string' ? body : JSON.stringify(body)
   });
   const text = await response.text();
   return { status: response.status, body: text ? JSON.parse(text) as Record<string, unknown> : undefined };
@@ -111,6 +112,47 @@ describe('POST /api/orders', () => {
   it('no hay forma pública de leer pedidos', async () => {
     const { url } = await start();
     expect((await post(url, undefined, 'GET')).status).toBe(404);
+  });
+
+  it('apagado por el interruptor responde el 404 genérico y no crea nada', async () => {
+    const { url, orders } = await start({ ordersEnabled: false });
+    const response = await post(url, order());
+    expect(response.status).toBe(404);
+    expect(response.body).toEqual({ success: false, message: 'Endpoint no encontrado' });
+    expect(orders.all).toHaveLength(0);
+  });
+
+  it('un JSON mal formado es 400 y el cuerpo nunca llega al registro', async () => {
+    const { url } = await start();
+    const logged: unknown[] = [];
+    const warn = vi.spyOn(console, 'warn').mockImplementation((...args) => { logged.push(...args); });
+    const error = vi.spyOn(console, 'error').mockImplementation((...args) => { logged.push(...args); });
+    try {
+      const response = await post(url, '{"customer":{"name":"Ana Pérez","phone":"3001234567"');
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ success: false, message: expect.any(String) });
+      expect(JSON.stringify(logged)).not.toContain('3001234567');
+      expect(JSON.stringify(logged)).toContain('entity.parse.failed');
+      expect(error).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+      error.mockRestore();
+    }
+  });
+
+  it('un cuerpo demasiado grande es 413, no 500', async () => {
+    const { url } = await start();
+    const response = await post(url, order({ padding: 'x'.repeat(30 * 1024) }));
+    expect(response.status).toBe(413);
+  });
+
+  it('los pedidos rechazados no gastan el límite', async () => {
+    const { url } = await start({ ordersMax: 1 });
+    for (let i = 0; i < 3; i++) {
+      expect((await post(url, order({ customer: { name: 'Ana', phone: '123', neighborhood: 'Centro' } }))).status).toBe(400);
+    }
+    expect((await post(url, order())).status).toBe(201);
+    expect((await post(url, order())).status).toBe(429);
   });
 
   it('tiene su propio límite de peticiones', async () => {
