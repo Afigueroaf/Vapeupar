@@ -9,15 +9,21 @@ const FILTER_ID = "vp-rgb-glitch";
 /**
  * Los otros dos filtros son idénticos salvo en el margen de su región, y el
  * margen importa porque la región RECORTA: se mide en porcentaje de la caja del
- * elemento y tiene que dar de sí más que el desplazamiento máximo —17px: 14 de
- * `GLITCH_MAX_SHIFT` más 3 de jitter—, o las copias de color se cortan a ras
- * del borde y el glitch se ve como un recorte y no como una aberración
- * cromática.
+ * elemento y tiene que dar de sí más que el desplazamiento máximo —15px, el
+ * `SHIFT_CEIL` de abajo—, o las copias de color se cortan a ras del borde y el
+ * glitch se ve como un recorte y no como una aberración cromática.
  *
- * El 8% del filtro de franja cubre cualquier bloque de 210px de ancho para
+ * El 8% del filtro de franja cubre cualquier bloque de 190px de ancho para
  * arriba, que es lo que miden todos. Una tarjeta de producto es media columna
  * del catálogo —unos 150px en un teléfono— y el botón flotante mide 56px, así
  * que cada uno necesita el suyo: a esos tamaños el 8% son 12px y 4,5px.
+ *
+ * Los márgenes son los justos y no más, porque la región entera se rasteriza:
+ * 12% en la tarjeta (sirve desde 125px) y 30% en el botón (desde 50px), con
+ * unos pocos píxeles de holgura sobre los 15. Antes eran 15% y 40%, dimensionados
+ * para los 17px del desplazamiento sin cuantizar; el 40% hacía que el botón
+ * filtrara una región de 3,2 veces su área para unas copias que nunca llegaban
+ * tan lejos.
  *
  * Son tres nodos en `<defs>` y los tres se mueven a la vez, porque el bucle
  * recoge los `feOffset` por atributo y no por filtro.
@@ -42,6 +48,35 @@ const BURST_INTERVAL_MAX_MS = 9000;
  * 0, así que no se ve absolutamente nada.
  */
 const ARM_LEAD_MS = 120;
+
+/**
+ * El desplazamiento va A SALTOS DE 3 PX, no continuo.
+ *
+ * Cada vez que cambia hay que reescribir los `feOffset`, y cada escritura
+ * invalida el filtrado de todos los bloques armados: el navegador vuelve a
+ * filtrar lo que hay en pantalla. Con el valor redondeado al píxel, una ráfaga
+ * cambiaba de `dx` unas 13 veces (0→7→0 con el jitter encima); a saltos de 3
+ * baja a 4 (0→3→6→3→0). Medido con un contador temporal, ver la fase 5 de
+ * `docs/performance-optimization-plan.md`.
+ *
+ * Es una decisión de aspecto además de rendimiento: el glitch se ve más
+ * «digital», a golpes, y lo hace igual en todas partes, porque la misma señal
+ * cuantizada alimenta los filtros y `--glitch-shift` (las scanlines y los
+ * shaders de la nube y del prisma). Si se quiere volver al desplazamiento
+ * continuo, revertir el commit que introdujo esto, que va aislado.
+ */
+const SHIFT_STEP = 3;
+
+/** Jitter de scanline máximo sumado al desplazamiento, en píxeles. */
+const LINE_NOISE_MAX = 3;
+
+/**
+ * Tope del desplazamiento cuantizado: el mayor múltiplo de `SHIFT_STEP` que no
+ * pasa de `GLITCH_MAX_SHIFT` más el jitter (17 → 15). Sin el tope, redondear
+ * 17 daría 18 y las copias se saldrían de la región de los filtros. Solo se
+ * alcanza en los primeros fotogramas de la entrada; las ráfagas llegan a 6.
+ */
+const SHIFT_CEIL = Math.floor((GLITCH_MAX_SHIFT + LINE_NOISE_MAX) / SHIFT_STEP) * SHIFT_STEP;
 
 function nextBurstDelay() {
   return BURST_INTERVAL_MIN_MS + Math.random() * (BURST_INTERVAL_MAX_MS - BURST_INTERVAL_MIN_MS);
@@ -105,7 +140,8 @@ function RgbSplitFilter({ id, margin }: { id: string; margin: number }) {
  *
  * Singleton: se monta una sola vez en el layout raíz. Publica los tres filtros
  * SVG que las clases `.vp-glitch*` consumen desde CSS y escribe
- * `--glitch-shift` + `html.glitch-active` en cada frame.
+ * `--glitch-shift` (múltiplos de 3, de 0 a 15) + `html.glitch-active` cada vez
+ * que el desplazamiento salta, no en cada fotograma.
  *
  * Bajo `prefers-reduced-motion: reduce` no monta nada, así que la clase nunca se
  * activa y el filtro nunca llega a aplicarse (`docs/design-reset-inventory.md` §8.5).
@@ -244,13 +280,19 @@ export function PageGlitch() {
     const apply = (intensity: number, now: number) => {
       // Jitter horizontal tipo scanline en intensidades altas.
       const lineNoise =
-        intensity > 0.25 ? Math.max(0, Math.sin(now * 0.001 * 23 + 1.7)) * intensity * 3 : 0;
-      const shift = Math.round(intensity * GLITCH_MAX_SHIFT + lineNoise);
+        intensity > 0.25
+          ? Math.max(0, Math.sin(now * 0.001 * 23 + 1.7)) * intensity * LINE_NOISE_MAX
+          : 0;
+      const raw = intensity * GLITCH_MAX_SHIFT + lineNoise;
+      // A saltos de `SHIFT_STEP`: ver la constante. Es lo que hace que una
+      // ráfaga escriba 4 veces y no 13.
+      const shift = Math.min(Math.round(raw / SHIFT_STEP) * SHIFT_STEP, SHIFT_CEIL);
 
-      // EL FILTRO SOLO SE TOCA CUANDO CAMBIA. `shift` es un entero redondeado,
+      // EL FILTRO SOLO SE TOCA CUANDO CAMBIA. `shift` es un múltiplo de 3,
       // así que entre ráfagas vale 0 fotograma tras fotograma y aquí no se
-      // escribe nada: ni atributos, ni custom property, ni clase. El filtro se
-      // queda aplicado y estático, que es lo que el navegador sabe cachear.
+      // escribe nada: ni atributos, ni custom property, ni clase; y durante la
+      // ráfaga solo se escribe en cada salto. El filtro se queda aplicado y
+      // estático entre saltos, que es lo que el navegador sabe cachear.
       if (shift === appliedShift) return;
       appliedShift = shift;
 
@@ -259,8 +301,8 @@ export function PageGlitch() {
       root.style.setProperty("--glitch-shift", String(shift));
       // El umbral se compara contra el desplazamiento ya redondeado y no contra
       // la intensidad, para que la clase cambie exactamente cuando cambia lo
-      // que se ve. Con `GLITCH_MAX_SHIFT` por encima de un píxel, una intensidad
-      // por debajo del umbral anterior ya redondeaba a 0.
+      // que se ve. Con saltos de 3 px, una intensidad por debajo de ~0,1 ya
+      // redondea a 0.
       root.classList.toggle("glitch-active", shift > 0);
     };
 
@@ -401,8 +443,8 @@ export function PageGlitch() {
       <svg aria-hidden="true" focusable="false" className="absolute size-0">
         <defs>
           <RgbSplitFilter id={FILTER_ID} margin={8} />
-          <RgbSplitFilter id={CARD_FILTER_ID} margin={15} />
-          <RgbSplitFilter id={CHIP_FILTER_ID} margin={40} />
+          <RgbSplitFilter id={CARD_FILTER_ID} margin={12} />
+          <RgbSplitFilter id={CHIP_FILTER_ID} margin={30} />
         </defs>
       </svg>
 
