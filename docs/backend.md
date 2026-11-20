@@ -505,9 +505,10 @@ la consulta por WhatsApp.
 - `search` también busca en el nombre de las variantes: `?search=mango` encuentra
   la línea que tiene ese sabor.
 
-El precio es de la línea, no de la variante (ADR-002 §3). No hay endpoint de
-pedidos: el carrito vive en el navegador y el pedido se envía por WhatsApp
-(ADR-001 §3, `frontend/src/lib/cart.ts`).
+El precio es de la línea, no de la variante (ADR-002 §3). El carrito vive en
+el navegador y el pedido se cierra por WhatsApp (ADR-001 §3,
+`frontend/src/lib/cart.ts`); con los pedidos encendidos, el sitio lo registra
+antes en `POST /api/orders` (§8, ADR-003).
 
 ### 6. `GET /api/content/:key` (A7.2)
 
@@ -590,7 +591,11 @@ Solo nombre y slug:
 
 El sitio registra el pedido antes de abrir WhatsApp. **Apagado por defecto**:
 solo existe con `ORDERS_ENABLED=true` (ni `write-env.mjs` ni `infra/` lo
-encienden); sin él responde el 404 genérico. Se enciende tras la aprobación del
+encienden); sin él responde el 404 genérico. Se enciende **junto con**
+`NEXT_PUBLIC_ORDERS_ENABLED=true` del frontend, que es la que hace que el
+carrito pida los datos y llame aquí (`docs/frontend.md`, «Pedidos
+registrados»); con solo una de las dos, el carrito sigue en el modo solo
+WhatsApp. Se enciende tras la aprobación del
 dueño y la revisión legal de la política (ADR-003, Estado).
 
 Público, con límite propio de **10 pedidos por IP cada 15 minutos**
