@@ -9,7 +9,7 @@ bin/vapeupar.ts        Entrada: lee el entorno y el correo de alertas
 lib/build-app.ts       Etiquetas globales y composición de stacks (también la usan los tests)
 lib/config.ts          Configuración por entorno (dev / prod): única fuente de diferencias
 lib/network-stack.ts   VPC sin NAT
-lib/data-stack.ts      RDS PostgreSQL privada + bastión SSM
+lib/data-stack.ts      RDS PostgreSQL privada (el bastión se retiró en F1; el túnel pasa por la EC2)
 lib/storage-stack.ts   S3 privado + CloudFront (OAC)
 lib/auth-stack.ts      Cognito para la consola /admin
 lib/ops-stack.ts       Presupuesto y grupo de recursos
@@ -17,7 +17,7 @@ lib/app-stack.ts       EC2 de la aplicación, artefactos y despliegue desde GitH
 lib/monitoring-stack.ts  Tema SNS y las 10 alarmas de F6
 deploy/                Lo que instala activate.sh en la EC2: systemd, nginx, journald, métricas
 test/                  npm run test --workspace=infra: recuento de alarmas y permisos (sin AWS)
-scripts/               Túnel a la base y generación de backend/.env
+scripts/               Túnel a la base, generación de backend/.env, despliegue y vuelta atrás
 ```
 
 Uso habitual, desde la raíz del repositorio:

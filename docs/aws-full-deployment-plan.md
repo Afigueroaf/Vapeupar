@@ -9,7 +9,7 @@ Decisión de origen: [ADR-002](decisions/002-consola-de-administracion-y-persist
 
 | | |
 |---|---|
-| Estado | ✅ **F1, F2 y F3 completadas** (2026-11-06). Tienda en **http://3.228.133.187** (`npm run app:deploy`). Siguiente: F4 (No-IP + TLS). Verificación en `infrastructure-aws.md` §7.0 y en F2/F3 |
+| Estado (2026-11-20) | ✅ **F1, F2 y F3 completadas** (2026-11-06). ✅ **F4**: TLS con Let's Encrypt en **https://vapeupar.ddns.net** desde el 2026-11-17; solo falta HSTS, aplazado (`dec-duracion-del-hsts`). 🟡 **F5**: migraciones automáticas en cada despliegue (`activate.sh`); los datos reales siguen en `carga-datos-reales`. 🟡 **F6**: versionado del bucket aplicado el 2026-11-17; alarmas en rama, sin desplegar. 🟡 **F7**: en rama, sin desplegar. Verificación en `infrastructure-aws.md` §7.0 y en cada fase |
 | Escrito | 2026-11-06 |
 | Revisado | 2026-11-06 — DeliPan detuvo su EC2 y liberó su IP elástica; el bastión se retira (§2.1, F1.7) |
 | Cuenta / región | `342284838697` / `us-east-1` (compartida con DeliPan) |

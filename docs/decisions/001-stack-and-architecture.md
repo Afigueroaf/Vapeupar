@@ -1,7 +1,7 @@
 # ADR-001: Elección de Stack y Arquitectura Desacoplada
 
 ## Estado
-Aprobado
+Aprobado. La capa de datos quedó sustituida por [ADR-002](002-consola-de-administracion-y-persistencia.md) (RDS PostgreSQL con Prisma, desde el 2026-10-26); el resto sigue vigente.
 
 ## Contexto
 Se requiere desarrollar una plataforma web para una tienda de vaporizadores ("Vapeupar") en Valledupar. La plataforma necesita presentar una landing page atractiva, un catálogo de productos con filtrado ágil (categorías, marcas, niveles de nicotina, sabores), soporte para verificación de edad (+18) y un flujo de compra rápido adaptado al mercado local.

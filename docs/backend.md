@@ -32,7 +32,7 @@ El backend de Vapeupar es un servicio REST desarrollado en **TypeScript** con **
 ```
 backend/
 ├── src/
-│   ├── catalog/         # Etiquetas de categoría y claves de imagen
+│   ├── catalog/         # Etiquetas de categoría, claves de imagen, mapa de assets/ (catalog-assets.ts) y conteo físico
 │   ├── config/          # Configuración de Cognito, validada bajo demanda
 │   ├── db/              # Cliente de Prisma bajo demanda
 │   ├── middleware/      # Sesión en cookies, requireAuth y requireRole
@@ -51,6 +51,7 @@ backend/
 │   ├── seed.ts          # Semilla idempotente desde assets/brands/
 │   └── sync-app-role.ts # Contraseña del rol vapeupar_app desde Secrets Manager
 ├── prisma.config.ts     # Configuración del CLI de Prisma 7
+├── scripts/             # Operación: admin-invite, upload-catalog-images, export-count-template, import-initial-stock
 └── .env                 # Variables de entorno locales (ver .env.example)
 ```
 
@@ -387,8 +388,9 @@ npm run db:upload-images --workspace=backend                # subirlas y rellena
   /api/admin/stock/image-alerts`.
 
 - **El catálogo público sale de la base.** Solo se sirven productos `published`
-  con precio; tras la semilla todos están en borrador, así que `/api/products`
-  devuelve una lista vacía hasta que se publiquen desde la consola (A5.3). Sin
+  con precio; en una base recién sembrada todos están en borrador, así que
+  `/api/products` devuelve una lista vacía hasta que se publiquen desde la
+  consola (A5.3). En producción ya hay líneas publicadas. Sin
   túnel la API responde 500 y el frontend usa `FALLBACK_PRODUCTS`.
 - **Dos credenciales.** `DATABASE_URL` usa el rol `vapeupar_app` (runtime, sin DDL);
   `MIGRATE_DATABASE_URL` usa el maestro y solo la lee el CLI de Prisma.

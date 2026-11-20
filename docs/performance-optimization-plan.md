@@ -121,6 +121,18 @@ filtro SVG de glitch.
 Cada fase se mide antes y después con el mismo protocolo (fase 0). No se pasa a la
 siguiente sin ver la mejora en números.
 
+**Estado de las fases (2026-11-20)** — el detalle de cada una está en su registro,
+más abajo, y en el Deathnote:
+
+| Fase | Estado |
+|---|---|
+| 0 — Línea base | ✅ Hecha (2026-11-04), §3 bis |
+| 1 — Glitch barato | ✅ Hecha (2026-11-04), §3 ter |
+| 2 — WebGL con presupuesto | 🟡 En producción desde el 2026-11-17; falta la medición A/B en el Moto G15 (`perf-webgl-presupuesto`) |
+| 3 — Tarjetas ligeras | ✅ Hecha (2026-11-05) |
+| 4 — Arranque sin bloqueos | ✅ Hecha (`arranque-3d`) |
+| 5 — Guardas | 🟡 Implementada en la rama `perf/glitch-saltos-guardas`, sin fusionar; falta la medición en el Moto G15 (`perf-guardas`) |
+
 ### Fase 0 — Línea base (½ día)
 
 1. `npm run build && npm run start` (nunca medir sobre `next dev`).
