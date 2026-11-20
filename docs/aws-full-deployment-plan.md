@@ -518,13 +518,17 @@ Desde la instancia, que ya tiene ruta a RDS:
 
 ### F6 — Vigilancia y copias
 
+> **Vigilancia implementada el 2026-11-20 en la rama `infra/f6-alarmas`, sin
+> desplegar.** Detalle, alarmas y puesta en marcha en
+> [`infrastructure-aws.md`](infrastructure-aws.md) §5.6.
+
 | Pieza | Qué |
 |---|---|
-| Alarmas de la instancia | `StatusCheckFailed` y CPU sostenida. La memoria y el disco **no se ven desde CloudWatch sin agente**: instalar el agente en `user-data` y alarmar sobre memoria usada y disco libre |
-| Alarmas de RDS | CPU, almacenamiento libre y número de conexiones |
-| Notificación | Tema SNS al mismo correo del presupuesto |
+| Alarmas de la instancia | `StatusCheckFailed_System` (con recuperación), `StatusCheckFailed_Instance`, CPU > 80 % 15 min y créditos de CPU < 20. Memoria (> 90 %), disco (> 80 %) y días del certificado (< 20) **sin agente**: `vapeupar-metrics.timer` los envía cada 5 min con `put-metric-data` (namespace `Vapeupar`), instalado por `activate.sh` y no por `user-data` (no se repite). Si faltan datos, esas tres alarmas saltan |
+| Alarmas de RDS | Almacenamiento libre < 5 GB (10 % del techo de autoescalado; a 2 GB coincidiría con el propio autoescalado), conexiones > 60 y memoria libre < 100 MB. **Sin la de CPU**, para quedar en 10 alarmas (capa gratuita compartida con DeliPan; `infra/test/monitoring.test.ts`) |
+| Notificación | Tema SNS `vapeupar-dev-alerts` (stack `Vapeupar-dev-Monitoring`), solo al correo del presupuesto. Sin SMS ni chequeo externo (decisiones del 2026-11-19) |
 | Presupuesto | `vapeupar-dev-monthly` sube de 30 a 45 USD (§7) o deja de avisar de nada útil |
-| Logs | `journald` con límite de tamaño; los de nginx rotados. Enviar a CloudWatch Logs solo lo que se vaya a leer: cada GB ingerido se paga |
+| Logs | Solo en la instancia: `journald` a 200 MB y 14 días (`infra/deploy/journald/`), nginx rotado por logrotate. **No** se envían a CloudWatch Logs (decisión del 2026-11-19) |
 | Copias | Backups de RDS a 7 días (D1) y versionado del bucket de catálogo activado |
 
 ### F7 — Endurecimiento posterior (no bloquea nada)
@@ -539,7 +543,7 @@ instancia detrás de un ALB cuando el tráfico lo pida.
 | Riesgo | Mitigación |
 |---|---|
 | **1 GB de RAM** con dos procesos Node | No construir en la instancia (F3), `output: standalone`, 2 GB de swap, alarma de memoria. Salida de emergencia: `t4g.small`, que es un cambio de una línea |
-| **Un solo nodo**: cae la instancia, cae todo | `Restart=always`, alarma de `StatusCheckFailed`, y la portada **tolera la API caída** (`frontend/src/app/page.tsx:28` cae en los productos de respaldo). Lo que no tolera es que caiga la instancia entera |
+| **Un solo nodo**: cae la instancia, cae todo | `Restart=always`, alarma de `StatusCheckFailed`, y la portada **tolera la API caída** (`frontend/src/app/page.tsx:28` cae en los productos de respaldo). Lo que no tolera es que caiga la instancia entera. **Riesgo aceptado (2026-11-19): sin chequeo externo de disponibilidad.** Una caída de nginx o de Node con la máquina encendida, o el nombre de No-IP caducado, no generan aviso; las alarmas de F6 solo ven la máquina y la base |
 | **Crédito compartido con DeliPan** | §7. Decidir antes de enero de 2027 si la cuenta pasa a plan de pago; es una decisión conjunta |
 | **El plan gratuito restringe tipos de instancia** | Ya mordió una vez: `t4g.nano` falló al desplegar el bastión (`infrastructure-aws.md` §7.1). Quedarse en los tipos elegibles |
 | **Credencial de despliegue compartida** | D3 |

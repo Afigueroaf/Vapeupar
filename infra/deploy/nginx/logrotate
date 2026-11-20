@@ -1,0 +1,15 @@
+# Rotación de los registros de nginx. El paquete nginx de Amazon Linux 2023
+# trae su propio /etc/logrotate.d/nginx; deploy/activate.sh instala este SOLO
+# si ese archivo no existe, para no pisar el del paquete.
+/var/log/nginx/*.log {
+    daily
+    rotate 14
+    missingok
+    notifempty
+    compress
+    delaycompress
+    sharedscripts
+    postrotate
+        /bin/kill -USR1 $(cat /run/nginx.pid 2>/dev/null) 2>/dev/null || true
+    endscript
+}

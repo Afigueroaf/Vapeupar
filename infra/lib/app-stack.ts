@@ -8,6 +8,7 @@ import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 import { Construct } from 'constructs';
 import { EnvConfig, paramName, resourceName } from './config.js';
+import { METRICS_NAMESPACE } from './monitoring-stack.js';
 
 interface AppStackProps extends StackProps {
   config: EnvConfig;
@@ -236,6 +237,19 @@ export class AppStack extends Stack {
 
     // Descargar releases (F3). Solo lectura.
     artifactsBucket.grantRead(role);
+
+    // Métricas propias de la instancia (F6, `deploy/metrics/vapeupar-metrics.sh`).
+    // PutMetricData no admite permisos por recurso, así que el `*` es
+    // obligado; lo acota la condición: SOLO el namespace `Vapeupar`
+    // (monitoring-stack.ts, METRICS_NAMESPACE). Sin permisos de CloudWatch
+    // Logs: los registros se quedan en la instancia.
+    role.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ['cloudwatch:PutMetricData'],
+        resources: ['*'],
+        conditions: { StringEquals: { 'cloudwatch:namespace': METRICS_NAMESPACE } },
+      }),
+    );
 
     /* --- Instancia ------------------------------------------------------- */
 
