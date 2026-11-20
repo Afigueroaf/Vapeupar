@@ -94,6 +94,13 @@ nace protegida.
 | `GET /api/admin/stock/image-alerts` | sesión | Variantes `published` con stock y sin `imageKey`; alimenta la alerta de imágenes del inventario |
 | `POST /api/admin/uploads/presign` | sesión | URL `PUT` prefirmada (5 min) para logos, líneas y variantes. La clave la deriva el backend; `contentType` limitado a webp/jpeg/png y `size` a 5 MB |
 | `POST /api/admin/uploads/invalidate` | sesión | Invalida en CloudFront la clave recién subida. Solo una ruta concreta del catálogo; `503` si falta `CDN_DISTRIBUTION_ID` |
+| `GET /api/admin/orders` | sesión | Pedidos del más reciente al más antiguo, con datos del cliente, líneas y `total`. `?status=&q=&from=&to=&page=&limit=`; `q` busca en referencia, nombre y (con 3 cifras o más) teléfono |
+| `GET /api/admin/orders/:id` | sesión | Un pedido. `404` si no existe |
+| `POST /api/admin/orders/:id/confirm` | sesión; descuento solo **owner** | `received` → `confirmed`. `{ deliveryFee, lines?: [{ variantId, unitPrice }] }`. Un movimiento `sale` por línea en una transacción, con `unitPrice`, la referencia en `lot` y `operationKey` `order:<id>:sale:<variantId>`. Sin stock: `409 INSUFFICIENT_STOCK` con `lines` y nada registrado. Otro precio que el de catálogo con `operator`: `403` |
+| `POST /api/admin/orders/:id/deliver` | sesión | `confirmed` → `delivered` |
+| `POST /api/admin/orders/:id/cancel` | sesión | `received`/`confirmed` → `cancelled`. `{ reason? }`. Si estaba confirmado, un `return` por línea (`order:<id>:return:<variantId>`). Entregado: `409` |
+| `POST /api/admin/orders/:id/anonymize` | **owner** | Supresión de datos del cliente (nombre, teléfono, barrio y motivo) en un pedido entregado o cancelado |
+| `POST /api/admin/orders/retention` | **owner** | Plazo de conservación: anonimiza los cerrados hace más de 365 días y caduca (cancela y anonimiza) los recibidos hace más de 30. Responde `{ cancelled, anonymized }` |
 | `GET /api/admin/inventory-notes` | sesión | Notas de inventario, con `authorEmail` y el nombre de la variante y su línea. `?variantId=&resolved=` |
 | `POST /api/admin/inventory-notes` | **owner** | Crea una nota general o asociada a una variante. Audita `inventory_note.create` |
 | `PATCH /api/admin/inventory-notes/:id/resolve` | **owner** | Marca la nota como resuelta. Audita `inventory_note.resolve` |
@@ -134,6 +141,17 @@ así que el `operator` firma subidas y guarda la clave de marca, proveedor,
 línea y variante. Lo impone `requireOwnerOrFields`, que mira el cuerpo **sin
 validar**: un PATCH de `operator` con cualquier campo de más se rechaza entero
 con `403` en vez de que Zod lo descarte y pase como si solo trajera la imagen.
+
+**Pedidos (ADR-003).** Las transiciones responden `200` con el pedido y
+`meta: { replayed, revalidated }`; repetir una transición ya hecha con los
+mismos datos es `replayed: true` y no escribe nada, y con otros datos es `409
+CONFLICT`. Un estado del que no sale la transición es `409 INVALID_STATE`. Los
+cuerpos son estrictos. Confirmar y cancelar un confirmado escriben en el libro
+con `recordMovementIn` (`stock.service.ts`) dentro de la transacción del pedido,
+que está bloqueado (`FOR UPDATE`): todas las líneas o ninguna. La auditoría
+(`order.create`, `order.confirm`, `order.deliver`, `order.cancel`,
+`order.anonymize`, `order.retention`) **no copia nombre, teléfono, barrio ni el
+motivo de cancelación**.
 
 **No hay DELETE en ninguna de estas entidades.** El libro de inventario
 referencia variantes y proveedores con `onDelete: Restrict`, y las líneas
@@ -217,6 +235,7 @@ escritura que ya salió bien, el backend avisa a Next con
 | `PUT /api/admin/content/:key` y `POST …/versions/:version/restore` | `contenido` |
 | `POST`/`PATCH` de marcas, líneas y variantes | `catalogo` (también basta para las marcas aliadas: `getPartnerBrands` lleva las dos) |
 | `POST /api/admin/stock/movements` (ventas, ingresos, ajustes; también un reintento) | `catalogo` |
+| `POST /api/admin/orders/:id/confirm` y `…/cancel` de un pedido confirmado | `catalogo` |
 
 La respuesta espera el aviso como mucho 3 s y lleva `meta.revalidated`: `false`
 si el frontend no contestó, rechazó el secreto o no hay secreto; el cambio se

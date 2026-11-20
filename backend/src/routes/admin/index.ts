@@ -25,6 +25,8 @@ import { createSuppliersRouter } from './suppliers.routes.js';
 import { createUsersRouter } from './users.routes.js';
 import { createInventoryNotesRouter } from './inventory-notes.routes.js';
 import { createImageUploadsRouter } from './image-uploads.routes.js';
+import { createOrdersRouter, OrderAdminService } from './orders.routes.js';
+import { orderService as defaultOrderService } from '../../services/order.service.js';
 import { InventoryNoteService } from '../../services/inventory-note.service.js';
 import { PrismaInventoryNoteRepository } from '../../repositories/prisma-inventory-note.repository.js';
 import { ImageUploadService } from '../../services/image-upload.service.js';
@@ -47,6 +49,8 @@ export interface AdminRouterDeps {
   auditView?: AuditViewRepository;
   inventoryNotes?: InventoryNoteService;
   imageUploads?: ImageUploadService;
+  /** Pedidos (ADR-003); en los tests, sobre repositorios en memoria. */
+  orders?: OrderAdminService;
   auth?: Partial<typeof cognito> & Pick<typeof cognito, 'login' | 'completeNewPassword' | 'signOut' | 'inviteUser' | 'disableUser'>;
   /** Exigir TOTP en el login; por defecto, según el entorno (ver `isMfaRequired`). */
   requireMfa?: boolean;
@@ -82,6 +86,8 @@ export function createAdminRouter(deps: AdminRouterDeps = {}): Router {
     settings: deps.settings ?? defaultSettingsService,
     revalidate
   }));
+
+  router.use('/orders', createOrdersRouter({ service: deps.orders ?? defaultOrderService, revalidate }));
 
   router.use('/inventory-notes', createInventoryNotesRouter({
     service: deps.inventoryNotes ?? new InventoryNoteService(new PrismaInventoryNoteRepository())
