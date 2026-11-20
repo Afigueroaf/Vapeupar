@@ -3,9 +3,7 @@
 import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { Button, buttonStyles } from "@/components/ui/button";
 import { PixelLabel } from "@/components/ui/pixel-label";
-
-const VERIFICATION_KEY = "vapeupar_age_verified_at";
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+import { VERIFICATION_KEY, needsVerification as computeNeedsVerification } from "@/lib/age-gate";
 
 /**
  * `localStorage` es un sistema externo a React, así que se lee con
@@ -27,11 +25,9 @@ function subscribe(onStoreChange: () => void) {
 
 function readNeedsVerification() {
   try {
-    const verifiedTimestampStr = localStorage.getItem(VERIFICATION_KEY);
-    if (!verifiedTimestampStr) return true;
-    const timestamp = parseInt(verifiedTimestampStr, 10);
-    // Vigente solo si la verificación cae dentro de los últimos 30 días.
-    return isNaN(timestamp) || Date.now() - timestamp >= THIRTY_DAYS_MS;
+    // El cálculo (TTL de 30 días incluido) vive en `lib/age-gate.ts`, donde
+    // tiene sus pruebas.
+    return computeNeedsVerification(localStorage.getItem(VERIFICATION_KEY), Date.now());
   } catch {
     // Acceso a localStorage denegado o modo incógnito: se vuelve a preguntar.
     return true;

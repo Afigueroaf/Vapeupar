@@ -910,8 +910,12 @@ formado).
   ejercitado contra el backend con Cognito sustituido.
 - **MFA.** Resuelto el 2026-11-16: la pantalla de acceso pide el código TOTP y,
   la primera vez en producción, enseña el QR para enrolarlo.
-- **Sin pruebas automáticas de frontend.** El workspace no tiene runner y A5 no
-  lo pedía; la red son el build, el lint y la comprobación de contrato de arriba.
+- ~~**Sin pruebas automáticas de frontend.** El workspace no tiene runner y A5 no
+  lo pedía; la red son el build, el lint y la comprobación de contrato de arriba.~~
+  En curso el 2026-11-20 (rama `test/frontend-vitest`, sin fusionar): Vitest en
+  el workspace frontend para la lógica pura de `src/lib` (carrito, mensaje de
+  WhatsApp, contacto, puerta +18, contenido y revalidación), con paso propio en
+  el CI. Las pantallas de la consola siguen sin pruebas de componente.
 
 ---
 
