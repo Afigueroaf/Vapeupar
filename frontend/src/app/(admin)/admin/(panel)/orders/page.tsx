@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Search } from "lucide-react";
-import { FormError, Labelled } from "@/components/admin/form";
+import { useAdminSession } from "@/components/admin/admin-shell";
+import { FormError, FormStatus, Labelled } from "@/components/admin/form";
+import { OrderActionsPanel } from "@/components/admin/order-actions";
 import { OrderSummary } from "@/components/admin/order-detail";
 import { Cell, RecordList, type OpenPanel } from "@/components/admin/record-list";
 import { EmptyState, Pager, ScreenHeader } from "@/components/admin/screen";
@@ -11,10 +13,10 @@ import { Button } from "@/components/ui/button";
 import { SelectField, TextField } from "@/components/ui/field";
 import { PixelLabel } from "@/components/ui/pixel-label";
 import { Surface } from "@/components/ui/surface";
-import { adminApi } from "@/lib/admin-api";
+import { adminApi, errorMessage } from "@/lib/admin-api";
 import { STATUS_LABEL, STATUS_ORDER, dayBoundary } from "@/lib/admin-orders";
 import { formatDateTimeCO, formatPriceCOP } from "@/lib/utils";
-import type { OrderStatus } from "@/types/admin";
+import type { Order, OrderStatus } from "@/types/admin";
 
 /**
  * Pedidos (ADR-003): los que llegan del carrito, del más reciente al más
@@ -24,6 +26,10 @@ import type { OrderStatus } from "@/types/admin";
  * diario); cobrar otro precio que el de catálogo, anonimizar y aplicar el plazo
  * de conservación, solo del dueño. El backend lo impone; aquí se ocultan los
  * controles que responderían 403.
+ *
+ * Tras cada acción, la fila se reemplaza con el pedido que devuelve el
+ * backend. Si el aviso al sitio falló, el mensaje dice que el disponible
+ * público tardará hasta 60 s.
  *
  * **Regla operativa**: un pedido se descuenta confirmándolo aquí, nunca con
  * una venta a mano en Inventario, o el stock se restaría dos veces.
@@ -55,9 +61,15 @@ const STATUS_VARIANT: Record<OrderStatus, "lime" | "violet" | "outline"> = {
 };
 
 export default function OrdersPage() {
+  const { identity } = useAdminSession();
+  const isOwner = identity.role === "owner";
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<Filters>(INITIAL_FILTERS);
   const [open, setOpen] = useState<OpenPanel | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [retentionAsked, setRetentionAsked] = useState(false);
+  const [retaining, setRetaining] = useState(false);
 
   const fetchOrders = useCallback(
     (current: Filters) =>
@@ -72,7 +84,7 @@ export default function OrdersPage() {
     [],
   );
 
-  const { data, error, loading } = useAdminQuery(filters, fetchOrders, "No se pudieron cargar los pedidos");
+  const { data, error, loading, patch } = useAdminQuery(filters, fetchOrders, "No se pudieron cargar los pedidos");
   const rows = data?.data ?? [];
 
   useEffect(() => {
@@ -83,6 +95,36 @@ export default function OrdersPage() {
     }, SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(id);
   }, [search]);
+
+  /** Tras una acción: la fila se reemplaza con lo que devolvió el backend, sin recargar. */
+  const applied = useCallback(
+    (order: Order, message: string) => {
+      patch((page) => ({ ...page, data: page.data.map((row) => (row.id === order.id ? order : row)) }));
+      setStatus(message);
+      setActionError(null);
+    },
+    [patch],
+  );
+
+  async function applyRetention() {
+    setRetaining(true);
+    setStatus(null);
+    setActionError(null);
+    try {
+      const result = await adminApi.orders.applyRetention();
+      setStatus(
+        result.cancelled === 0 && result.anonymized === 0
+          ? "Plazo de conservación aplicado: no había nada que caducar ni anonimizar."
+          : `Plazo de conservación aplicado: ${result.cancelled} pedido(s) caducado(s) y ${result.anonymized} anonimizado(s).`,
+      );
+      setFilters((current) => ({ ...current }));
+    } catch (cause) {
+      setActionError(errorMessage(cause, "No se pudo aplicar el plazo de conservación"));
+    } finally {
+      setRetaining(false);
+      setRetentionAsked(false);
+    }
+  }
 
   const reload = useCallback(() => setFilters((current) => ({ ...current })), []);
 
@@ -95,10 +137,38 @@ export default function OrdersPage() {
         title="Pedidos"
         description="Los que llegan del carrito. Confirmar descuenta el stock: no registres esa venta a mano en Inventario."
       >
+        {isOwner && (
+          <Button
+            variant="secondary"
+            onClick={() => setRetentionAsked((asked) => !asked)}
+            aria-expanded={retentionAsked}
+            aria-controls="orders-retention"
+          >
+            Plazo de conservación
+          </Button>
+        )}
         <Button variant="secondary" onClick={reload} disabled={loading}>
           {loading ? "Actualizando…" : "Actualizar"}
         </Button>
       </ScreenHeader>
+
+      {isOwner && retentionAsked && (
+        <Surface border="accent" id="orders-retention" className="space-y-3 p-4">
+          <p className="text-sm">
+            Cancela como caducados los pedidos recibidos hace más de 30 días sin confirmar y anonimiza
+            los entregados o cancelados hace más de 365 días (ADR-003). No mueve stock y no se
+            deshace. ¿Aplicarlo ahora?
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => void applyRetention()} disabled={retaining}>
+              {retaining ? "Aplicando…" : "Sí, aplicar"}
+            </Button>
+            <Button variant="ghost" onClick={() => setRetentionAsked(false)} disabled={retaining}>
+              Cancelar
+            </Button>
+          </div>
+        </Surface>
+      )}
 
       <Surface border="muted" className="flex flex-wrap items-end gap-4 p-4">
         <Labelled label="Buscar" htmlFor="orders-search" className="min-w-0 flex-1 basis-64">
@@ -164,6 +234,8 @@ export default function OrdersPage() {
 
       {badRange && <FormError>La fecha «desde» es posterior a «hasta».</FormError>}
       {error && !badRange && <FormError>{error}</FormError>}
+      {actionError && <FormError>{actionError}</FormError>}
+      {status && <FormStatus>{status}</FormStatus>}
 
       {rows.length === 0 && !loading && !error ? (
         <EmptyState>
@@ -210,7 +282,18 @@ export default function OrdersPage() {
           onToggle={(id, panel) =>
             setOpen((current) => (current?.id === id && current.panel === panel ? null : { id, panel }))
           }
-          renderPanel={(order) => <OrderSummary order={order} />}
+          renderPanel={(order) => (
+            <>
+              <OrderSummary order={order} />
+              {/* `key` con el estado: tras una transición, el panel arranca limpio. */}
+              <OrderActionsPanel
+                key={`${order.id}:${order.status}:${order.anonymizedAt ?? ""}`}
+                order={order}
+                role={identity.role}
+                onDone={applied}
+              />
+            </>
+          )}
         />
       )}
 
