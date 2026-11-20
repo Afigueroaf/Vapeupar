@@ -585,11 +585,39 @@ desplegar.** Decisiones `dec-proteccion-perimetral` (opción 1) y
    endpoint con `aws rds describe-db-instances`.
 4. Desplegar **App** (toma el ARN nuevo del parámetro).
 5. Release normal (deploy-produccion): `migrate.mjs` con el secreto nuevo y
-   nginx con el límite. Prueba: `for i in $(seq 1 15); do curl -s -o /dev/null
-   -w '%{http_code}\n' -X POST https://vapeupar.ddns.net/api/admin/auth/login;
-   done` → seis respuestas del backend (400) y nueve 429; la portada en 200.
+   nginx con el límite. Prueba, con las 15 peticiones **en paralelo** (la zona
+   repone una cada 6 s; en serie y lentas, alguna más llegaría al backend):
+   `seq 15 | xargs -P15 -I{} curl -s -o /dev/null -w '%{http_code}\n' -X POST
+   https://vapeupar.ddns.net/api/admin/auth/login | sort | uniq -c` → seis
+   respuestas del backend (400) y nueve 429; la portada en 200. **Gasta cupo
+   de Express**: las seis que llegan cuentan como intentos fallidos del login
+   de tu IP (10 cada 15 min; cualquier respuesta no 2xx cuenta, también el 400
+   de un cuerpo vacío, así que no hay forma de evitarlo). No repitas la prueba
+   seguida ni la hagas justo antes de entrar a la consola desde la misma IP:
+   espera 15 minutos o hazla desde otra red. Repetirla también con
+   `/api/admin/AUTH/login` (mismo resultado: el límite no distingue
+   mayúsculas tras `/api/`).
 6. En local, `npm run infra:env-backend` de nuevo: la contraseña cambia con
    cada rotación.
+
+**Volver atrás la rotación** (revertir el commit de RDS y desplegar Data):
+CloudFormation tendría que crear de nuevo el secreto `vapeupar/dev/rds-master`,
+y la creación falla si ese nombre sigue existiendo, también si está
+**programado para borrado** tras el despliegue de F7. Antes de revertir:
+
+```bash
+aws secretsmanager describe-secret --secret-id vapeupar/dev/rds-master \
+  --query '[Name,DeletedDate]'     # si existe (con o sin DeletedDate):
+aws secretsmanager delete-secret --secret-id vapeupar/dev/rds-master \
+  --force-delete-without-recovery
+```
+
+`restore-secret` no sirve para revertir: deja el nombre ocupado igual, y la
+contraseña que guarda ya no vale desde que RDS aplicó la suya. Solo tiene
+sentido para consultar el secreto viejo. Al revertir, CloudFormation genera
+una contraseña nueva, la aplica con `MasterUserPassword` (sin reemplazo) y RDS
+borra su secreto `rds!db-*`; luego desplegar App, que vuelve al permiso por
+nombre.
 
 Pendiente aparte: usuario systemd propio `vapeupar-web` para el frontend
 (propuesta anotada en el Deathnote, no incluida aquí).
