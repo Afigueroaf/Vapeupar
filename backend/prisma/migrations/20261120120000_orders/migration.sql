@@ -10,6 +10,9 @@
 -- * `order_consents`: la autorización de tratamiento de datos, solo inserción.
 -- * `stock_movements.unit_price`: precio cobrado en las ventas, para ingresos y
 --   margen. Nulable: los movimientos existentes no cambian.
+--
+-- Sin índice en `customer_phone`: la consola busca por fragmento
+-- (`ILIKE '%…%'`), que un B-tree no acelera, y el volumen no justifica pg_trgm.
 
 -- CreateEnum
 CREATE TYPE "order_status" AS ENUM ('received', 'confirmed', 'delivered', 'cancelled');
@@ -75,9 +78,6 @@ CREATE INDEX "orders_status_created_at_idx" ON "orders"("status", "created_at");
 
 -- CreateIndex
 CREATE INDEX "orders_created_at_idx" ON "orders"("created_at");
-
--- CreateIndex
-CREATE INDEX "orders_customer_phone_idx" ON "orders"("customer_phone");
 
 -- CreateIndex
 CREATE INDEX "order_lines_variant_id_idx" ON "order_lines"("variant_id");

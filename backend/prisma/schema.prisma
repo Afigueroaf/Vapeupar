@@ -263,7 +263,6 @@ model Order {
 
   @@index([status, createdAt])
   @@index([createdAt])
-  @@index([customerPhone])
   @@map("orders")
 }
 
