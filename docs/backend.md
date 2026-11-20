@@ -5,9 +5,9 @@ El backend de Vapeupar es un servicio REST desarrollado en **TypeScript** con **
 
 ## Seguridad y Resiliencia
 - **Cabeceras de Seguridad (Helmet)**: Configurado para proteger la API contra ataques de scripting entre sitios (XSS), sniffing de tipo MIME y clickjacking.
-- **Limitación de Tasa (Rate Limiting)**: Tres límites, del más estricto al más laxo, y los tres se aplican: 10 intentos fallidos por 15 minutos en `/api/admin/auth/login`, 30 peticiones por minuto en `/api/admin` y 100 por minuto en `/api/*`. Por eso una ráfaga contra la consola se corta antes que la del público.
-- **Validación con Esquemas Zod 4**: Toda entrada de parámetros de consulta (`query`), de ruta (`params`) y de cuerpo se somete a validación estricta en tiempo de ejecución. Las claves desconocidas se descartan en lugar de rechazar la petición, de modo que un campo colado en un cuerpo no llega nunca al servicio.
-- **Manejo Centralizado de Errores**: Middleware global que captura excepciones no controladas y enmascara detalles técnicos internos en entornos de producción.
+- **Limitación de Tasa (Rate Limiting)**: Cuatro límites, del más estricto al más laxo, y todos los que coinciden se aplican: 10 intentos fallidos por 15 minutos en `/api/admin/auth/login`, 10 pedidos creados por 15 minutos en `/api/orders` (los rechazos 4xx no cuentan), 30 peticiones por minuto en `/api/admin` y 100 por minuto en `/api/*`. Por eso una ráfaga contra la consola se corta antes que la del público.
+- **Validación con Esquemas Zod 4**: Toda entrada de parámetros de consulta (`query`), de ruta (`params`) y de cuerpo se somete a validación estricta en tiempo de ejecución. Las claves desconocidas se descartan en lugar de rechazar la petición, de modo que un campo colado en un cuerpo no llega nunca al servicio. **Excepción: los pedidos** (`POST /api/orders` y las transiciones de `/api/admin/orders`) usan objetos estrictos y responden `400` a un campo de más, para que un precio enviado por el cliente se rechace en vez de ignorarse en silencio.
+- **Manejo Centralizado de Errores**: Middleware global que captura excepciones no controladas y enmascara detalles técnicos internos en entornos de producción. Un cuerpo que `express.json` rechaza (JSON mal formado, demasiado grande) responde su `400`/`413` y en el registro queda solo el tipo (`entity.parse.failed`), nunca el cuerpo crudo.
 - **Cierre Elegante (Graceful Shutdown)**: Captura de señales `SIGINT` y `SIGTERM` para finalizar conexiones HTTP de manera ordenada.
 
 ## Ejecución Local
@@ -40,7 +40,7 @@ backend/
 │   ├── routes/          # Rutas Express; routes/admin/ es la superficie autenticada
 │   ├── schemas/         # Esquemas de validación Zod; schemas/admin/ los del admin
 │   ├── services/        # Catálogo público y de consola, inventario, contenido, auditoría y sesión
-│   ├── types/           # Interfaces y tipos TypeScript compartidos (product.types.ts)
+│   ├── types/           # Interfaces y tipos TypeScript (producto, stock, pedidos)
 │   ├── app.ts           # Armado de la aplicación (middlewares, CORS, límites, rutas)
 │   └── index.ts         # Arranque del proceso: escucha el puerto y cierra elegante
 ├── tsconfig.json        # Configuración TypeScript NodeNext / ES2022 (strict: true)
@@ -69,7 +69,10 @@ colores— viven ahí y no en las rutas.
 **Inventario.** `stock.service.ts` es el único código que escribe movimientos y
 `Variant.stockCache`: cada operación bloquea la variante, valida signo, motivo,
 negativos e idempotencia (`operationKey`), y escribe movimiento, caché y
-auditoría en una sola transacción. Ver el registro de A3 en
+auditoría en una sola transacción. `recordMovementIn` hace lo mismo sobre una
+transacción que abre quien llama: lo usan los pedidos para confirmar todas sus
+líneas y su estado juntos (ADR-003). Las ventas admiten `unitPrice` (precio
+cobrado); ningún otro tipo. Ver el registro de A3 en
 `docs/admin-console-execution-plan.md`. El cliente generado vive en `src/generated/prisma`
 (ignorado por git; `npm run db:generate` o `prebuild` lo regeneran).
 
@@ -94,6 +97,13 @@ nace protegida.
 | `GET /api/admin/stock/image-alerts` | sesión | Variantes `published` con stock y sin `imageKey`; alimenta la alerta de imágenes del inventario |
 | `POST /api/admin/uploads/presign` | sesión | URL `PUT` prefirmada (5 min) para logos, líneas y variantes. La clave la deriva el backend; `contentType` limitado a webp/jpeg/png y `size` a 5 MB |
 | `POST /api/admin/uploads/invalidate` | sesión | Invalida en CloudFront la clave recién subida. Solo una ruta concreta del catálogo; `503` si falta `CDN_DISTRIBUTION_ID` |
+| `GET /api/admin/orders` | sesión | Pedidos del más reciente al más antiguo, con datos del cliente, líneas y `total`. `?status=&q=&from=&to=&page=&limit=`; `q` busca en referencia, nombre y (con 3 cifras o más) teléfono |
+| `GET /api/admin/orders/:id` | sesión | Un pedido. `404` si no existe |
+| `POST /api/admin/orders/:id/confirm` | sesión; descuento solo **owner** | `received` → `confirmed`. `{ deliveryFee, lines?: [{ variantId, unitPrice }] }`. Un movimiento `sale` por línea en una transacción, con `unitPrice`, la referencia en `lot` y `operationKey` `order:<id>:sale:<variantId>`. Sin stock: `409 INSUFFICIENT_STOCK` con `lines` y nada registrado. Otro precio que el de catálogo con `operator`: `403` |
+| `POST /api/admin/orders/:id/deliver` | sesión | `confirmed` → `delivered` |
+| `POST /api/admin/orders/:id/cancel` | sesión | `received`/`confirmed` → `cancelled`. `{ reason? }`. Si estaba confirmado, un `return` por línea (`order:<id>:return:<variantId>`). Entregado: `409` |
+| `POST /api/admin/orders/:id/anonymize` | **owner** | Supresión de datos del cliente (nombre, teléfono, barrio y motivo) en un pedido entregado o cancelado |
+| `POST /api/admin/orders/retention` | **owner** | Plazo de conservación: anonimiza los cerrados hace más de 365 días y caduca (cancela y anonimiza) los recibidos hace más de 30. Responde `{ cancelled, anonymized }` |
 | `GET /api/admin/inventory-notes` | sesión | Notas de inventario, con `authorEmail` y el nombre de la variante y su línea. `?variantId=&resolved=` |
 | `POST /api/admin/inventory-notes` | **owner** | Crea una nota general o asociada a una variante. Audita `inventory_note.create` |
 | `PATCH /api/admin/inventory-notes/:id/resolve` | **owner** | Marca la nota como resuelta. Audita `inventory_note.resolve` |
@@ -134,6 +144,24 @@ así que el `operator` firma subidas y guarda la clave de marca, proveedor,
 línea y variante. Lo impone `requireOwnerOrFields`, que mira el cuerpo **sin
 validar**: un PATCH de `operator` con cualquier campo de más se rechaza entero
 con `403` en vez de que Zod lo descarte y pase como si solo trajera la imagen.
+
+**Pedidos (ADR-003).** Las transiciones responden `200` con el pedido y
+`meta: { replayed, revalidated }`; repetir una transición ya hecha con los
+mismos datos es `replayed: true` y no escribe nada, y con otros datos es `409
+CONFLICT`. Un estado del que no sale la transición es `409 INVALID_STATE`. Los
+cuerpos son estrictos. Confirmar y cancelar un confirmado escriben en el libro
+con `recordMovementIn` (`stock.service.ts`) dentro de la transacción del pedido,
+que está bloqueado (`FOR UPDATE`): todas las líneas o ninguna. La auditoría
+(`order.create`, `order.confirm`, `order.deliver`, `order.cancel`,
+`order.anonymize`, `order.retention`) **no copia nombre, teléfono, barrio ni el
+motivo de cancelación**.
+
+**Regla operativa: un pedido se descuenta confirmándolo, nunca a mano.** No se
+registra en `POST /api/admin/stock/movements` una venta de un pedido que se va a
+confirmar en `/orders`: el stock se restaría dos veces. Si ya se hizo, se corrige
+con un movimiento `return` con la referencia en el lote antes de confirmar. Las
+`operationKey` que empiezan por `order:` están reservadas a los pedidos y la
+ruta manual las rechaza con `400`.
 
 **No hay DELETE en ninguna de estas entidades.** El libro de inventario
 referencia variantes y proveedores con `onDelete: Restrict`, y las líneas
@@ -217,6 +245,7 @@ escritura que ya salió bien, el backend avisa a Next con
 | `PUT /api/admin/content/:key` y `POST …/versions/:version/restore` | `contenido` |
 | `POST`/`PATCH` de marcas, líneas y variantes | `catalogo` (también basta para las marcas aliadas: `getPartnerBrands` lleva las dos) |
 | `POST /api/admin/stock/movements` (ventas, ingresos, ajustes; también un reintento) | `catalogo` |
+| `POST /api/admin/orders/:id/confirm` y `…/cancel` de un pedido confirmado | `catalogo` |
 
 La respuesta espera el aviso como mucho 3 s y lleva `meta.revalidated`: `false`
 si el frontend no contestó, rechazó el secreto o no hay secreto; el cambio se
@@ -366,6 +395,19 @@ npm run db:upload-images --workspace=backend                # subirlas y rellena
 - **Nueva migración:** `npm run db:migrate:create --workspace=backend -- --name <nombre>`
   una sola vez, revisar el SQL y aplicar con `npm run db:migrate`. Si crea una
   tabla, la misma migración debe conceder sus permisos a `vapeupar_app`.
+  Sin base a mano, la migración se puede escribir desde el esquema anterior:
+  `npx prisma migrate diff --from-schema <anterior.prisma> --to-schema prisma/schema.prisma --script`
+  (desde `backend/`; no conecta a nada).
+- **Pedidos (ADR-003), migración `20261120120000_orders`.** Se aplica con la
+  release (`migrate deploy` al activar): es aditiva y segura. El endpoint
+  público sigue apagado tras `ORDERS_ENABLED` hasta la aprobación del dueño y la
+  revisión legal.
+  Crea `orders`, `order_lines` y `order_consents` y añade
+  `stock_movements.unit_price`; solo es aditiva. Concede a `vapeupar_app`
+  `SELECT`/`INSERT` en las tres, `UPDATE` solo en las columnas que cambian las
+  transiciones y la anonimización (`orders`) y el precio cobrado
+  (`order_lines.unit_price`), y ningún `DELETE`; `order_consents` es solo
+  inserción. `db:sync-app-role` no cambia: solo gestiona la contraseña.
 
 ## Endpoints Disponibles
 
@@ -543,3 +585,41 @@ Solo nombre y slug:
 ```json
 { "success": true, "data": [{ "name": "LifePod", "slug": "lifepod" }] }
 ```
+
+### 8. `POST /api/orders` (ADR-003)
+
+El sitio registra el pedido antes de abrir WhatsApp. **Apagado por defecto**:
+solo existe con `ORDERS_ENABLED=true` (ni `write-env.mjs` ni `infra/` lo
+encienden); sin él responde el 404 genérico. Se enciende tras la aprobación del
+dueño y la revisión legal de la política (ADR-003, Estado).
+
+Público, con límite propio de **10 pedidos por IP cada 15 minutos**
+(`rateLimits.ordersMax`) además del general; solo cuentan los que crean o
+repiten un pedido (`skipFailedRequests`), porque con CGNAT móvil muchos clientes
+comparten IP y un error de tecleo no debe gastarles el cupo. Cuerpo
+**estricto** (`schemas/order.schema.ts`):
+
+```json
+{
+  "submissionKey": "UUID generado por el navegador una vez por envío",
+  "customer": { "name": "Ana Pérez", "phone": "300 123 4567", "neighborhood": "Novalito" },
+  "consent": { "accepted": true, "policyVersion": "borrador-2026-11-20" },
+  "lines": [{ "variantId": "uuid", "quantity": 2 }]
+}
+```
+
+- **No hay precio en el cuerpo**: el servidor lo toma del catálogo (línea
+  publicada con precio, variante activa). Un campo de más es `400`.
+- El teléfono se normaliza a `+573XXXXXXXXX` (móvil colombiano); nombre y barrio,
+  2–80 caracteres sin marcas. Hasta 20 líneas de 1–10 unidades, sin variantes
+  repetidas.
+- `consent.policyVersion` tiene que ser la vigente (`DATA_POLICY_VERSION`); la
+  política es un **borrador pendiente de revisión legal**. Se guarda versión,
+  finalidad y fecha del servidor en `order_consents`.
+- La referencia `VP-XXXXXX` la genera el servidor. Un pedido recibido **no
+  reserva stock**; si una línea no se puede pedir o no alcanza el disponible,
+  `409 UNAVAILABLE` con `lines: [{ variantId, reason, available? }]` y no se crea
+  nada.
+- Respuesta mínima: `201 { "success": true, "data": { "reference": "VP-…", "subtotal": 90000 } }`.
+  Un reintento con la misma `submissionKey` responde `200` con lo mismo; con otras
+  líneas, `409 CONFLICT`. No existe ninguna lectura pública de pedidos.

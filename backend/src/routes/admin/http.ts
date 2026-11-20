@@ -7,6 +7,7 @@ import { StockError, StockErrorCode } from '../../services/stock.service.js';
 import { InventoryNoteError } from '../../services/inventory-note.service.js';
 import { SiteRevalidator, SiteTag } from '../../services/site-revalidation.service.js';
 import { ImageUploadError } from '../../services/image-upload.service.js';
+import { OrderError, OrderErrorCode } from '../../services/order.service.js';
 
 /**
  * Traducción de errores de dominio a HTTP, en un solo sitio: los servicios
@@ -48,6 +49,16 @@ const CONTENT_STATUS: Record<ContentErrorCode, number> = {
   VALIDATION: 400,
   NOT_FOUND: 404,
   CONFLICT: 409
+};
+
+const ORDER_STATUS: Record<OrderErrorCode, number> = {
+  VALIDATION: 400,
+  NOT_FOUND: 404,
+  UNAVAILABLE: 409,
+  INSUFFICIENT_STOCK: 409,
+  INVALID_STATE: 409,
+  CONFLICT: 409,
+  FORBIDDEN: 403
 };
 
 export function sendValidationError(res: Response, error: ZodError, message = 'Datos inválidos'): void {
@@ -97,6 +108,16 @@ export function sendDomainError(res: Response, error: unknown): boolean {
   }
   if (error instanceof InventoryNoteError) {
     res.status(404).json({ success: false, message: error.message, code: error.code });
+    return true;
+  }
+  if (error instanceof OrderError) {
+    res.status(ORDER_STATUS[error.code]).json({
+      success: false,
+      message: error.message,
+      code: error.code,
+      // Qué línea falla y por qué: el sitio y la consola la señalan (ADR-003).
+      ...(error.details && { lines: error.details })
+    });
     return true;
   }
   if (error instanceof ImageUploadError) {
