@@ -1,11 +1,13 @@
 "use client";
 
+import { useState } from "react";
 import { Eye, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PixelLabel } from "@/components/ui/pixel-label";
 import { Surface } from "@/components/ui/surface";
-import { validateContent } from "@/lib/content-form";
+import { isRestorable } from "@/lib/content-form";
 import type { ContentKey } from "@/lib/content/schemas";
+import { FormError } from "../form";
 import { formatDateTimeCO } from "@/lib/utils";
 import type { ContentVersionRow } from "@/types/admin";
 
@@ -18,6 +20,11 @@ import type { ContentVersionRow } from "@/types/admin";
  * /:key/versions/:n/restore`): el historial nunca se reescribe. No se ofrece
  * sobre la vigente, que ya es lo publicado, ni sobre una versión que ya no
  * cumple el esquema, que el backend rechazaría.
+ *
+ * Restaurar sustituye lo que se está editando: con cambios sin publicar pide
+ * confirmación en la propia fila, como «Desactivar» en Usuarios. Si el backend
+ * la rechaza, el error se dice aquí y no sobre los campos del borrador, que no
+ * son los de esa versión.
  */
 export function VersionHistory({
   versions,
@@ -26,6 +33,8 @@ export function VersionHistory({
   viewing,
   canRestore,
   pending,
+  dirty,
+  error,
   onView,
   onRestore,
 }: {
@@ -35,14 +44,30 @@ export function VersionHistory({
   viewing: number | null;
   canRestore: boolean;
   pending: boolean;
+  /** Hay cambios sin publicar en el editor: restaurar los descartaría. */
+  dirty: boolean;
+  /** Por qué falló la última restauración. */
+  error: string | null;
   onView: (version: number) => void;
   onRestore: (version: number) => void;
 }) {
+  const [confirming, setConfirming] = useState<number | null>(null);
+
+  function askRestore(version: number) {
+    if (dirty) {
+      setConfirming(version);
+      return;
+    }
+    onRestore(version);
+  }
+
   return (
     <section aria-labelledby="content-history-title" className="space-y-3">
       <h2 id="content-history-title" className="font-display text-lg font-bold uppercase tracking-[0.02em]">
         Historial
       </h2>
+
+      {error && <FormError>{error}</FormError>}
 
       {versions.length === 0 ? (
         <Surface border="muted" className="p-4">
@@ -54,7 +79,7 @@ export function VersionHistory({
         <ol className="space-y-2">
           {versions.map((version, index) => {
             const latest = index === 0;
-            const valid = validateContent(version.key as ContentKey, version.value).value !== null;
+            const valid = isRestorable(version.key as ContentKey, version.value);
             const author = version.userId === currentUserId ? "tú" : `usuario ${version.userId.slice(0, 8)}`;
             return (
               <li key={version.version}>
@@ -82,16 +107,34 @@ export function VersionHistory({
                       <Eye className="size-4" aria-hidden="true" />
                       Ver
                     </Button>
-                    {canRestore && !latest && valid && (
+                    {canRestore && !latest && valid && confirming !== version.version && (
                       <Button
                         variant="secondary"
                         disabled={pending}
                         aria-label={`Restaurar la versión ${version.version}`}
-                        onClick={() => onRestore(version.version)}
+                        onClick={() => askRestore(version.version)}
                       >
                         <RotateCcw className="size-4" aria-hidden="true" />
                         Restaurar
                       </Button>
+                    )}
+                    {confirming === version.version && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm">Se perderán tus cambios sin publicar. ¿Restaurar igual?</span>
+                        <Button
+                          variant="secondary"
+                          disabled={pending}
+                          onClick={() => {
+                            setConfirming(null);
+                            onRestore(version.version);
+                          }}
+                        >
+                          Sí, restaurar
+                        </Button>
+                        <Button variant="ghost" onClick={() => setConfirming(null)}>
+                          Cancelar
+                        </Button>
+                      </div>
                     )}
                   </div>
                 </Surface>

@@ -81,6 +81,7 @@ export default function ContentPage() {
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
   const [partners, setPartners] = useState<string[] | null>(null);
 
   // Marcas aliadas activas, para sustituir `{marcas}` en la vista previa.
@@ -108,7 +109,9 @@ export default function ContentPage() {
     [serverErrors, validation],
   );
   const dirty = base !== null && draft !== undefined && !sameContent(key, draft, base.value);
-  const anyDirty = KEYS.some((k) => drafts[k] !== undefined);
+  // `change` solo guarda un borrador si difiere de lo cargado, así que «hay
+  // borrador» es «hay cambios reales».
+  const anyDirty = dirty || KEYS.some((k) => k !== key && drafts[k] !== undefined);
   const errorCount = Object.keys(validation?.errors ?? {}).length;
   const canPublish =
     canWrite && !pending && validation?.value != null && (dirty || base?.source !== "published");
@@ -133,10 +136,13 @@ export default function ContentPage() {
     setServerErrors({});
     setStatus(null);
     setActionError(null);
+    setRestoreError(null);
   }
 
   function change(value: unknown) {
-    setDrafts((current) => ({ ...current, [key]: value }));
+    // Volver a dejarlo como estaba no cuenta como cambio.
+    const unchanged = base !== null && sameContent(key, value, base.value);
+    setDrafts((current) => ({ ...current, [key]: unchanged ? undefined : value }));
     setServerErrors({});
     setStatus(null);
   }
@@ -154,21 +160,19 @@ export default function ContentPage() {
     reload();
   }
 
-  function failed(cause: unknown, fallback: string) {
-    if (cause instanceof AdminApiError) setServerErrors(apiFieldErrors(cause.fields));
-    setActionError(errorMessage(cause, fallback));
-  }
-
   async function publish() {
     if (!validation?.value) return;
     setPending(true);
     setActionError(null);
+    setRestoreError(null);
     setStatus(null);
     try {
       const result = await adminApi.content.publish(key, validation.value);
       afterWrite(publishedMessage(result.revalidated, result.version.version));
     } catch (cause) {
-      failed(cause, "No se pudo publicar");
+      // Un 400 se proyecta sobre los campos del borrador, que es lo que se envió.
+      if (cause instanceof AdminApiError) setServerErrors(apiFieldErrors(cause.fields));
+      setActionError(errorMessage(cause, "No se pudo publicar"));
     } finally {
       setPending(false);
     }
@@ -177,12 +181,15 @@ export default function ContentPage() {
   async function restore(version: number) {
     setPending(true);
     setActionError(null);
+    setRestoreError(null);
     setStatus(null);
     try {
       const result = await adminApi.content.restore(key, version);
       afterWrite(publishedMessage(result.revalidated, result.version.version, version));
     } catch (cause) {
-      failed(cause, "No se pudo restaurar la versión");
+      // El valor rechazado es el de la versión, no el del borrador: el error
+      // va al historial, no a los campos.
+      setRestoreError(errorMessage(cause, "No se pudo restaurar la versión"));
     } finally {
       setPending(false);
     }
@@ -263,7 +270,8 @@ export default function ContentPage() {
                 contentKey={key}
                 value={draft}
                 errors={errors}
-                readOnly={!canWrite}
+                // Mientras se publica o restaura, nada se edita: lo enviado es lo que se ve.
+                readOnly={!canWrite || pending}
                 onChange={change}
               />
 
@@ -324,6 +332,8 @@ export default function ContentPage() {
               viewing={viewing}
               canRestore={canWrite}
               pending={pending}
+              dirty={dirty}
+              error={restoreError}
               onView={(version) => setViewing((current) => (current === version ? null : version))}
               onRestore={restore}
             />
