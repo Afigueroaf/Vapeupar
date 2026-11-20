@@ -241,7 +241,7 @@ export function rejectOutputPath(target: string, repoRoot: string): string | und
   if (!inside) return undefined;
   const allowed = ['backend', 'scripts', 'data'].join(pathSep) + pathSep;
   if (fromRoot.startsWith(allowed)) return undefined;
-  return `${absolute} está dentro del repositorio y la planilla lleva costos: guárdala fuera (p. ej. --out ../../conteo.csv) o en backend/scripts/data/, que git ignora`;
+  return `${absolute} está dentro del repositorio y la planilla lleva costos: omite --out (va a backend/scripts/data/, que git ignora) o guárdala fuera, p. ej. en Documentos`;
 }
 
 // --- Plan
@@ -414,10 +414,14 @@ export function planInitialCount(input: PlanInput): CountPlan {
     const supplierName = cell(record, 'proveedor');
     let supplier: CountSupplier | undefined;
     if (supplierName) {
-      const matches = suppliersByName.get(normalize(supplierName)) ?? [];
-      if (matches.length === 0) rowErrors.push(`proveedor "${supplierName}" no existe: créalo antes en /admin`);
-      else if (matches.length > 1) rowErrors.push(`proveedor "${supplierName}" es ambiguo: hay ${matches.length} con ese nombre`);
-      else if (!matches[0].active) rowErrors.push(`proveedor "${supplierName}" está inactivo`);
+      const named = suppliersByName.get(normalize(supplierName)) ?? [];
+      // Un homónimo inactivo (p. ej. uno dado de baja y recreado) no hace ambiguo al activo.
+      const matches = named.filter(s => s.active);
+      if (matches.length === 0) {
+        rowErrors.push(named.length > 0
+          ? `proveedor "${supplierName}" está inactivo`
+          : `proveedor "${supplierName}" no existe: créalo antes en /admin`);
+      } else if (matches.length > 1) rowErrors.push(`proveedor "${supplierName}" es ambiguo: hay ${matches.length} con ese nombre`);
       else supplier = matches[0];
     }
 
@@ -452,6 +456,9 @@ export function planInitialCount(input: PlanInput): CountPlan {
       action = { kind: 'replayed', movementId: previous.movementId };
     } else if (counted === stockBefore) {
       action = { kind: 'unchanged' };
+      if (counted > 0 && (unitCost !== undefined || supplier)) {
+        warnings.push({ row, message: `la cantidad coincide con el stock (${counted}): no se registra nada y el costo y el proveedor se descartan` });
+      }
     } else if (stockBefore === 0) {
       if (unitCost === undefined) {
         errors.push({ row, message: 'falta costoUnitario: es obligatorio en un ingreso (costo por unidad en pesos)' });
@@ -565,4 +572,23 @@ export function formatPlan(plan: CountPlan): string {
     ? 'Sin errores: se puede aplicar con --apply.'
     : 'NO se puede aplicar: corrige los errores y las variantes sin fila, y vuelve a ejecutar el --dry-run.');
   return out.join('\n');
+}
+
+// --- Confirmación
+
+/** Lo que se va a escribir: fila, variante, tipo, cantidad, costo y proveedor. */
+export function pendingMovements(plan: CountPlan): string[] {
+  return plan.rows.flatMap(r => {
+    const a = r.action;
+    if (a.kind === 'inbound') return [`${r.row}|${r.variant.id}|inbound|${a.quantity}|${a.unitCost}|${a.supplierId ?? ''}`];
+    if (a.kind === 'adjustment') return [`${r.row}|${r.variant.id}|adjustment|${a.quantity}||`];
+    return [];
+  });
+}
+
+/** `true` si ambos planes escriben exactamente los mismos movimientos. */
+export function samePendingMovements(a: CountPlan, b: CountPlan): boolean {
+  const left = pendingMovements(a);
+  const right = pendingMovements(b);
+  return left.length === right.length && left.every((m, i) => m === right[i]);
 }

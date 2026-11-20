@@ -14,6 +14,7 @@ import {
   parseUnitCost,
   planInitialCount,
   rejectOutputPath,
+  samePendingMovements,
   toCsv,
   UTF8_BOM
 } from './initial-count.js';
@@ -216,5 +217,38 @@ describe('formatPlan', () => {
     expect(bad).toContain('fila 2: cantidad "x"');
     expect(bad).toContain('- lifepod-eco-3/menta');
     expect(bad).toContain('NO se puede aplicar');
+  });
+});
+
+describe('proveedores, avisos y confirmación', () => {
+  const run = (rows: string[], suppliers = SUPPLIERS) => planInitialCount({
+    records: parseCsv([HEADER, ...rows].join('\n')).records, variants: VARIANTS, suppliers, batch: '2026-11', existing: new Map()
+  });
+
+  it('un homónimo inactivo no hace ambiguo al proveedor activo', () => {
+    const suppliers = [{ id: 's-old', name: 'Distribuidora Norte', active: false }, ...SUPPLIERS];
+    const p = run([line(MANGO, '1', '1000', 'DISTRIBUIDORA NORTE'), line(MENTA, '0'), line(ONE, '4')], suppliers);
+    expect(p.errors).toEqual([]);
+    expect(p.rows[0].action).toMatchObject({ kind: 'inbound', supplierId: 's-1' });
+  });
+
+  it('solo inactivos: error de inactivo; dos activos: ambiguo', () => {
+    const inactive = run([line(MANGO, '1', '1000', 'Viejo'), line(MENTA, '0'), line(ONE, '4')], [{ id: 's-v', name: 'Viejo', active: false }]);
+    expect(inactive.errors[0].message).toMatch(/"Viejo" está inactivo/);
+    const twins = [{ id: 'a', name: 'Doble', active: true }, { id: 'b', name: 'doble', active: true }];
+    const ambiguous = run([line(MANGO, '1', '1000', 'Doble'), line(MENTA, '0'), line(ONE, '4')], twins);
+    expect(ambiguous.errors[0].message).toMatch(/ambiguo: hay 2/);
+  });
+
+  it('avisa si la cantidad coincide con el stock y se escribió un costo, que se descarta', () => {
+    const p = run([line(MANGO, '0', '1000'), line(MENTA, '0'), line(ONE, '4', '25000')]);
+    expect(p.warnings).toEqual([{ row: 4, message: expect.stringMatching(/coincide con el stock \(4\).*se descartan/) }]);
+  });
+
+  it('samePendingMovements compara variante, tipo, cantidad, costo y proveedor', () => {
+    const base = run([line(MANGO, '10', '21000'), line(MENTA, '0'), line(ONE, '4')]);
+    expect(samePendingMovements(base, run([line(MANGO, '10', '21.000'), line(MENTA, '0'), line(ONE, '4')]))).toBe(true);
+    expect(samePendingMovements(base, run([line(MANGO, '10', '21000', 'Distribuidora Norte'), line(MENTA, '0'), line(ONE, '4')]))).toBe(false);
+    expect(samePendingMovements(base, run([line(MANGO, '11', '21000'), line(MENTA, '0'), line(ONE, '4')]))).toBe(false);
   });
 });
