@@ -271,7 +271,7 @@ export function TrustStage({ showcase, children }: TrustStageProps) {
           */}
           <CardField
             className={cn(
-              "mx-auto flex w-full max-w-vp flex-1 flex-col justify-center gap-3 px-4 sm:gap-4 sm:px-6",
+              "mx-auto flex w-full max-w-vp flex-1 flex-col justify-center gap-2.5 px-4 sm:gap-4 sm:px-6",
               "portrait:pl-16",
               "landscape:grid landscape:grid-cols-3 landscape:content-center landscape:gap-6 landscape:px-16 xl:landscape:px-10",
             )}

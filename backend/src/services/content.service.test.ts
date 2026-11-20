@@ -126,6 +126,20 @@ describe('esquema por clave (A7.1)', () => {
       .rejects.toMatchObject({ code: 'VALIDATION' });
   });
 
+  it('la banda de confianza acepta el formato antiguo y rechaza enlaces', async () => {
+    const antiguo = CONTENT_SCHEMAS['trust-band'].defaults.items.map(({ label, title, detail }) => ({ label, title, detail }));
+    await expect(service.publish('trust-band', { value: { items: antiguo } }, AUTHOR))
+      .resolves.toMatchObject({ version: 1 });
+    // Sin enlaces por decisión (`dec-tarjetas-de-informacion-enlace-de-cada-tarjeta`).
+    const conEnlace = antiguo.map(item => ({ ...item, link: { label: 'Ver', href: '/#faq' } }));
+    await expect(service.publish('trust-band', { value: { items: conEnlace } }, AUTHOR))
+      .rejects.toMatchObject({ code: 'VALIDATION' });
+    // Hasta dos líneas extra, además de `detail`.
+    const largas = antiguo.map(item => ({ ...item, points: ['a', 'b', 'c'] }));
+    await expect(service.publish('trust-band', { value: { items: largas } }, AUTHOR))
+      .rejects.toMatchObject({ code: 'VALIDATION' });
+  });
+
   it('el marcador de marcas aliadas solo se admite en la FAQ', async () => {
     await expect(service.publish('hero', { value: hero(`Somos ${PARTNER_BRANDS_TOKEN}`) }, AUTHOR))
       .rejects.toMatchObject({ code: 'VALIDATION' });

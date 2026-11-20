@@ -4,6 +4,7 @@ import {
   editableValue,
   isRestorable,
   LEGAL_DUPLICATE_MESSAGE,
+  enumAt,
   itemsRangeAt,
   legalFaqSlot,
   maxLengthAt,
@@ -147,6 +148,26 @@ describe("límites sacados del esquema", () => {
     expect(itemsRangeAt("seo", ["keywords"])).toEqual({ min: 1, max: 20 });
     expect(itemsRangeAt("contact", ["hours"])).toEqual({ min: 1, max: 4 });
     expect(itemsRangeAt("contact", ["service"])).toEqual({ min: 1, max: 6 });
+  });
+
+  it("tarjetas de la banda: campos nuevos con sus límites, icono enumerado", () => {
+    expect(maxLengthAt("trust-band", ["items", 0, "highlight"])).toBe(24);
+    expect(maxLengthAt("trust-band", ["items", 1, "points", 0])).toBe(60);
+    expect(itemsRangeAt("trust-band", ["items", 2, "points"])).toEqual({ min: 1, max: 2 });
+    expect(enumAt("trust-band", ["items", 0, "icon"])).toEqual(["delivery", "original", "payment"]);
+    expect(() => enumAt("trust-band", ["items", 0, "label"])).toThrow();
+  });
+
+  it("tarjetas de la banda: el formato antiguo valida y las líneas vacías o de más se señalan", () => {
+    const antiguo = {
+      items: [0, 1, 2].map((i) => ({ label: `L${i}`, title: "Título", detail: "Detalle" })),
+    };
+    expect(validateContent("trust-band", antiguo).value).not.toBeNull();
+    const conPuntos = (points: string[]) => ({
+      items: antiguo.items.map((item, i) => (i === 1 ? { ...item, points } : item)),
+    });
+    expect(validateContent("trust-band", conPuntos(["a", "b", "c"])).errors["items.1.points"]).toBe("Máximo 2 elementos");
+    expect(validateContent("trust-band", conPuntos(["", "b"])).errors["items.1.points.0"]).toBe("No puede quedar vacío");
   });
 
   it("lanza si la ruta no tiene ese límite: un error de programación, no de datos", () => {

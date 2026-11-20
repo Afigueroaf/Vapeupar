@@ -40,3 +40,5 @@ export {
   FAQ_MAX_ITEMS, LEGAL_FAQ_INDEX, LEGAL_FAQ_ITEM, PARTNER_BRANDS_TOKEN, comparableQuestion, isLegalFaqQuestion,
   normalizeFaqForRead, stripLegalFaqItem
 } from './faq.js';
+
+export { TRUST_BAND_ICONS } from './trust-band.js';

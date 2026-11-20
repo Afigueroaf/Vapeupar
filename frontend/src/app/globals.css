@@ -387,12 +387,14 @@ html {
 
      .vp-glitch       franja  (8%, sirve de 210px de ancho para arriba) — nav,
                       intro, banda, cabecera del catálogo, FAQ, pie, lienzo 3D
-     .vp-glitch-card  tarjeta (15%, desde 115px) — tarjeta de producto
+     .vp-glitch-card  tarjeta (15%, desde 115px) — tarjeta de producto y
+                      tarjetas de la banda de confianza
      .vp-glitch-chip  pieza   (40%, desde 45px)  — botón flotante de WhatsApp
 
    La rejilla del catálogo no se filtra como bloque —crece con el catálogo, no
-   tiene techo de altura—: la lleva cada tarjeta. Y las `.vp-card` de la banda
-   de confianza no la llevan, porque ya van dentro de una franja filtrada.
+   tiene techo de altura—: la lleva cada tarjeta. Las `.vp-card` de la banda
+   de confianza también la llevan cada una: la sección no se filtra porque
+   tiene dentro el lienzo 3D (ver `trust-band.tsx`).
 
    El modal +18 queda FUERA de los tres a propósito: `filter` sobre un ancestro
    lo convierte en bloque contenedor de sus descendientes `position: fixed`, lo

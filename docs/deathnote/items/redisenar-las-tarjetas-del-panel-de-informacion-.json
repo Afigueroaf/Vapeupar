@@ -1,13 +1,13 @@
 {
   "title": "Rediseñar las tarjetas del panel de información (envío, original, pago)",
-  "status": "pendiente",
+  "status": "en_curso",
   "priority": "media",
   "area": "diseño",
   "summary": "El dueño: «quiero rediseñar las tarjetas en el apartado de información, actualmente son planas y con poca información». Son las 3 tarjetas de trust-band.tsx (ITEMS: Envío, Original, Pago), dentro del panel INFO de TrustStage: etiqueta pixel + título + una línea de detalle sobre Surface .vp-card.",
   "origin": "usuario",
   "source": "Añadido desde la terminal",
   "createdAt": "2026-11-17T22:01:47.577Z",
-  "updatedAt": "2026-11-19T03:09:42.867Z",
+  "updatedAt": "2026-11-20T06:49:26.286Z",
   "suggestions": [
     {
       "label": "Más información por tarjeta (recomendado)",
@@ -59,5 +59,5 @@
     "dec-metodos-de-pago-y-verificacion-qr",
     "dec-tarjetas-de-informacion-enlace-de-cada-tarjeta"
   ],
-  "claudeNote": "Plan 2026-11-18: Las opciones antiguas piden «mover los textos a una estructura tipada para A7»: ya está hecho (trust-band.tsx lee getContent('trust-band')); ahora toca AMPLIAR el esquema en los dos lados. El summary habla de ITEMS, constante que ya no existe. Las decisiones están en los items dec-* enlazados en «bloqueado por»."
+  "claudeNote": "Plan 2026-11-18: Las opciones antiguas piden «mover los textos a una estructura tipada para A7»: ya está hecho (trust-band.tsx lee getContent('trust-band')); ahora toca AMPLIAR el esquema en los dos lados. El summary habla de ITEMS, constante que ya no existe. Las decisiones están en los items dec-* enlazados en «bloqueado por».\n2026-11-20: implementado en la rama feat/tarjetas-info (sin fusionar). Falta: revisión visual en el Moto G15 y copy real de entrega y pago."
 }

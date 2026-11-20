@@ -1,8 +1,10 @@
 "use client";
 
 import { Lock } from "lucide-react";
+import { SelectField } from "@/components/ui/field";
 import { Surface } from "@/components/ui/surface";
 import {
+  enumAt,
   itemsRangeAt,
   legalFaqSlot,
   maxLengthAt,
@@ -14,6 +16,7 @@ import {
 import {
   LEGAL_FAQ_ITEM,
   PARTNER_BRANDS_TOKEN,
+  TRUST_BAND_ICONS,
   type ContactContent,
   type ContentKey,
   type ContentValue,
@@ -22,8 +25,9 @@ import {
   type HeroContent,
   type SeoContent,
   type TrustBandContent,
+  type TrustBandIcon,
 } from "@/lib/content/schemas";
-import { FieldGroup } from "../form";
+import { FieldGroup, Labelled } from "../form";
 import { AddButton, CountedField, ItemControls, StringListField } from "./fields";
 
 /**
@@ -68,18 +72,52 @@ function HeroEditor({ value, errors, readOnly, onChange }: EditorProps<HeroConte
   );
 }
 
+/** Nombre en la consola de cada icono de tarjeta. */
+const TRUST_ICON_LABELS: Record<TrustBandIcon, string> = {
+  delivery: "Moto (envío)",
+  original: "Sello (original)",
+  payment: "Billete (pago)",
+};
+
 function TrustBandEditor({ value, errors, readOnly, onChange }: EditorProps<TrustBandContent>) {
   type Card = TrustBandContent["items"][number];
   const set = (index: number, card: Card) => onChange({ items: replaceItem(value.items, index, card) });
+  const icons = enumAt("trust-band", ["items", 0, "icon"]) as TrustBandIcon[];
+  // `points` es opcional: la lista se puede vaciar del todo, y vacía no se guarda.
+  const pointsRange = { min: 0, max: itemsRangeAt("trust-band", ["items", 0, "points"]).max };
 
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted">
-        Son exactamente tres: el panel está maquetado para tres tarjetas apiladas en un teléfono.
+        Son exactamente tres: el panel está maquetado para tres tarjetas apiladas en un teléfono. Cada una
+        informa sin enlaces. Escribe solo lo que sea verdad hoy: zonas, tiempos, horarios y métodos de pago
+        confirmados.
       </p>
       {value.items.map((card, index) => (
         <FieldGroup key={index} title={`Tarjeta ${index + 1}`}>
           <div className="mt-3 grid gap-4 sm:grid-cols-[1fr_2fr]">
+            <Labelled
+              label="Icono"
+              htmlFor={`trust-${index}-icon`}
+              hint={card.icon ? undefined : "Sin elegir: el sitio usa el de esta posición."}
+            >
+              <SelectField
+                id={`trust-${index}-icon`}
+                value={card.icon ?? TRUST_BAND_ICONS[index] ?? icons[0]}
+                disabled={readOnly}
+                aria-invalid={errors[`items.${index}.icon`] ? true : undefined}
+                onChange={(event) => set(index, { ...card, icon: event.target.value as TrustBandIcon })}
+              >
+                {icons.map((icon) => (
+                  <option key={icon} value={icon}>
+                    {TRUST_ICON_LABELS[icon]}
+                  </option>
+                ))}
+              </SelectField>
+              {errors[`items.${index}.icon`] && (
+                <p className="mt-1 text-xs text-action">{errors[`items.${index}.icon`]}</p>
+              )}
+            </Labelled>
             <CountedField
               id={`trust-${index}-label`}
               label="Etiqueta"
@@ -88,6 +126,16 @@ function TrustBandEditor({ value, errors, readOnly, onChange }: EditorProps<Trus
               error={errors[`items.${index}.label`]}
               readOnly={readOnly}
               onChange={(label) => set(index, { ...card, label })}
+            />
+            <CountedField
+              id={`trust-${index}-highlight`}
+              label="Dato destacado"
+              hint="Opcional. En grande, bajo la etiqueta."
+              value={card.highlight ?? ""}
+              max={maxLengthAt("trust-band", ["items", index, "highlight"])}
+              error={errors[`items.${index}.highlight`]}
+              readOnly={readOnly}
+              onChange={(highlight) => set(index, { ...card, highlight: highlight.trim() ? highlight : undefined })}
             />
             <CountedField
               id={`trust-${index}-title`}
@@ -100,7 +148,8 @@ function TrustBandEditor({ value, errors, readOnly, onChange }: EditorProps<Trus
             />
             <CountedField
               id={`trust-${index}-detail`}
-              label="Detalle"
+              label="Línea 1"
+              hint="La primera línea concreta; obligatoria."
               className="sm:col-span-2"
               value={card.detail}
               max={maxLengthAt("trust-band", ["items", index, "detail"])}
@@ -108,6 +157,20 @@ function TrustBandEditor({ value, errors, readOnly, onChange }: EditorProps<Trus
               readOnly={readOnly}
               onChange={(detail) => set(index, { ...card, detail })}
             />
+            <div className="sm:col-span-2">
+              <StringListField
+                id={`trust-${index}-point`}
+                label="Líneas extra"
+                noun="Línea extra"
+                path={`items.${index}.points`}
+                values={card.points ?? []}
+                range={pointsRange}
+                maxLength={maxLengthAt("trust-band", ["items", index, "points", 0])}
+                errors={errors}
+                readOnly={readOnly}
+                onChange={(points) => set(index, { ...card, points: points.length > 0 ? points : undefined })}
+              />
+            </div>
           </div>
         </FieldGroup>
       ))}

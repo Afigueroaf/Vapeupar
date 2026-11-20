@@ -169,6 +169,7 @@ export function sameContent(key: ContentKey, a: unknown, b: unknown): boolean {
 
 type JsonNode = {
   properties?: Record<string, JsonNode>;
+  enum?: unknown[];
   items?: JsonNode;
   maxLength?: number;
   minItems?: number;
@@ -203,6 +204,15 @@ export function itemsRangeAt(key: ContentKey, path: readonly (string | number)[]
     throw new Error(`Sin límites de lista en ${key}.${path.join(".")}`);
   }
   return { min: node.minItems, max: node.maxItems };
+}
+
+/** Valores admitidos del campo enumerado en `path` (el icono de cada tarjeta). */
+export function enumAt(key: ContentKey, path: readonly (string | number)[]): string[] {
+  const values = nodeAt(key, path)?.enum;
+  if (!values?.every((value) => typeof value === "string")) {
+    throw new Error(`Sin enumeración en ${key}.${path.join(".")}`);
+  }
+  return values as string[];
 }
 
 // --- Listas ---

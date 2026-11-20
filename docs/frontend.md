@@ -131,6 +131,21 @@ etiqueta de caché `contenido` y ISR de 60 s.
 - La pregunta legal +18 de la FAQ (cédula, Ley 1335) no viaja en el
   contenido: `FAQ` la inserta siempre en la cuarta posición con
   `withLegalFaqItem` (`LEGAL_FAQ_ITEM` en `lib/content/schemas.ts`).
+- Las tarjetas de información (`TrustBandCards` en `trust-band-view.tsx`)
+  llevan icono pixel (`DeliveryIcon`, `SealIcon`, `CashIcon` de
+  `ui/icons.tsx`) en una pastilla de su color, etiqueta, dato destacado
+  (`highlight`), título y de una a tres líneas (`detail` + `points`). Acento
+  por posición —lima, violeta, blanco— en la pastilla, la viñeta y la sombra
+  dura desplazada (`--vp-tb-accent`); al pasar el puntero `.vp-card` la cambia
+  por la violeta común. Sin enlaces (decisión
+  `dec-tarjetas-de-informacion-enlace-de-cada-tarjeta`) y sin filtros nuevos:
+  el glitch sigue siendo `vp-glitch-card` en cada tarjeta. Una fila antigua
+  sin `icon` usa el de su posición. Por debajo de `sm` van compactas (menos
+  relleno y separación, icono y dato algo menores, líneas extra en
+  `text-xs/snug`): a 375×667 en vertical, con el copy por defecto, la banda
+  mide ~646 px (la pantalla bajo la barra son 603; es `min-h`, así que crece
+  en vez de recortar). Desde `sm` las medidas no cambian. El texto muted sobre la zona más clara de `.vp-card` (violeta al
+  24 %) queda en ~4.8:1.
 - La presentación de la intro, la banda y el pie está separada de la lectura:
   `HeroView`, `TrustBandCards` y `ContactView` no piden datos, y `Hero`,
   `TrustBand` y `Footer` los leen y las renderizan. La vista previa de
