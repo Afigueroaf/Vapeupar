@@ -9,7 +9,8 @@ import {
   isValidBatch,
   operationKeyFor,
   parseCsv,
-  planInitialCount
+  planInitialCount,
+  samePendingMovements
 } from '../catalog/initial-count.js';
 import { StockRepository } from '../repositories/stock.repository.js';
 import { UserRepository } from '../repositories/user.repository.js';
@@ -31,8 +32,8 @@ export interface InitialCountSource {
 
 /** Algo impide planificar o aplicar: usuario, lote, archivo o cambio durante la importación. */
 export class InitialCountError extends Error {
-  constructor(message: string) {
-    super(message);
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
     this.name = 'InitialCountError';
   }
 }
@@ -57,13 +58,15 @@ export interface ImportOptions {
   userEmail: string;
   /** Sin `apply` solo se planifica: no se escribe nada. */
   apply: boolean;
+  /** Vista previa que el dueño confirmó: si el plan recalculado difiere, no se aplica. */
+  confirmedPlan?: CountPlan;
 }
 
 export class InitialCountService {
   constructor(
     private readonly source: InitialCountSource,
     private readonly stockRepository: StockRepository,
-    private readonly stock: StockService,
+    private readonly stock: Pick<StockService, 'recordMovement'>,
     private readonly users: UserRepository
   ) {}
 
@@ -81,7 +84,11 @@ export class InitialCountService {
     return user.id;
   }
 
-  /** Movimientos de este lote que ya están en el libro, con el disponible tras cada uno. */
+  /**
+   * Movimientos de este lote que ya están en el libro, con el disponible tras
+   * cada uno. `listMovements` ordena por fecha y desempata por id (UUIDv7), así
+   * que el saldo es el del libro aunque dos movimientos compartan milisegundo.
+   */
   private async existingMovements(variants: CountVariant[], batch: string): Promise<Map<string, ExistingCountMovement>> {
     const found = new Map<string, ExistingCountMovement>();
     for (const variant of variants) {
@@ -118,22 +125,18 @@ export class InitialCountService {
     const plan = planInitialCount({ records, variants, suppliers, batch: options.batch, existing });
 
     if (!options.apply || !plan.canApply) return { plan, applied: false, results: [] };
+    if (options.confirmedPlan && !samePendingMovements(options.confirmedPlan, plan)) {
+      throw new InitialCountError(
+        'El plan cambió desde la vista previa confirmada (variante, tipo, cantidad, costo o proveedor): ' +
+        'no se ha escrito nada. Vuelve a pasar el dry-run.'
+      );
+    }
 
     const results: AppliedRow[] = [];
     for (const row of plan.rows) {
       const { action, variant } = row;
       if (action.kind !== 'inbound' && action.kind !== 'adjustment') continue;
       const ref = `${variant.productSlug}/${variant.slug}`;
-      const done = `${results.length} movimiento(s) ya aplicados; repetir con el mismo --batch continúa sin duplicarlos`;
-
-      // El ajuste se calculó contra este stock: si cambió (una venta en medio),
-      // registrarlo dejaría un disponible distinto del contado.
-      const current = await this.stockRepository.getStockCache(variant.id);
-      if (current !== row.stockBefore) {
-        throw new InitialCountError(
-          `Fila ${row.row} (${ref}): el stock cambió durante la importación (${row.stockBefore} → ${current}). ${done}`
-        );
-      }
 
       try {
         const result = await this.stock.recordMovement({
@@ -144,14 +147,18 @@ export class InitialCountService {
           supplierId: action.kind === 'inbound' ? action.supplierId ?? undefined : undefined,
           unitCost: action.kind === 'inbound' ? action.unitCost : undefined,
           userId,
-          operationKey: row.operationKey
+          operationKey: row.operationKey,
+          // El movimiento se calculó contra este stock; se comprueba bajo el
+          // bloqueo de la variante, así que una venta en medio no se pierde.
+          expectedStock: row.stockBefore
         });
         results.push({ row: row.row, ref, stock: result.stock, replayed: result.replayed });
       } catch (error) {
-        if (error instanceof StockError) {
-          throw new InitialCountError(`Fila ${row.row} (${ref}): ${error.code} ${error.message}. ${done}`);
-        }
-        throw error;
+        const done = `${results.length} movimiento(s) ya aplicados; repetir el mismo --batch continúa sin duplicarlos`;
+        const detail = error instanceof StockError
+          ? `${error.code} ${error.message}`
+          : (error instanceof Error ? error.message : String(error));
+        throw new InitialCountError(`Fila ${row.row} (${ref}): ${detail}. ${done}`, { cause: error });
       }
     }
     return { plan, applied: true, results };

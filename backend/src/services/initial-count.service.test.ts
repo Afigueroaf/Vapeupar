@@ -157,24 +157,73 @@ describe('InitialCountService.importCount', () => {
     await expect(run('variantId;cantidad\n"roto', false)).rejects.toThrow(/no es un CSV válido/);
   });
 
-  it('si el stock cambia entre el plan y la escritura, se detiene sin registrar esa fila', async () => {
-    const csv = await filledTemplate({ 'v-mango': ['10', '21000'] });
-    // Una venta llega justo después de planificar: el catálogo ya se leyó.
-    let planned = false;
-    const base = sourceFor(stockRepo);
-    const source: InitialCountSource = {
-      listVariants: async () => {
-        const variants = await base.listVariants();
-        planned = true;
-        return variants;
-      },
-      listSuppliers: base.listSuppliers
+  it('una venta real entre el plan y la escritura detiene la importación bajo el bloqueo, sin perderla', async () => {
+    await stock.recordMovement({ variantId: 'v-blue', type: 'inbound', quantity: 6, userId: OWNER.id, operationKey: 'previo-0001' });
+    const csv = await filledTemplate({ 'v-mango': ['10', '21000'], 'v-blue': ['4'] });
+    // La venta entra justo antes de escribir el ajuste de v-blue, ya planificado contra 6.
+    let sold = false;
+    const racing: Pick<StockService, 'recordMovement'> = {
+      recordMovement: async input => {
+        if (input.variantId === 'v-blue' && !sold) {
+          sold = true;
+          await stock.recordMovement({ variantId: 'v-blue', type: 'sale', quantity: 1, userId: OWNER.id, operationKey: 'venta-whatsapp-1' });
+        }
+        return stock.recordMovement(input);
+      }
     };
-    const original = stockRepo.getStockCache.bind(stockRepo);
-    stockRepo.getStockCache = async id => (planned && id === 'v-mango' ? -1 : original(id));
-    const racing = new InitialCountService(source, stockRepo, stock, new InMemoryUserRepository([OWNER]));
-    await expect(racing.importCount({ csvText: csv, batch: '2026-11', userEmail: OWNER.email, apply: true }))
-      .rejects.toThrow(/el stock cambió durante la importación \(0 → -1\)/);
+    const svc = new InitialCountService(sourceFor(stockRepo), stockRepo, racing, new InMemoryUserRepository([OWNER]));
+    await expect(svc.importCount({ csvText: csv, batch: '2026-11', userEmail: OWNER.email, apply: true }))
+      .rejects.toThrow(/Fila \d+ \(lifepod-one\/electric-blue\): STOCK_CHANGED .*1 movimiento\(s\) ya aplicados; repetir el mismo --batch continúa/);
+    expect(await stockRepo.getStockCache('v-blue')).toBe(5);
+    expect(stockRepo.movements.filter(m => m.type === 'adjustment')).toHaveLength(0);
+  });
+
+  it('aborta sin escribir si el plan recalculado difiere de la vista previa confirmada', async () => {
+    const preview = await run(await filledTemplate({ 'v-mango': ['10', '21000'] }), false);
+    const edited = await filledTemplate({ 'v-mango': ['10', '22000'] });
+    await expect(service.importCount({ csvText: edited, batch: '2026-11', userEmail: OWNER.email, apply: true, confirmedPlan: preview.plan }))
+      .rejects.toThrow(/El plan cambió desde la vista previa/);
     expect(stockRepo.movements).toHaveLength(0);
+
+    const same = await filledTemplate({ 'v-mango': ['10', '21000'] });
+    const ok = await service.importCount({ csvText: same, batch: '2026-11', userEmail: OWNER.email, apply: true, confirmedPlan: preview.plan });
+    expect(ok.results).toHaveLength(1);
+  });
+
+  it('un fallo a mitad deja aplicadas las anteriores y repetir el lote continúa sin duplicar', async () => {
+    const csv = await filledTemplate({ 'v-mango': ['10', '21000'], 'v-menta': ['2', '21000'], 'v-blue': ['3', '25000'] });
+    let calls = 0;
+    const flaky: Pick<StockService, 'recordMovement'> = {
+      recordMovement: async input => {
+        if (++calls === 2) throw new Error('se cayó el túnel');
+        return stock.recordMovement(input);
+      }
+    };
+    const svc = new InitialCountService(sourceFor(stockRepo), stockRepo, flaky, new InMemoryUserRepository([OWNER]));
+    await expect(svc.importCount({ csvText: csv, batch: '2026-11', userEmail: OWNER.email, apply: true }))
+      .rejects.toThrow(/se cayó el túnel\. 1 movimiento\(s\) ya aplicados; repetir el mismo --batch continúa/);
+    expect(stockRepo.movements).toHaveLength(1);
+
+    const resumed = await run(csv, true);
+    expect(resumed.plan.totals.replayed).toBe(1);
+    expect(resumed.results.map(r => [r.ref, r.stock, r.replayed])).toEqual([
+      ['lifepod-eco-3/menta', 2, false], ['lifepod-one/electric-blue', 3, false]
+    ]);
+    expect(stockRepo.movements).toHaveLength(3);
+    expect(await run(csv, true)).toMatchObject({ results: [], plan: { totals: { replayed: 3 } } });
+  });
+
+  it('repetir un ajuste sobre stock previo es replay, no un segundo ajuste', async () => {
+    await stock.recordMovement({ variantId: 'v-blue', type: 'inbound', quantity: 6, userId: OWNER.id, operationKey: 'previo-0001' });
+    const csv = await filledTemplate({ 'v-blue': ['4'] });
+    const first = await run(csv, true);
+    expect(first.results).toEqual([expect.objectContaining({ ref: 'lifepod-one/electric-blue', stock: 4, replayed: false })]);
+
+    const again = await run(csv, true);
+    expect(again.plan.errors).toEqual([]);
+    expect(again.plan.rows.find(r => r.variant.id === 'v-blue')?.action.kind).toBe('replayed');
+    expect(again.results).toEqual([]);
+    expect(stockRepo.movements.filter(m => m.type === 'adjustment')).toHaveLength(1);
+    expect(await stockRepo.getStockCache('v-blue')).toBe(4);
   });
 });
