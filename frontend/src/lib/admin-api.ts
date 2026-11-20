@@ -16,6 +16,10 @@ import type {
   InventoryNote,
   ImageUploadTarget,
   MovementResult,
+  Order,
+  OrderLineIssue,
+  OrderStatus,
+  OrderTransition,
   PagedResponse,
   ProductInput,
   ProductStatus,
@@ -55,6 +59,8 @@ export class AdminApiError extends Error {
     public readonly fields?: { field: string; message: string }[],
     /** En un `NOT_PUBLISHABLE`: qué le falta a la línea para publicarse. */
     public readonly missing?: string[],
+    /** En un `409` de pedidos: qué líneas fallan y por qué. */
+    public readonly lines?: OrderLineIssue[],
   ) {
     super(message);
     this.name = "AdminApiError";
@@ -88,6 +94,7 @@ interface ApiEnvelope {
   code?: string;
   errors?: { field: string; message: string }[];
   missing?: string[];
+  lines?: OrderLineIssue[];
   data?: unknown;
 }
 
@@ -124,6 +131,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       body.code,
       body.errors,
       body.missing,
+      Array.isArray(body.lines) ? body.lines : undefined,
     );
   }
 
@@ -157,6 +165,34 @@ export interface MovementInput {
   lot?: string;
   /** La genera el cliente, una por intento: hace seguro el reintento. */
   operationKey: string;
+}
+
+export interface OrderQuery {
+  status?: OrderStatus;
+  /** Referencia, nombre o teléfono (3 cifras o más). */
+  q?: string;
+  /** `YYYY-MM-DD` o ISO 8601. */
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface ConfirmOrderInput {
+  /** Domicilio cobrado; 0 si se recoge o va incluido. */
+  deliveryFee: number;
+  /** Solo las líneas con otro precio que el de catálogo, y solo el owner. */
+  lines?: { variantId: string; unitPrice: number }[];
+}
+
+type TransitionBody = { data: Order; meta?: { replayed?: boolean; revalidated?: boolean } };
+
+function toTransition(body: TransitionBody): OrderTransition {
+  return {
+    order: body.data,
+    replayed: body.meta?.replayed === true,
+    revalidated: body.meta?.revalidated === true,
+  };
 }
 
 export interface InventoryNotesQuery {
@@ -525,6 +561,67 @@ export const adminApi = {
       { method: "PATCH", body: JSON.stringify(patch) },
     );
     return body.data;
+  },
+
+  // ---- Pedidos (ADR-003). Leer y mover, cualquier sesión; descuentos, anonimizar y plazo, solo el dueño. ----
+
+  orders: {
+    list(query: OrderQuery = {}): Promise<PagedResponse<Order>> {
+      return request(`/orders${toSearchParams({ ...query })}`);
+    },
+
+    async get(id: string): Promise<Order> {
+      const body = await request<{ data: Order }>(`/orders/${encodeURIComponent(id)}`);
+      return body.data;
+    },
+
+    /** Descuenta el stock: un movimiento `sale` por línea, todas o ninguna. */
+    async confirm(id: string, input: ConfirmOrderInput): Promise<OrderTransition> {
+      return toTransition(
+        await request<TransitionBody>(`/orders/${encodeURIComponent(id)}/confirm`, {
+          method: "POST",
+          body: JSON.stringify(input),
+        }),
+      );
+    },
+
+    async deliver(id: string): Promise<OrderTransition> {
+      return toTransition(
+        await request<TransitionBody>(`/orders/${encodeURIComponent(id)}/deliver`, {
+          method: "POST",
+          body: JSON.stringify({}),
+        }),
+      );
+    },
+
+    /** Si estaba confirmado, devuelve el stock con un `return` por línea. */
+    async cancel(id: string, reason?: string): Promise<OrderTransition> {
+      return toTransition(
+        await request<TransitionBody>(`/orders/${encodeURIComponent(id)}/cancel`, {
+          method: "POST",
+          body: JSON.stringify(reason ? { reason } : {}),
+        }),
+      );
+    },
+
+    /** Supresión de los datos del cliente en un pedido cerrado. Solo owner. */
+    async anonymize(id: string): Promise<OrderTransition> {
+      return toTransition(
+        await request<TransitionBody>(`/orders/${encodeURIComponent(id)}/anonymize`, {
+          method: "POST",
+          body: JSON.stringify({}),
+        }),
+      );
+    },
+
+    /** Plazo de conservación (ADR-003 §4). Solo owner. */
+    async applyRetention(): Promise<{ cancelled: number; anonymized: number }> {
+      const body = await request<{ data: { cancelled: number; anonymized: number } }>("/orders/retention", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      return body.data;
+    },
   },
 
   // ---- Contenido del sitio (A5.4). Leer, cualquier sesión; publicar, solo el dueño. ----
