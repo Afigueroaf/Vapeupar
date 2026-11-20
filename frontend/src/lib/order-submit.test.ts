@@ -7,7 +7,14 @@ import {
   buildOrderBody,
   canRegister,
   interpretOrderResponse,
+  isUncertain,
   nextSubmissionKey,
+  offersWhatsAppOnly,
+  registersOrders,
+  SUBMISSION_KEY_TTL_MS,
+  submitWithRetry,
+  type OrderBody,
+  type OrderOutcome,
   ordersEnabled,
   ordersUrl,
   submitOrder,
@@ -88,17 +95,86 @@ describe("nextSubmissionKey", () => {
   it("repite la clave para el mismo envío y estrena una si cambian los datos o el carrito", () => {
     let n = 0;
     const newKey = () => `k-${++n}`;
-    const first = nextSubmissionKey(null, fingerprint(), newKey);
+    const t = 1_000_000;
+    const first = nextSubmissionKey(null, fingerprint(), t, newKey);
     expect(first.key).toBe("k-1");
-    expect(nextSubmissionKey(first, fingerprint(), newKey).key).toBe("k-1");
-    const edited = nextSubmissionKey(first, fingerprint({ ...customer, neighborhood: "Los Mayales" }), newKey);
+    expect(nextSubmissionKey(first, fingerprint(), t + 1000, newKey).key).toBe("k-1");
+    const edited = nextSubmissionKey(first, fingerprint({ ...customer, neighborhood: "Los Mayales" }), t, newKey);
     expect(edited.key).toBe("k-2");
-    const fewer = nextSubmissionKey(edited, fingerprint(customer, [lines[0]]), newKey);
+    const fewer = nextSubmissionKey(edited, fingerprint(customer, [lines[0]]), t, newKey);
     expect(fewer.key).toBe("k-3");
+  });
+
+  it("caduca a los 15 minutos aunque nada cambie", () => {
+    let n = 0;
+    const newKey = () => `k-${++n}`;
+    const first = nextSubmissionKey(null, fingerprint(), 0, newKey);
+    expect(nextSubmissionKey(first, fingerprint(), SUBMISSION_KEY_TTL_MS - 1, newKey).key).toBe("k-1");
+    const later = nextSubmissionKey(first, fingerprint(), SUBMISSION_KEY_TTL_MS, newKey);
+    expect(later).toEqual({ key: "k-2", fingerprint: fingerprint(), createdAt: SUBMISSION_KEY_TTL_MS });
+    // Un reloj que va hacia atrás tampoco alarga la vida de la clave.
+    expect(nextSubmissionKey(later, fingerprint(), 0, newKey).key).toBe("k-3");
   });
 
   it("por defecto es un UUID", () => {
     expect(nextSubmissionKey(null, "x").key).toMatch(/^[0-9a-f-]{36}$/);
+  });
+});
+
+describe("registersOrders", () => {
+  it("exige la variable encendida y una política que no sea borrador", () => {
+    expect(registersOrders("true", "2027-01-15")).toBe(true);
+    expect(registersOrders("true", "borrador-2026-11-20")).toBe(false);
+    expect(registersOrders(undefined, "2027-01-15")).toBe(false);
+    // Hoy la política es un borrador: aunque se encienda la variable, no se registra.
+    expect(registersOrders("true")).toBe(false);
+  });
+});
+
+describe("submitWithRetry", () => {
+  const body = { submissionKey: "k-1" } as OrderBody;
+  const created: OrderOutcome = { kind: "created", reference: "VP-ABC234", subtotal: 1 };
+
+  it("ante un fallo incierto reintenta una vez con el mismo cuerpo y la misma clave", async () => {
+    const submit = vi.fn<(b: OrderBody) => Promise<OrderOutcome>>()
+      .mockResolvedValueOnce({ kind: "fallback", cause: "network" })
+      .mockResolvedValueOnce(created);
+    expect(await submitWithRetry(body, submit)).toEqual(created);
+    expect(submit).toHaveBeenCalledTimes(2);
+    expect(submit.mock.calls.map(([b]) => b.submissionKey)).toEqual(["k-1", "k-1"]);
+  });
+
+  it("si el reintento también falla, devuelve el fallo incierto sin un tercer intento", async () => {
+    const submit = vi.fn<(b: OrderBody) => Promise<OrderOutcome>>().mockResolvedValue({ kind: "fallback", cause: "server" });
+    const outcome = await submitWithRetry(body, submit);
+    expect(isUncertain(outcome)).toBe(true);
+    expect(submit).toHaveBeenCalledTimes(2);
+  });
+
+  it("un 404 (apagado en el servidor) no se reintenta: nada se guardó", async () => {
+    const submit = vi.fn<(b: OrderBody) => Promise<OrderOutcome>>().mockResolvedValue({ kind: "fallback", cause: "disabled" });
+    const outcome = await submitWithRetry(body, submit);
+    expect(outcome).toEqual({ kind: "fallback", cause: "disabled" });
+    expect(isUncertain(outcome)).toBe(false);
+    expect(submit).toHaveBeenCalledTimes(1);
+  });
+
+  it("las respuestas claras tampoco se reintentan", async () => {
+    for (const outcome of [created, { kind: "conflict" } as const, { kind: "rate-limited", message: "x" } as const]) {
+      const submit = vi.fn<(b: OrderBody) => Promise<OrderOutcome>>().mockResolvedValue(outcome);
+      expect(await submitWithRetry(body, submit)).toEqual(outcome);
+      expect(submit).toHaveBeenCalledTimes(1);
+    }
+  });
+});
+
+describe("offersWhatsAppOnly", () => {
+  it("con el límite y con un 400 que no se arregla en el formulario", () => {
+    expect(offersWhatsAppOnly({ kind: "rate-limited", message: "x" })).toBe(true);
+    expect(offersWhatsAppOnly({ kind: "invalid", fields: {}, message: "Una variante aparece dos veces", policyChanged: false })).toBe(true);
+    expect(offersWhatsAppOnly({ kind: "invalid", fields: { consent: "x" }, message: "x", policyChanged: true })).toBe(true);
+    expect(offersWhatsAppOnly({ kind: "invalid", fields: { phone: "x" }, message: "x", policyChanged: false })).toBe(false);
+    expect(offersWhatsAppOnly({ kind: "unavailable", lines: [] })).toBe(false);
   });
 });
 

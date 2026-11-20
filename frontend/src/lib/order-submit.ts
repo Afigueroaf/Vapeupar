@@ -1,5 +1,5 @@
 import type { CartLine } from "@/lib/cart";
-import { DATA_POLICY_VERSION, type CustomerErrors, type CustomerValue } from "@/lib/order-form";
+import { DATA_POLICY_VERSION, isDraftPolicy, type CustomerErrors, type CustomerValue } from "@/lib/order-form";
 
 /**
  * Registro del pedido en el backend antes de abrir WhatsApp (ADR-003, parte 2).
@@ -9,9 +9,15 @@ import { DATA_POLICY_VERSION, type CustomerErrors, type CustomerValue } from "@/
  * - **Registrado**: con `NEXT_PUBLIC_ORDERS_ENABLED=true`, el carrito pide
  *   nombre, celular, barrio y la autorización, hace `POST /api/orders` y abre
  *   WhatsApp con la referencia y el subtotal que devuelve el servidor.
- * - **Solo WhatsApp**: sin la variable (el valor por defecto), o si el servidor
- *   no contesta, el carrito hace exactamente lo de antes: referencia generada
- *   en el navegador, sin pedir datos, y WhatsApp.
+ * - **Solo WhatsApp**: sin la variable (el valor por defecto) o con la política
+ *   en borrador, el carrito hace exactamente lo de antes: referencia generada
+ *   en el navegador, sin pedir datos, y WhatsApp. También si la ruta no existe
+ *   (404: el backend la tiene apagada).
+ *
+ * Si el envío falla de forma incierta (red, tiempo, 5xx), el pedido pudo
+ * quedar guardado: se reintenta con la misma clave y, si sigue sin respuesta,
+ * el cajón deja elegir entre reintentar y mandarlo solo por WhatsApp, en vez
+ * de abrir WhatsApp con otra referencia por su cuenta.
  *
  * La variable pública y `ORDERS_ENABLED` del backend se encienden juntas: con
  * la pública encendida y el backend apagado, `POST /api/orders` es 404 y cada
@@ -24,6 +30,19 @@ import { DATA_POLICY_VERSION, type CustomerErrors, type CustomerValue } from "@/
 /** `true` solo si la variable pública vale exactamente `true`. */
 export function ordersEnabled(value: string | undefined = process.env.NEXT_PUBLIC_ORDERS_ENABLED): boolean {
   return value?.trim() === "true";
+}
+
+/**
+ * Si el carrito registra pedidos: la variable encendida **y** una política de
+ * datos ya revisada. Mientras la versión sea un borrador no se piden ni se
+ * guardan datos personales, aunque alguien encienda la variable; el backend
+ * tiene la misma guarda.
+ */
+export function registersOrders(
+  flag: string | undefined = process.env.NEXT_PUBLIC_ORDERS_ENABLED,
+  policyVersion: string = DATA_POLICY_VERSION,
+): boolean {
+  return ordersEnabled(flag) && !isDraftPolicy(policyVersion);
 }
 
 /** Igual que `MAX_LINES` del backend. */
@@ -80,15 +99,33 @@ export function bodyFingerprint(body: Omit<OrderBody, "submissionKey">): string 
 export interface SubmissionKeyState {
   key: string;
   fingerprint: string;
+  /** Cuándo se generó (ms). */
+  createdAt: number;
 }
 
-/** Devuelve la clave a usar para esta huella: la misma si no cambió, una nueva si sí. */
+/**
+ * Vida máxima de una clave. Un reintento legítimo (doble toque, corte de red)
+ * llega en segundos o minutos; pasado este rato, el mismo carrito con los
+ * mismos datos es otro pedido, no una repetición del anterior.
+ */
+export const SUBMISSION_KEY_TTL_MS = 15 * 60 * 1000;
+
+/**
+ * Devuelve la clave a usar para esta huella: la misma si no cambió y no ha
+ * caducado; una nueva si cambió algo o pasó `SUBMISSION_KEY_TTL_MS`.
+ */
 export function nextSubmissionKey(
   current: SubmissionKeyState | null,
   fingerprint: string,
+  now: number = Date.now(),
   newKey: () => string = () => crypto.randomUUID(),
 ): SubmissionKeyState {
-  return current && current.fingerprint === fingerprint ? current : { key: newKey(), fingerprint };
+  const reusable =
+    current !== null &&
+    current.fingerprint === fingerprint &&
+    now - current.createdAt >= 0 &&
+    now - current.createdAt < SUBMISSION_KEY_TTL_MS;
+  return reusable ? current : { key: newKey(), fingerprint, createdAt: now };
 }
 
 export interface LineIssue {
@@ -108,7 +145,10 @@ export type OrderOutcome =
   | { kind: "rate-limited"; message: string }
   /** El backend rechazó un dato: errores por campo cuando se pueden señalar. */
   | { kind: "invalid"; fields: CustomerErrors; message: string; policyChanged: boolean }
-  /** No hay registro posible (apagado, caído, sin red): se usa el camino de siempre. */
+  /**
+   * Sin registro: `disabled` (404, nada se guardó) va directo al camino de
+   * siempre; `network` y `server` son inciertos (ver `isUncertain`).
+   */
   | { kind: "fallback"; cause: "network" | "disabled" | "server" };
 
 const FIELD_OF: Record<string, keyof CustomerErrors> = {
@@ -193,6 +233,40 @@ export function interpretOrderResponse(status: number, body: unknown): OrderOutc
   // 404: la ruta no está montada (ORDERS_ENABLED apagado en el backend).
   if (status === 404) return { kind: "fallback", cause: "disabled" };
   return { kind: "fallback", cause: "server" };
+}
+
+/**
+ * Un fallo en el que el pedido **pudo** quedar guardado: la petición salió y
+ * no sabemos qué pasó (red cortada, tiempo agotado, 5xx, respuesta rara). Un
+ * 404 no entra: la ruta no existe y nada se guardó.
+ */
+export function isUncertain(outcome: OrderOutcome): boolean {
+  return outcome.kind === "fallback" && outcome.cause !== "disabled";
+}
+
+/**
+ * Envía y, si el resultado es incierto, reintenta **una vez con la misma
+ * clave**: si el primer envío sí se guardó, el backend devuelve ese pedido en
+ * vez de crear otro, y el cliente no acaba mandando por WhatsApp una
+ * referencia distinta de la guardada.
+ */
+export async function submitWithRetry(
+  body: OrderBody,
+  submit: (body: OrderBody) => Promise<OrderOutcome> = (b) => submitOrder(b),
+): Promise<OrderOutcome> {
+  const first = await submit(body);
+  return isUncertain(first) ? submit(body) : first;
+}
+
+/**
+ * Si, tras este resultado, el cajón ofrece «Enviar solo por WhatsApp»: con el
+ * límite de pedidos y con un `400` que el cliente no puede arreglar en el
+ * formulario (líneas, política cambiada).
+ */
+export function offersWhatsAppOnly(outcome: OrderOutcome): boolean {
+  if (outcome.kind === "rate-limited") return true;
+  if (outcome.kind === "invalid") return outcome.policyChanged || Object.keys(outcome.fields).length === 0;
+  return false;
 }
 
 /** Lo que espera el cajón antes de dar el servidor por caído. */

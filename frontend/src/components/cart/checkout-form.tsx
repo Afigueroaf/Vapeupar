@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useImperativeHandle, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { TextField } from "@/components/ui/field";
 import {
   DATA_POLICY_PATH,
@@ -24,8 +24,10 @@ import { cn } from "@/lib/utils";
  * la etiqueta para que tocarlo no la marque.
  */
 
-export interface CheckoutFormHandle {
-  focus: (field: CustomerField) => void;
+/** Pide el foco para un campo; `seq` distinto repite la petición sobre el mismo campo. */
+export interface FocusRequest {
+  field: CustomerField;
+  seq: number;
 }
 
 const LABEL = "mb-2 block text-sm font-semibold uppercase tracking-[0.04em]";
@@ -52,14 +54,14 @@ const FIELDS: { field: Exclude<CustomerField, "consent">; label: string; hint?: 
 ];
 
 export function CheckoutForm({
-  ref,
+  focusRequest,
   idPrefix,
   draft,
   errors,
   disabled,
   onChange,
 }: {
-  ref?: React.Ref<CheckoutFormHandle>;
+  focusRequest?: FocusRequest | null;
   idPrefix: string;
   draft: CustomerDraft;
   errors: CustomerErrors;
@@ -68,9 +70,10 @@ export function CheckoutForm({
 }) {
   const inputs = useRef<Partial<Record<CustomerField, HTMLInputElement | null>>>({});
 
-  useImperativeHandle(ref, () => ({
-    focus: (field) => inputs.current[field]?.focus({ preventScroll: false }),
-  }));
+  // Una prop y no un `ref`: el formulario se carga con `next/dynamic`.
+  useEffect(() => {
+    if (focusRequest) inputs.current[focusRequest.field]?.focus({ preventScroll: false });
+  }, [focusRequest]);
 
   const id = (field: CustomerField) => `${idPrefix}-${field}`;
 

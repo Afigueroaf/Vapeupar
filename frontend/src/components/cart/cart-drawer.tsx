@@ -1,12 +1,12 @@
 "use client";
 
 import Image from "next/image";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { CloseIcon, TrashIcon } from "@/components/ui/icons";
 import { useEffect, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { Button, buttonStyles } from "@/components/ui/button";
-import { CheckoutForm, type CheckoutFormHandle } from "@/components/cart/checkout-form";
 import { PixelLabel } from "@/components/ui/pixel-label";
 import { QuantityStepper } from "@/components/ui/quantity-stepper";
 import {
@@ -27,15 +27,18 @@ import {
   validateCustomer,
   type CustomerDraft,
   type CustomerErrors,
+  type CustomerField,
 } from "@/lib/order-form";
 import {
   adjustmentsFor,
   bodyFingerprint,
   buildOrderBody,
   canRegister,
+  isUncertain,
   nextSubmissionKey,
-  ordersEnabled,
-  submitOrder,
+  offersWhatsAppOnly,
+  registersOrders,
+  submitWithRetry,
   type OrderOutcome,
   type SubmissionKeyState,
 } from "@/lib/order-submit";
@@ -51,7 +54,16 @@ const TITLE_ID = "vp-carrito-titulo";
  * Pedidos registrados en el backend (ADR-003). Se lee al compilar: con la
  * variable apagada, el cajón se comporta exactamente como antes.
  */
-const REGISTER_ORDERS = ordersEnabled();
+const REGISTER_ORDERS = registersOrders();
+
+/**
+ * El formulario de datos solo se descarga si se va a usar: con los pedidos
+ * apagados no entra en el JavaScript de ninguna página (el cajón va en todas).
+ */
+const CheckoutForm = dynamic(
+  () => import("@/components/cart/checkout-form").then((module) => module.CheckoutForm),
+  { ssr: false, loading: () => <p className="text-sm text-muted">Cargando…</p> },
+);
 
 /** Qué muestra el cuerpo del cajón. */
 type View = "cart" | "details" | "sent";
@@ -96,8 +108,11 @@ function useIsClient() {
  * apagado —el valor por defecto— «Pedir por WhatsApp» hace lo de siempre:
  * referencia del navegador y WhatsApp, sin pedir datos. Encendido, abre la
  * vista de datos (nombre, celular, barrio y autorización), registra el pedido
- * con `POST /api/orders` y abre WhatsApp con la referencia del servidor. Si el
- * servidor no lo registra (caído, apagado, sin red), vuelve al modo de siempre.
+ * con `POST /api/orders` y abre WhatsApp con la referencia del servidor (solo
+ * con una política de datos ya revisada: `registersOrders`). Si la ruta no
+ * existe (404) vuelve al modo de siempre; si el envío falla sin saber si se
+ * guardó, reintenta con la misma clave y luego deja elegir entre reintentar y
+ * mandarlo solo por WhatsApp.
  */
 export function CartDrawer() {
   const isClient = useIsClient();
@@ -116,15 +131,17 @@ export function CartDrawer() {
   const [draft, setDraft] = useState<CustomerDraft>(EMPTY_CUSTOMER);
   const [errors, setErrors] = useState<CustomerErrors>({});
   const [formMessage, setFormMessage] = useState<string | null>(null);
-  /** Tras un 429: se ofrece mandar el pedido solo por WhatsApp. */
-  const [rateLimited, setRateLimited] = useState(false);
+  /** Tras un 429 o un 400 sin arreglo en el formulario: se ofrece «solo por WhatsApp». */
+  const [offerWhatsApp, setOfferWhatsApp] = useState(false);
+  /** El envío falló sin saber si se guardó: el botón reintenta con la misma clave. */
+  const [uncertain, setUncertain] = useState(false);
+  const [focusRequest, setFocusRequest] = useState<{ field: CustomerField; seq: number } | null>(null);
   const [submitting, setSubmitting] = useState(false);
   /** Líneas que el servidor ajustó o quitó (`409 UNAVAILABLE`). */
   const [adjusted, setAdjusted] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
 
   const keyRef = useRef<SubmissionKeyState | null>(null);
-  const formRef = useRef<CheckoutFormHandle>(null);
   const viewHeadingRef = useRef<HTMLHeadingElement>(null);
   const adjustedRef = useRef<HTMLDivElement>(null);
 
@@ -152,13 +169,26 @@ export function CartDrawer() {
     return () => cancelAnimationFrame(frame);
   }, [open, view]);
 
+  const focusField = (field: CustomerField) =>
+    setFocusRequest((current) => ({ field, seq: (current?.seq ?? 0) + 1 }));
+
+  /**
+   * Tras un envío correcto, la clave se olvida al salir de «enviado»: volver a
+   * pedir después es un pedido nuevo, no la repetición del anterior.
+   */
+  const leaveSent = () => {
+    if (view === "sent") keyRef.current = null;
+  };
+
   const close = () => {
+    leaveSent();
     setCartOpen(false);
     setSent(null);
     setView("cart");
     setAdjusted([]);
     setFormMessage(null);
-    setRateLimited(false);
+    setOfferWhatsApp(false);
+    setUncertain(false);
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -200,7 +230,8 @@ export function CartDrawer() {
     setSent({ reference, href, subtotal });
     setView("cart");
     setFormMessage(null);
-    setRateLimited(false);
+    setOfferWhatsApp(false);
+    setUncertain(false);
   };
 
   const registers = REGISTER_ORDERS && canRegister(lines);
@@ -217,6 +248,8 @@ export function CartDrawer() {
 
   const editDraft = (next: CustomerDraft) => {
     setDraft(next);
+    // Otros datos son otro envío (otra clave): ya no hay nada incierto que reintentar.
+    setUncertain(false);
     // El error de un campo se va en cuanto se toca; los demás se quedan.
     setErrors((current) => {
       const changed = (Object.keys(next) as (keyof CustomerDraft)[]).filter((field) => next[field] !== draft[field]);
@@ -231,7 +264,8 @@ export function CartDrawer() {
     event.preventDefault();
     if (submitting) return;
     setFormMessage(null);
-    setRateLimited(false);
+    setOfferWhatsApp(false);
+    setUncertain(false);
 
     // El carrito cambió (otra pestaña) y ya no se puede registrar: el camino de siempre.
     if (!canRegister(lines)) {
@@ -243,7 +277,7 @@ export function CartDrawer() {
     if (!checked.ok) {
       setErrors(checked.errors);
       const field = firstInvalidField(checked.errors);
-      if (field) formRef.current?.focus(field);
+      if (field) focusField(field);
       return;
     }
     setErrors({});
@@ -254,13 +288,25 @@ export function CartDrawer() {
     keyRef.current = nextSubmissionKey(keyRef.current, bodyFingerprint(unsigned));
 
     setSubmitting(true);
-    let outcome: OrderOutcome = await submitOrder({ ...unsigned, submissionKey: keyRef.current.key });
+    // Un fallo incierto se reintenta una vez con la MISMA clave (`submitWithRetry`).
+    let outcome: OrderOutcome = await submitWithRetry({ ...unsigned, submissionKey: keyRef.current.key });
     if (outcome.kind === "conflict") {
       // La clave ya se usó con otros datos (otra pestaña, un reintento cruzado): una nueva y otra vez.
       keyRef.current = nextSubmissionKey(null, bodyFingerprint(unsigned));
-      outcome = await submitOrder({ ...unsigned, submissionKey: keyRef.current.key });
+      outcome = await submitWithRetry({ ...unsigned, submissionKey: keyRef.current.key });
     }
     setSubmitting(false);
+
+    if (isUncertain(outcome)) {
+      // Pudo quedar guardado: abrir WhatsApp con otra referencia dejaría dos
+      // pedidos distintos. El cliente decide; reintentar usa la misma clave.
+      setUncertain(true);
+      setOfferWhatsApp(true);
+      setFormMessage(
+        "No pudimos confirmar el registro de tu pedido. Reintenta (no se duplicará) o envíalo solo por WhatsApp.",
+      );
+      return;
+    }
 
     switch (outcome.kind) {
       case "created": {
@@ -288,19 +334,25 @@ export function CartDrawer() {
       }
       case "rate-limited":
         setFormMessage(outcome.message);
-        setRateLimited(true);
+        setOfferWhatsApp(true);
         return;
       case "invalid":
         setErrors(outcome.fields);
         setFormMessage(outcome.message);
+        // Líneas repetidas, política cambiada…: nada que el cliente corrija aquí.
+        setOfferWhatsApp(offersWhatsAppOnly(outcome));
         {
           const field = firstInvalidField(outcome.fields);
-          if (field) formRef.current?.focus(field);
+          if (field) focusField(field);
         }
         return;
       case "conflict":
+        // Dos claves seguidas en conflicto: algo raro; el cliente decide.
+        setFormMessage("No pudimos registrar el pedido. Vuelve a intentarlo o envíalo solo por WhatsApp.");
+        setOfferWhatsApp(true);
+        return;
       case "fallback":
-        // El servidor no registra el pedido: sale por WhatsApp como siempre.
+        // 404: la ruta no existe y nada se guardó. Sale por WhatsApp como siempre.
         sendWhatsAppOnly();
         return;
     }
@@ -382,7 +434,10 @@ export function CartDrawer() {
             copied={copied}
             headingRef={viewHeadingRef}
             onCopy={copyReference}
-            onBack={() => setView("cart")}
+            onBack={() => {
+              leaveSent();
+              setView("cart");
+            }}
           />
         ) : lines.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
@@ -415,7 +470,7 @@ export function CartDrawer() {
               </h3>
               <div className="mt-4">
                 <CheckoutForm
-                  ref={formRef}
+                  focusRequest={focusRequest}
                   idPrefix="vp-pedido"
                   draft={draft}
                   errors={errors}
@@ -446,9 +501,9 @@ export function CartDrawer() {
                 aria-busy={submitting}
                 className="mt-4 w-full"
               >
-                {submitting ? "Registrando…" : "Enviar pedido por WhatsApp"}
+                {submitting ? "Registrando…" : uncertain ? "Reintentar" : "Enviar pedido por WhatsApp"}
               </Button>
-              {rateLimited ? (
+              {offerWhatsApp ? (
                 <button
                   type="button"
                   onClick={sendWhatsAppOnly}
@@ -462,7 +517,8 @@ export function CartDrawer() {
                 onClick={() => {
                   setView("cart");
                   setFormMessage(null);
-                  setRateLimited(false);
+                  setOfferWhatsApp(false);
+    setUncertain(false);
                 }}
                 disabled={submitting}
                 className="mt-2 min-h-[44px] w-full text-sm font-semibold uppercase tracking-[0.04em] text-muted transition-colors hover:text-foreground disabled:opacity-40"
