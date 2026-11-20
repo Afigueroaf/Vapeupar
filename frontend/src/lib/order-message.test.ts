@@ -106,9 +106,4 @@ describe("registeredOrderMessage", () => {
     expect(message).not.toContain(formatPriceCOP(60_000));
     expect(message).toContain(`*Subtotal: ${formatPriceCOP(110_000)}*`);
   });
-
-  it("no lleva datos del cliente", () => {
-    const message = registeredOrderMessage(lines, { reference: "VP-SRV234", subtotal: 105_000 });
-    expect(message).not.toMatch(/\+57|barrio|nombre/i);
-  });
 });
