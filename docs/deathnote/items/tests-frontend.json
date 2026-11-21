@@ -1,6 +1,6 @@
 {
   "title": "Pruebas automáticas del frontend",
-  "status": "en_curso",
+  "status": "hecho",
   "priority": "baja",
   "area": "frontend",
   "summary": "El workspace frontend no tiene runner; la red de seguridad son el build y el lint. Lo más valioso: carrito, mensaje de WhatsApp y modal +18.",
@@ -11,10 +11,10 @@
     }
   ],
   "source": "docs/admin-console-execution-plan.md (Registro A5.1, No verificado)",
-  "evidence": "frontend/package.json sin script de test",
+  "evidence": "PR #21 · 0f41a42 · antes: frontend/package.json sin script de test",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-20T06:13:13.049Z",
+  "updatedAt": "2026-11-21T01:42:10.389Z",
   "plan": [
     "Instala Vitest desde la raíz con la misma versión mayor que el backend (^5.1.0) y jsdom: npm install -D vitest jsdom --workspace=frontend. Nunca dentro de frontend/. Añade \"test\": \"vitest run\" a frontend/package.json y haz que el script test raíz ejecute los dos workspaces (test:frontend además de test:backend).",
     "Crea frontend/vitest.config.ts con el alias '@' → ./src (como en tsconfig paths), environment 'node' por defecto, include src/**/*.test.ts y sin plugins de React. jsdom solo se activa por archivo con // @vitest-environment jsdom en los tests que tocan localStorage. Comprueba que next build y eslint ignoran los .test.ts o los aceptan.",
@@ -39,5 +39,7 @@
     "Si el tsconfig del frontend incluye los .test.ts, tsc --noEmit necesita los tipos de vitest (types: ['vitest/globals'] o imports explícitos). Conviene usar imports explícitos.",
     "Si la versión de Vitest diverge de la del backend, hoisting puede duplicar la herramienta en el lockfile."
   ],
-  "claudeNote": "Plan 2026-11-18: La evidencia sigue vigente: frontend/package.json no tiene script de test. Desde A7 hay lógica pura nueva que vale la pena cubrir (formatBrandList y withPartnerBrands en lib/content.ts). La única prueba que ejercita código del frontend hoy vive en el backend (backend/src/schemas/content/content-parity.test.ts importa frontend/src/lib/content/schemas.ts). El cálculo de expiración del modal +18 (readNeedsVerification) no se exporta: hay que extraerlo antes de testearlo. El script test raíz solo ejecuta el backend. 2026-11-20: implementado en la rama test/frontend-vitest (sin fusionar). Vitest ^5.1.0 en el workspace frontend (npm test --workspace=frontend; el test raíz corre backend y frontend) y paso propio en el CI. 42 pruebas en 6 archivos de src/lib: age-gate (needsVerification extraída del modal sin cambiar comportamiento), order-message (snapshot en línea), contact, cart, content e isRevalidateAuthorized. Sin jsdom: npm se colgaba resolviendo sus dependencias, así que el carrito usa un localStorage en memoria (src/test/memory-storage.ts) con vi.stubGlobal. Mutaciones manuales del TTL, del tope por línea y de la negrita de la referencia hacen fallar pruebas. La paridad de esquemas sigue en el backend: todo lo que hace es comparar los dos lados. Verificado: tests front y back, lint, tsc y build."
+  "claudeNote": "Plan 2026-11-18: La evidencia sigue vigente: frontend/package.json no tiene script de test. Desde A7 hay lógica pura nueva que vale la pena cubrir (formatBrandList y withPartnerBrands en lib/content.ts). La única prueba que ejercita código del frontend hoy vive en el backend (backend/src/schemas/content/content-parity.test.ts importa frontend/src/lib/content/schemas.ts). El cálculo de expiración del modal +18 (readNeedsVerification) no se exporta: hay que extraerlo antes de testearlo. El script test raíz solo ejecuta el backend. 2026-11-20: implementado en la rama test/frontend-vitest (sin fusionar). Vitest ^5.1.0 en el workspace frontend (npm test --workspace=frontend; el test raíz corre backend y frontend) y paso propio en el CI. 42 pruebas en 6 archivos de src/lib: age-gate (needsVerification extraída del modal sin cambiar comportamiento), order-message (snapshot en línea), contact, cart, content e isRevalidateAuthorized. Sin jsdom: npm se colgaba resolviendo sus dependencias, así que el carrito usa un localStorage en memoria (src/test/memory-storage.ts) con vi.stubGlobal. Mutaciones manuales del TTL, del tope por línea y de la negrita de la referencia hacen fallar pruebas. La paridad de esquemas sigue en el backend: todo lo que hace es comparar los dos lados. Verificado: tests front y back, lint, tsc y build.\n\n2026-11-20 (sincronización): Fusionado en main con el PR #21 y en producción con la release 0f41a42 a producción (PR #32, run 44812513817, 2026-11-20). El CI corre los tests del frontend en cada PR.",
+  "completedAt": "2026-11-21T01:42:07.007Z",
+  "queued": false
 }

@@ -159,5 +159,61 @@
     "title": "Cadena de pendientes ejecutada sin intervención del dueño (sin fusionar ni desplegar)",
     "detail": "Ramas apiladas, cada una revisada por un agente independiente y corregida: feat/a7-3-revalidacion → test/frontend-vitest → feat/a5-4-consola-contenido → feat/tarjetas-info → perf/glitch-saltos-guardas → infra/f6-alarmas → infra/f7-perimetro → feat/importador-conteo → feat/pedidos-backend → feat/pedidos-frontend → docs/barrido-obsoletos → fix/pedidos-revision. Pedidos detrás de ORDERS_ENABLED y política en borrador.",
     "ref": "fix/pedidos-revision"
+  },
+  {
+    "id": "h20261120-2",
+    "date": "2026-11-20",
+    "title": "Contenido editable y revalidación al publicar",
+    "detail": "A7.1/A7.2/A7.4 y A7.3 fusionados: textos del sitio desde la API y /internal/revalidate.",
+    "ref": "PR #19 · PR #20"
+  },
+  {
+    "id": "h20261120-3",
+    "date": "2026-11-20",
+    "title": "Tests del frontend y pantalla de contenido en la consola",
+    "detail": "Vitest en el CI (42 pruebas) y /admin/content con editores, vista previa e historial (A5.4).",
+    "ref": "PR #21 · PR #22"
+  },
+  {
+    "id": "h20261120-4",
+    "date": "2026-11-20",
+    "title": "Tarjetas de información rediseñadas y glitch a saltos",
+    "detail": "Banda de confianza con icono, dato y líneas; glitch en saltos de 3 px y guarda del bundle de la portada.",
+    "ref": "PR #23 · PR #24"
+  },
+  {
+    "id": "h20261120-5",
+    "date": "2026-11-20",
+    "title": "Vigilancia (F6) y endurecimiento (F7) en main",
+    "detail": "10 alarmas por correo, métricas propias y journald; límite de peticiones en nginx y contraseña de RDS gestionada. Arreglo del test de nginx en Node 22.",
+    "ref": "PR #25 · PR #26 · PR #33 · 5d35002"
+  },
+  {
+    "id": "h20261120-6",
+    "date": "2026-11-20",
+    "title": "Conteo físico y pedidos guardados en la base",
+    "detail": "Planilla e importador del conteo; ADR-003, modelo Order, POST /api/orders, carrito con datos y autorización, /privacidad en borrador y /admin/orders. Pedidos apagados por ORDERS_ENABLED.",
+    "ref": "PR #27 · PR #28 · PR #29 · PR #31"
+  },
+  {
+    "id": "h20261120-7",
+    "date": "2026-11-20",
+    "title": "Documentación al día",
+    "detail": "README, arquitectura, infraestructura y skills al estado actual; GEMINI.md borrado.",
+    "ref": "PR #30"
+  },
+  {
+    "id": "h20261120-8",
+    "date": "2026-11-20",
+    "title": "Release de la cadena en producción",
+    "detail": "dev → main → produccion con todo lo anterior. Los stacks de CDK (App, Monitoring, Data) se despliegan aparte.",
+    "ref": "PR #32 · 0f41a42 · run 44812513817"
+  },
+  {
+    "id": "h20261121-1",
+    "date": "2026-11-21",
+    "title": "Scroll de Lenis y aviso de THREE.Clock (en dev)",
+    "detail": "Lenis vuelve a medir el límite cuando la página crece (ya no se corta el scroll al cargar contenido) y se silencia el aviso de THREE.Clock que emite R3F. Fusionado en dev; falta llevarlo a main.",
+    "ref": "PR #34 · 244f2e6"
   }
 ]
