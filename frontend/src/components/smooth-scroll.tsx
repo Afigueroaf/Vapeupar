@@ -103,6 +103,23 @@ export function SmoothScroll() {
       autoRaf: true,
     });
 
+    /* --- Límite del desplazamiento -----------------------------------------
+     *
+     * LENIS NO SE ENTERA DE QUE LA PÁGINA CRECE. Mide el alto desplazable al
+     * crearse y luego solo cuando su observador ve cambiar `content`, que por
+     * defecto es `<html>`. Pero `<html>` lleva `h-full` (`layout.tsx`):
+     * mide siempre una ventana, así que el observador no salta nunca. Si la
+     * portada termina de crecer después de montar esto —la vitrina 3D, el
+     * catálogo, las imágenes—, Lenis se queda con el límite viejo y la rueda se
+     * frena en seco a mitad de página, a la altura del prisma. Pasaba solo en
+     * algunas cargas, según lo que hubiera pintado ya al medir.
+     *
+     * Se observa el `<body>`, que sí crece con el contenido, y se pide a Lenis
+     * que vuelva a medir. Su `resize` es barato, solo lee dos alturas.
+     */
+    const bodyObserver = new ResizeObserver(() => lenis.resize());
+    bodyObserver.observe(document.body);
+
     /* --- Teclado ---------------------------------------------------------
      *
      * LENIS NO SUAVIZA EL TECLADO. Solo escucha `wheel` y los eventos de
@@ -197,6 +214,7 @@ export function SmoothScroll() {
 
     return () => {
       window.removeEventListener("keydown", onKeyDown);
+      bodyObserver.disconnect();
       lenis.destroy();
     };
   }, [onConsole]);
