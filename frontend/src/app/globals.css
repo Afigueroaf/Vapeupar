@@ -1049,6 +1049,40 @@ html.glitch-active .vp-glitch-scanlines {
   opacity: 0.2;
 }
 
+/* TARJETAS DE INFORMACIÓN: SIN ESTADO ACTIVO PEGADO EN TÁCTIL.
+   En un teléfono la tarjeta entera es un botón (`trust-band-view.tsx`), y al
+   tocarla se quedaba con el `:hover` pegado y con el foco del botón: borde
+   lima, sombra violeta y 2 px de salto. El clon del modal sale de la tarjeta
+   en reposo y vuelve a ella, así que esa tarjeta iluminada debajo hacía que
+   el relevo entre las dos se viera como un salto.
+
+   `revert-layer` devuelve cada propiedad a lo que ponen las utilidades de
+   Tailwind de la propia tarjeta (su borde gris y la sombra de su acento).
+
+   El foco de TECLADO no se toca: `:focus-visible` sigue encendiendo la
+   tarjeta, que es la única pista de dónde está quien navega con tabulador. */
+@media (hover: none) {
+  :where(html:not([data-vp-cursor="on"])) .vp-tb-card:hover:not(:has(:focus-visible)) {
+    border-color: revert-layer;
+    box-shadow: revert-layer;
+    translate: revert-layer;
+  }
+
+  :where(html:not([data-vp-cursor="on"])) .vp-tb-card:hover:not(:has(:focus-visible))::after {
+    opacity: 0;
+  }
+}
+
+.vp-tb-card:focus-within:not(:has(:focus-visible)) {
+  border-color: revert-layer;
+  box-shadow: revert-layer;
+  translate: revert-layer;
+}
+
+.vp-tb-card:focus-within:not(:has(:focus-visible))::after {
+  opacity: 0;
+}
+
 /* ============================================================================
    CONTORNO DE SILUETA
    ----------------------------------------------------------------------------

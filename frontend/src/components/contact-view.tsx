@@ -31,10 +31,10 @@ export function ContactView({
           conserva para los enlaces `/#nosotros` ya compartidos. */}
       <div id={preview ? undefined : "nosotros"} className="scroll-mt-24">
         <Image
-          src="/logo-detalle.svg"
+          src="/logo-vu-blanco.svg"
           alt="Vapeupar"
-          width={1319}
-          height={786}
+          width={1026}
+          height={549}
           className="h-9 w-auto"
         />
 
