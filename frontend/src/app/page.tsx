@@ -13,6 +13,20 @@ import { FALLBACK_PRODUCTS } from "@/data/fallback-products";
 import { fetchProducts } from "@/lib/api";
 import { getContent, getPartnerBrands, withPartnerBrands } from "@/lib/content";
 
+/**
+ * ISR: la portada se regenera como mucho cada 60 s, el ritmo de `lib/api.ts`.
+ *
+ * NO SOBRA AUNQUE `lib/api.ts` YA PIDA CON `revalidate: 60`. Al compilar para
+ * producción no hay `API_URL` y `apiBase()` devuelve `null`, así que no llega a
+ * hacerse ningún `fetch`: sin un `fetch` con revalidación, Next da la página
+ * por estática para siempre (`s-maxage=31536000`) y la congela con el
+ * catálogo de respaldo. Pasó en producción: la portada enseñaba el stock de
+ * la copia de `data/fallback-products.ts` —ECO 3 disponible y el resto
+ * agotado— mientras la API decía otra cosa. Con esto la primera visita pasado
+ * un minuto la regenera ya con la API de la instancia.
+ */
+export const revalidate = 60;
+
 /** Caras del prisma de la portada. Tiene que cuadrar con `ProductPrism`. */
 const PRISM_SIDES = 6;
 
