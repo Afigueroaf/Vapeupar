@@ -118,10 +118,10 @@ export default function AdminLoginPage() {
       <Surface border="line" offset className="w-full max-w-md p-6 sm:p-8">
         <div className="mb-8 flex flex-col items-start gap-4">
           <Image
-            src="/logo-detalle.svg"
+            src="/logo-vu-blanco.svg"
             alt="Vapeupar"
-            width={1319}
-            height={786}
+            width={1026}
+            height={549}
             priority
             className="h-9 w-auto"
           />

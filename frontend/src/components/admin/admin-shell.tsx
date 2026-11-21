@@ -118,10 +118,10 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         <div className="mx-auto flex w-full max-w-vp flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3 sm:px-6">
           <Link href="/admin/stock" className="flex items-center gap-3">
             <Image
-              src="/logo-detalle.svg"
+              src="/logo-vu-blanco.svg"
               alt="Vapeupar"
-              width={1319}
-              height={786}
+              width={1026}
+              height={549}
               priority
               className="h-7 w-auto"
             />
