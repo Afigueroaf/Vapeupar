@@ -10,10 +10,11 @@ import {
   type ComponentType,
   type CSSProperties,
   type KeyboardEvent,
+  type ReactNode,
   type SVGProps,
 } from "react";
 import { createPortal } from "react-dom";
-import { CashIcon, CloseIcon, DeliveryIcon, SealIcon } from "@/components/ui/icons";
+import { CashIcon, DeliveryIcon, SealIcon } from "@/components/ui/icons";
 import { PixelLabel, type PixelLabelVariant } from "@/components/ui/pixel-label";
 import { Surface } from "@/components/ui/surface";
 import { TRUST_BAND_ICONS, type TrustBandContent, type TrustBandIcon } from "@/lib/content/schemas";
@@ -33,9 +34,10 @@ import { cn } from "@/lib/utils";
  * solo informan, y no compiten con el CTA de la vista.
  *
  * EN UN TELÉFONO SOLO VA EL RESUMEN. Por debajo de `sm` las líneas se ocultan
- * y la tarjeta entera es un botón que abre un modal con la misma tarjeta
- * completa: apiladas, las tres con todas sus líneas eran un muro de texto
- * gris. Desde `sm` las tarjetas son las de siempre y no hay botón.
+ * y la tarjeta entera es un botón que despliega un clon de la propia tarjeta
+ * con las líneas que faltaban (`TrustCardDialog`): apiladas, las tres con
+ * todas sus líneas eran un muro de texto gris. Desde `sm` las tarjetas son las
+ * de siempre y no hay botón.
  *
  * Una fila publicada con el formato antiguo no trae `icon`, `highlight` ni
  * `points`: el icono sale de la posición y lo demás no se pinta.
@@ -64,6 +66,14 @@ const ACCENTS: { color: string; tile: string; label: PixelLabelVariant }[] = [
 /** El `sm` de Tailwind: desde aquí la tarjeta enseña todo y el modal sobra. */
 const SM_QUERY = "(min-width: 40rem)";
 
+/**
+ * La chapa cuadrada del borde derecho del resumen. En la tarjeta es la pista
+ * `+` de que hay más; en el clon es el botón de cerrar, con el `+` girado a
+ * `×`. Misma caja en los dos para que el clon arranque idéntico a la tarjeta.
+ */
+const CHIP =
+  "vp-label col-start-3 row-span-2 row-start-1 grid size-9 place-items-center rounded-vp border-2 border-muted text-[var(--vp-tb-accent)]";
+
 type Item = TrustBandContent["items"][number];
 
 function iconFor(item: Item, index: number): TrustBandIcon {
@@ -79,14 +89,17 @@ interface CardContentProps {
   index: number;
   /**
    * `card`: la de la banda, que por debajo de `sm` esconde las líneas.
-   * `dialog`: la del modal, siempre completa.
+   * `clone`: la del modal. El mismo resumen, con las líneas debajo (las
+   * enseña o las esconde el estado del diálogo) y `action` en el sitio de la
+   * chapa `+`.
    */
-  mode: "card" | "dialog";
+  mode: "card" | "clone";
   titleId?: string;
+  action?: ReactNode;
 }
 
 /**
- * Lo de dentro de una tarjeta. Lo comparten la banda y el modal.
+ * Lo de dentro de una tarjeta. Lo comparten la banda y el clon del modal.
  *
  * UNA REJILLA, Y NO TRES BLOQUES APILADOS, para que cada ancho reparta el
  * texto según el sitio que tiene:
@@ -100,46 +113,51 @@ interface CardContentProps {
  * - ESCRITORIO (`lg` y apaisado), con la tarjeta alta: el bloque entero junto
  *   y centrado en el alto, con tipos más grandes. Repartirlo (cabecera arriba,
  *   título abajo) dejaba un hueco grande en el centro de la tarjeta.
+ *
+ * El clon solo existe por debajo de `sm`, así que usa la misma rejilla que la
+ * franja del teléfono: sus dos primeras filas caen exactamente donde las de la
+ * tarjeta, y las líneas van en una tercera fila que el alto del clon recorta
+ * hasta que se despliega.
  */
-function CardContent({ item, index, mode, titleId }: CardContentProps) {
+function CardContent({ item, index, mode, titleId, action }: CardContentProps) {
   const Icon = ICONS[iconFor(item, index)];
   const accent = ACCENTS[index % ACCENTS.length];
   // La vista previa pinta el valor mientras se escribe: una línea vacía no
   // deja una viñeta huérfana.
   const lines = [item.detail, ...(item.points ?? [])].filter((line) => line.trim());
   const highlight = item.highlight?.trim();
-  const full = mode === "dialog";
+  const clone = mode === "clone";
 
   return (
     <div
       className={cn(
-        "grid items-center",
-        full
-          ? "grid-cols-[auto_minmax(0,1fr)] gap-x-3"
-          : cn(
-              "flex-1 grid-cols-[auto_minmax(0,1fr)_auto] content-center gap-x-3",
-              "sm:grid-cols-[auto_minmax(0,1fr)] sm:content-start",
-              "lg:landscape:flex-none lg:landscape:gap-x-4",
-            ),
+        "grid flex-1 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3",
+        clone
+          ? // El clon fija el alto de la rejilla al desplegado (lo calcula
+            // `TrustCardDialog`): la cabecera queda arriba, en el mismo sitio
+            // que en la tarjeta, y la tercera fila se queda con todo lo que
+            // sobra para repartir las líneas.
+            "grid-rows-[auto_auto_1fr] content-start"
+          : "content-center sm:grid-cols-[auto_minmax(0,1fr)] sm:content-start lg:landscape:flex-none lg:landscape:gap-x-4",
       )}
     >
       <span
         aria-hidden="true"
         className={cn(
-          "grid shrink-0 place-items-center rounded-vp",
-          full ? "size-12" : "row-span-2 size-11 sm:row-span-1 sm:size-10 lg:size-12 lg:landscape:size-14",
+          "row-span-2 grid size-11 shrink-0 place-items-center rounded-vp",
+          !clone && "sm:row-span-1 sm:size-10 lg:size-12 lg:landscape:size-14",
           accent.tile,
         )}
       >
-        <Icon className={full ? "size-6" : "size-6 sm:size-5 lg:size-6 lg:landscape:size-7"} />
+        <Icon className={cn("size-6", !clone && "sm:size-5 lg:size-6 lg:landscape:size-7")} />
       </span>
       <div className="col-start-2 min-w-0">
         <PixelLabel variant={accent.label}>{item.label}</PixelLabel>
         {highlight && (
           <p
             className={cn(
-              "font-display font-bold uppercase leading-none tracking-[0.01em]",
-              full ? "mt-1.5 text-2xl" : "mt-1 text-lg sm:mt-1.5 sm:text-xl lg:text-2xl lg:landscape:text-3xl",
+              "mt-1 font-display text-lg font-bold uppercase leading-none tracking-[0.01em]",
+              !clone && "sm:mt-1.5 sm:text-xl lg:text-2xl lg:landscape:text-3xl",
             )}
           >
             {highlight}
@@ -149,14 +167,9 @@ function CardContent({ item, index, mode, titleId }: CardContentProps) {
       <h3
         id={titleId}
         className={cn(
-          "font-bold leading-tight",
-          full
-            ? "col-span-2 mt-4 text-lg"
-            : cn(
-                "col-start-2 mt-1 text-[0.9375rem]",
-                "sm:col-span-2 sm:col-start-1 sm:mt-3 sm:text-base",
-                "lg:mt-4 lg:text-lg lg:landscape:mt-5 lg:landscape:text-xl",
-              ),
+          "col-start-2 mt-1 text-[0.9375rem] font-bold leading-tight",
+          !clone &&
+            "sm:col-span-2 sm:col-start-1 sm:mt-3 sm:text-base lg:mt-4 lg:text-lg lg:landscape:mt-5 lg:landscape:text-xl",
         )}
       >
         {item.title}
@@ -164,10 +177,26 @@ function CardContent({ item, index, mode, titleId }: CardContentProps) {
       {lines.length > 0 && (
         <ul
           className={cn(
-            "col-span-full text-muted",
-            full
-              ? cn("mt-3 space-y-2 text-base leading-snug", REVEAL)
-              : "hidden text-sm leading-snug sm:mt-2 sm:block sm:space-y-1 lg:landscape:mt-3 lg:landscape:space-y-2 lg:landscape:text-base",
+            "text-muted",
+            clone
+              ? cn(
+                  // Bajo el título, no bajo el icono: se lee como la
+                  // continuación del mismo bloque de texto.
+                  "col-span-2 col-start-2 text-sm leading-snug",
+                  // Ocupa la fila sobrante entera y reparte el aire por igual:
+                  // el mismo hueco sobre la primera línea, entre líneas y bajo
+                  // la última. Con el desplegado un 30% más alto que su
+                  // contenido, el texto queda centrado en ese espacio en vez de
+                  // amontonado arriba con un vacío al pie. El `gap` y el `py`
+                  // son el mínimo si no sobrara nada.
+                  "flex flex-col justify-evenly gap-1.5 self-stretch py-2",
+                  // Aparece cuando el clon ya ha crecido y se va antes de que
+                  // encoja. La duración de cada sentido es la del estado de
+                  // llegada: 280 ms al entrar, 180 ms al salir.
+                  "opacity-0 transition-opacity duration-[180ms] ease-out motion-reduce:transition-none",
+                  "group-data-[state=open]:opacity-100 group-data-[state=open]:duration-[280ms]",
+                )
+              : "col-span-full hidden text-sm leading-snug sm:mt-2 sm:block sm:space-y-1 lg:landscape:mt-3 lg:landscape:space-y-2 lg:landscape:text-base",
           )}
         >
           {lines.map((line, lineIndex) => (
@@ -179,16 +208,15 @@ function CardContent({ item, index, mode, titleId }: CardContentProps) {
           ))}
         </ul>
       )}
-      {!full && lines.length > 0 && (
-        /* La pista de que hay más, solo donde las líneas no se ven: una chapa
-           `+` en el borde derecho, a media altura de la franja. */
-        <span
-          aria-hidden="true"
-          className="vp-label col-start-3 row-span-2 row-start-1 grid size-9 place-items-center rounded-vp border-2 border-muted text-[var(--vp-tb-accent)] sm:hidden"
-        >
-          +
-        </span>
-      )}
+      {clone
+        ? action
+        : lines.length > 0 && (
+            /* La pista de que hay más, solo donde las líneas no se ven: una
+               chapa `+` en el borde derecho, a media altura de la franja. */
+            <span aria-hidden="true" className={cn(CHIP, "sm:hidden")}>
+              +
+            </span>
+          )}
     </div>
   );
 }
@@ -196,7 +224,7 @@ function CardContent({ item, index, mode, titleId }: CardContentProps) {
 export function TrustBandCards({ items }: { items: TrustBandContent["items"] }) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   // La tarjeta pulsada, en estado y no leída del ref al pintar: de ella sale
-  // y a ella vuelve la animación del modal.
+  // y a ella vuelve el clon del modal.
   const [origin, setOrigin] = useState<HTMLElement | null>(null);
   const triggers = useRef<(HTMLButtonElement | null)[]>([]);
   const lastIndex = useRef<number | null>(null);
@@ -236,6 +264,11 @@ export function TrustBandCards({ items }: { items: TrustBandContent["items"] }) 
              `vp-glitch-card`: el filtro del glitch lo lleva cada tarjeta y no
              la sección, que tiene dentro el lienzo 3D.
 
+             `vp-tb-card`: en táctil no se quedan con el estado activo pegado
+             tras el toque (`globals.css`). El clon del modal sale de la
+             tarjeta en reposo y vuelve a ella; si la tarjeta se quedara
+             iluminada, el relevo entre las dos se vería como un salto.
+
              La sombra dura de su color es la profundidad en reposo; al pasar
              el puntero o enfocar, `.vp-card` la cambia por la violeta común
              del sistema, que gana por estar fuera de capa. */
@@ -243,7 +276,7 @@ export function TrustBandCards({ items }: { items: TrustBandContent["items"] }) 
             key={index}
             style={accentStyle(index)}
             className={cn(
-              "vp-card vp-glitch-card flex flex-col p-2.5 shadow-[4px_4px_0_0_var(--vp-tb-accent)] sm:p-4 lg:p-5",
+              "vp-card vp-tb-card vp-glitch-card flex flex-col p-2.5 shadow-[4px_4px_0_0_var(--vp-tb-accent)] sm:p-4 lg:p-5",
               "lg:landscape:min-h-[clamp(14rem,38vh,26rem)] lg:landscape:w-3/4 lg:landscape:justify-self-center",
               "lg:landscape:first:justify-self-end lg:landscape:last:justify-self-start",
               "lg:landscape:justify-center lg:landscape:px-6 lg:landscape:py-8",
@@ -285,145 +318,415 @@ export function TrustBandCards({ items }: { items: TrustBandContent["items"] }) 
   );
 }
 
+/**
+ * LA ANIMACIÓN: UN CLON DE LA TARJETA QUE SE DESPLIEGA.
+ *
+ * Al pulsar una tarjeta aparece encima de ella un clon idéntico —el mismo
+ * resumen, a su mismo tamaño y en su misma posición— y desde ahí:
+ *
+ *   ABRIR    1. el clon viaja hasta el centro del grupo de tarjetas (encima
+ *               de la del medio) mientras el velo oscurece el resto;
+ *            2. se alarga hacia arriba y hacia abajo por igual, y el `+` gira
+ *               hasta quedar como `×`;
+ *            3. aparece el texto que el resumen no enseñaba.
+ *   CERRAR   el camino inverso: 1. se va el texto; 2. el clon encoge hasta el
+ *            alto del resumen; 3. vuelve a la tarjeta de origen y, al
+ *            posarse sobre ella, desaparece.
+ *
+ * Las fases van encadenadas, cada una cuando acaba la anterior, para que se
+ * lean como pasos y no como un único gesto. Cerrar a medio abrir retoma el
+ * camino de vuelta desde la fase en la que estaba.
+ *
+ * LO QUE SE ANIMA: el viaje es una `translateY` del envoltorio, que va por el
+ * compositor; el crecimiento es el `height` del clon, con el contenido
+ * recortado. Animar el alto recalcula la maquetación, pero de una caja suelta
+ * con media docena de líneas: es barato, y a cambio el texto nunca se deforma,
+ * que es lo que pasaba escalando. El ancho no cambia en ningún momento: el
+ * clon mide siempre lo que la tarjeta.
+ *
+ * Con `prefers-reduced-motion` no hay viaje ni crecimiento: el clon aparece ya
+ * desplegado en el centro y desaparece en el sitio.
+ */
+const MOVE_MS = 460;
+const GROW_MS = 420;
+/** Lo que tarda en irse el texto al cerrar; el de entrada vive en las clases. */
+const TEXT_OUT_MS = 180;
+const SHRINK_MS = 380;
+const RETURN_MS = 440;
+/** Entrada y salida suaves y simétricas: el clon arranca y se posa despacio. */
+const EASE = "cubic-bezier(0.45, 0, 0.2, 1)";
+/** Margen mínimo entre el clon desplegado y el borde de la pantalla. */
+const VIEW_MARGIN = 16;
+/** El desplegado mide un 30% más que su contenido: aire para repartir. */
+const EXPANDED_SCALE = 1.3;
+
+type Phase = "start" | "moving" | "growing" | "open" | "fading" | "shrinking" | "returning";
+
+/**
+ * Medidas del despliegue. `top` es el borde superior del clon desplegado; el
+ * envoltorio vive ahí y todo lo demás se expresa como desplazamiento desde
+ * ese punto.
+ */
+interface Geometry {
+  top: number;
+  /** Alto del resumen: el de la tarjeta de origen. */
+  collapsed: number;
+  /** Alto desplegado. */
+  expanded: number;
+  /** Padding superior desplegado: el del resumen más el aire que lo iguala al de abajo. */
+  paddingTop: number;
+}
+
+/**
+ * Muestra u oculta la tarjeta de la banda mientras su clon está fuera.
+ * `visibility` y no `opacity`: oculta también el botón que la cubre, que no
+ * debe poder pulsarse ni enfocarse a través del velo.
+ */
+function setVisible(card: HTMLElement | null, visible: boolean) {
+  if (card) card.style.visibility = visible ? "" : "hidden";
+}
+
+/** Centro vertical del grupo de tarjetas: el de la tarjeta del medio. */
+function groupCenter(origin: HTMLElement | null): number | null {
+  const cards = origin?.parentElement?.querySelectorAll<HTMLElement>(":scope > .vp-card");
+  if (!cards?.length) return null;
+  const middle = cards[Math.floor(cards.length / 2)].getBoundingClientRect();
+  return middle.top + middle.height / 2;
+}
+
+/**
+ * El fondo de `.vp-card` es una ventana sobre una imagen común a todo el campo
+ * (`ui/card-field.tsx`). El clon vive fuera del campo, así que se lleva las
+ * medidas de su tarjeta para arrancar con el mismo trozo de fondo.
+ */
+function copyFieldWindow(origin: HTMLElement | null, target: HTMLElement) {
+  if (!origin) return;
+  const style = getComputedStyle(origin);
+  for (const name of ["--vp-fx", "--vp-fy", "--vp-fw", "--vp-fh"]) {
+    const value = style.getPropertyValue(name);
+    if (value) target.style.setProperty(name, value);
+  }
+}
+
 interface TrustCardDialogProps {
   item: Item;
   index: number;
-  /** La tarjeta de la banda que se pulsó: el modal sale de ella y vuelve a ella. */
+  /** La tarjeta de la banda que se pulsó: el clon sale de ella y vuelve a ella. */
   origin: HTMLElement | null;
   onClose: () => void;
 }
 
 /**
- * LA ANIMACIÓN: LA TARJETA SALE DE SU SITIO.
- *
- * El modal no aparece en el centro sin más: arranca encima de la tarjeta que
- * se pulsó —su misma posición y su mismo ancho— y viaja hasta el centro
- * mientras el velo se funde. Las líneas que el resumen no enseñaba aparecen
- * cuando la tarjeta ya casi ha llegado. Al cerrar hace el camino inverso y se
- * posa sobre la tarjeta de la banda, así que se lee como la misma pieza que se
- * levanta y vuelve, no como una ventana nueva.
- *
- * Es la técnica FLIP: se mide dónde acaba el modal, se le aplica la
- * transformada que lo lleva encima del origen y se suelta hacia `none`. Solo
- * se anima `transform` (y la opacidad del velo y de las líneas), que va por el
- * compositor sin recalcular la maquetación. La transformada va en el
- * envoltorio y no en la `Surface`: `.vp-card` ya usa `transform` y `translate`
- * para su inclinación y su salto al hover, cada una con su transición.
- *
- * Curvas: al abrir, salida exponencial (rápida al principio y posándose
- * despacio); al cerrar, simétrica, más corta, porque quien cierra ya ha leído
- * y no quiere esperar. Con `prefers-reduced-motion` no hay viaje: el modal
- * aparece y desaparece en el sitio.
- */
-const OPEN_MS = 520;
-const CLOSE_MS = 340;
-const EASE_OPEN = "cubic-bezier(0.16, 1, 0.3, 1)";
-const EASE_CLOSE = "cubic-bezier(0.65, 0, 0.35, 1)";
-
-/**
- * Transformada que deja `target` encima de `origin`. Escala uniforme, por el
- * ancho: una escala distinta en cada eje deformaría el texto durante el viaje.
- * Sin origen medible, un pequeño ascenso desde abajo.
- */
-function originTransform(origin: HTMLElement | null, target: HTMLElement): string {
-  // Se mide sin transformada: si quedara una a medio aplicar, el cálculo
-  // partiría de una caja que no es la de reposo.
-  target.style.transform = "none";
-  const to = target.getBoundingClientRect();
-  const from = origin?.getBoundingClientRect();
-  if (!from || !from.width || !to.width) return "translateY(1.5rem) scale(0.96)";
-  const dx = from.left + from.width / 2 - (to.left + to.width / 2);
-  const dy = from.top + from.height / 2 - (to.top + to.height / 2);
-  return `translate(${dx}px, ${dy}px) scale(${from.width / to.width})`;
-}
-
-/**
- * Lo que solo trae el modal —las líneas y el botón de cerrar— entra con un
- * fundido un poco retrasado y sale el primero.
- */
-const REVEAL =
-  "transition-opacity duration-300 ease-out motion-reduce:transition-none " +
-  "group-data-[state=opening]:opacity-0 group-data-[state=closing]:opacity-0 " +
-  "group-data-[state=closing]:duration-150 group-data-[state=open]:delay-200";
-
-/**
- * Modal con la tarjeta completa. Es la misma tarjeta —superficie, sombra de
- * su acento, icono, etiqueta— con todas sus líneas y un botón de cerrar.
+ * Modal con la tarjeta completa, presentado como un clon de la tarjeta pulsada
+ * (ver «LA ANIMACIÓN» arriba).
  *
  * Va por portal al `body`: la banda está dentro de un panel con `translate` y
  * de tarjetas con `filter` del glitch, y cualquiera de los dos anclaría un
  * `position: fixed` a ellos en vez de a la pantalla.
  *
+ * EL FOCO VA AL DIÁLOGO Y NO AL BOTÓN DE CERRAR. Con el foco dentro, el clon
+ * tomaría el aspecto activo de `.vp-card` (borde lima, otra sombra, salto de
+ * 2 px) y ya no sería idéntico a la tarjeta de la que sale. El lector de
+ * pantalla anuncia el diálogo igual, y el tabulador lleva a cerrar.
+ *
  * `z-[44]`, la capa del carrito: por encima del botón de WhatsApp (`z-40`) y
  * por debajo del cursor táctil (`z-[45]`) y de la puerta +18 (`z-50`).
  */
-function TrustCardDialog({ item, index, origin, onClose }: TrustCardDialogProps) {
+function TrustCardDialog({ item, index, origin, onClose: dismiss }: TrustCardDialogProps) {
+  /**
+   * Cierre definitivo: la tarjeta de la banda vuelve a verse en el mismo
+   * instante en que el clon desaparece, posado encima de ella. Va ANTES de
+   * avisar al padre, que devuelve el foco a esa tarjeta, y un elemento
+   * oculto no puede recibirlo.
+   */
+  const onClose = useCallback(() => {
+    setVisible(origin, true);
+    dismiss();
+  }, [origin, dismiss]);
+
+  // Red de seguridad: si el diálogo se desmonta por otro camino (navegar a
+  // otra página), la tarjeta no se queda invisible.
+  useEffect(
+    () => () => {
+      setVisible(origin, true);
+    },
+    [origin],
+  );
+
   const titleId = useId();
   const closeRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const veilRef = useRef<HTMLDivElement>(null);
-  const [state, setState] = useState<"opening" | "open" | "closing">("opening");
-  const closing = useRef(false);
+  const [phase, setPhaseState] = useState<Phase>("start");
+  // La fase también en un ref: la leen los manejadores y los temporizadores,
+  // que no deben depender de cuándo se repinta el componente.
+  const phaseRef = useRef<Phase>("start");
+  const geometry = useRef<Geometry | null>(null);
+  // Lo que hay que deshacer si el diálogo cambia de rumbo o se desmonta:
+  // temporizadores y escuchas de `transitionend` pendientes.
+  const pending = useRef<(() => void)[]>([]);
+  const frame = useRef(0);
   const reduced = useRef(false);
-  const closeTimer = useRef<number | undefined>(undefined);
   useScrollLock(true);
 
-  // Antes de pintar: el primer fotograma ya tiene que estar encima del origen,
-  // o se vería un destello del modal en el centro.
+  const setPhase = useCallback((next: Phase) => {
+    phaseRef.current = next;
+    setPhaseState(next);
+  }, []);
+
+  const cancelPending = useCallback(() => {
+    pending.current.forEach((cancel) => cancel());
+    pending.current = [];
+  }, []);
+
+  const after = useCallback((ms: number, run: () => void) => {
+    const timer = window.setTimeout(run, ms);
+    pending.current.push(() => window.clearTimeout(timer));
+  }, []);
+
+  /**
+   * Sigue con `run` cuando termina DE VERDAD la transición de `property` en
+   * `element`, y no a los `ms` de reloj que debería durar.
+   *
+   * MEDIDO EN UN MOTO G15: con temporizadores fijos las fases se solapaban. El
+   * teléfono arranca cada transición uno o dos fotogramas tarde, así que al
+   * vencer el temporizador del encogimiento el clon aún medía 109 px de los
+   * 99 del resumen, y el viaje de vuelta empezaba con la tarjeta a medio
+   * encoger. El temporizador queda solo como red de seguridad, con margen,
+   * por si la transición no llega a correr (pestaña oculta, valor sin cambio).
+   */
+  const whenDone = useCallback(
+    (element: HTMLElement, property: string, ms: number, run: () => void) => {
+      let settled = false;
+      const onEnd = (event: TransitionEvent) => {
+        if (event.target === element && event.propertyName === property) finish();
+      };
+      const cancel = () => {
+        settled = true;
+        element.removeEventListener("transitionend", onEnd);
+        window.clearTimeout(timer);
+      };
+      const finish = () => {
+        if (settled) return;
+        cancel();
+        run();
+      };
+      const timer = window.setTimeout(finish, ms + 250);
+      element.addEventListener("transitionend", onEnd);
+      pending.current.push(cancel);
+    },
+    [],
+  );
+
+  /** Fase 2 de la apertura: crece desde el centro y luego entra el texto. */
+  const grow = useCallback(() => {
+    const panel = panelRef.current;
+    const card = cardRef.current;
+    const geo = geometry.current;
+    if (!panel || !card || !geo) return;
+    setPhase("growing");
+    panel.style.transition = `transform ${GROW_MS}ms ${EASE}`;
+    card.style.transition = `height ${GROW_MS}ms ${EASE}, padding-top ${GROW_MS}ms ${EASE}`;
+    panel.style.transform = "translateY(0px)";
+    card.style.height = `${geo.expanded}px`;
+    card.style.paddingTop = `${geo.paddingTop}px`;
+    // Se espera la `transform` del envoltorio y no el `height` del clon, que
+    // acaban a la vez: ver la nota de `shrink`.
+    whenDone(panel, "transform", GROW_MS, () => setPhase("open"));
+  }, [setPhase, whenDone]);
+
+  // Antes de pintar: el primer fotograma ya tiene que estar encima de la
+  // tarjeta de origen, o se vería un destello del clon en el centro.
   useLayoutEffect(() => {
     const panel = panelRef.current;
+    const card = cardRef.current;
     const veil = veilRef.current;
-    if (!panel || !veil) return;
+    if (!panel || !card || !veil) return;
 
     reduced.current = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduced.current) {
-      setState("open");
+
+    const from = origin?.getBoundingClientRect();
+    const viewWidth = document.documentElement.clientWidth;
+    const viewHeight = window.innerHeight;
+    const width = from?.width || Math.min(viewWidth - 2 * VIEW_MARGIN, 384);
+    panel.style.left = `${from ? from.left : (viewWidth - width) / 2}px`;
+    panel.style.width = `${width}px`;
+    copyFieldWindow(origin, card);
+
+    // El alto desplegado se mide con el contenido entero en su sitio, todavía
+    // invisible (las líneas están a opacidad cero hasta la fase `open`), y
+    // se le da un 30% más: con el alto justo el texto quedaba apretado contra
+    // el borde. Lo que sobra se lo queda la fila de las líneas, que lo reparte
+    // (ver `CardContent`).
+    //
+    // La rejilla se fija al alto FINAL desde el principio y no sigue al del
+    // clon mientras crece: así nada se recoloca durante la animación, y el
+    // recorte del clon es lo único que cambia.
+    const grid = card.firstElementChild as HTMLElement | null;
+    // Sin el alto de una medición anterior: en desarrollo el modo estricto
+    // ejecuta este efecto dos veces, y la segunda medía el alto ya ampliado
+    // por la primera (un 69% en vez de un 30%).
+    if (grid) grid.style.height = "";
+    card.style.paddingTop = "";
+    card.style.height = "auto";
+    const natural = card.offsetHeight;
+    const gridNatural = grid?.offsetHeight ?? natural;
+    const chrome = natural - gridNatural; // padding y borde del clon
+    const expanded = Math.min(Math.round(natural * EXPANDED_SCALE), viewHeight - 2 * VIEW_MARGIN);
+    const gridExpanded = Math.max(gridNatural, expanded - chrome);
+    if (grid) grid.style.height = `${gridExpanded}px`;
+    const collapsed = from?.height || expanded;
+    if (natural > expanded) card.style.overflowY = "auto";
+
+    // EL MISMO AIRE ARRIBA QUE ABAJO. Repartiendo lo que sobra solo entre las
+    // líneas, del borde superior a la etiqueta quedaba el padding del resumen
+    // (12 px) y de la última línea al borde inferior casi el triple. Se mide
+    // el desplegado tal cual y se mueve a la parte de arriba lo justo para
+    // igualarlos: `lead` px más de padding superior, que la rejilla pierde de
+    // alto. Las líneas reparten su fila en `n + 1` huecos iguales, así que
+    // cada px que pierde la rejilla le quita al hueco de abajo 1/(n + 1):
+    //
+    //   arriba + lead = abajo - lead / (n + 1)
+    //   lead = (abajo - arriba) · (n + 1) / (n + 2)
+    //
+    // El padding extra entra mientras el clon crece y sale mientras encoge:
+    // el resumen de partida y de llegada sigue siendo el de la tarjeta.
+    let lead = 0;
+    const lastLine = card.querySelector<HTMLElement>("ul > li:last-child");
+    const lineCount = card.querySelectorAll("ul > li").length;
+    if (grid && lastLine && gridExpanded > gridNatural) {
+      const box = card.getBoundingClientRect();
+      const above = grid.getBoundingClientRect().top - box.top;
+      const below = box.bottom - lastLine.getBoundingClientRect().bottom;
+      lead = Math.max(0, ((below - above) * (lineCount + 1)) / (lineCount + 2));
+      grid.style.height = `${gridExpanded - lead}px`;
+    }
+    const paddingTop = parseFloat(getComputedStyle(card).paddingTop) + lead;
+
+    // La tarjeta de la banda desaparece mientras su clon está fuera: es la
+    // misma pieza que se levanta, no una copia junto al original.
+    setVisible(origin, false);
+
+    // Centrado en el grupo de tarjetas, pero sin salirse de la pantalla: si la
+    // página está desplazada y el grupo queda medio fuera, el clon se queda
+    // en el trozo visible más cercano.
+    const center = groupCenter(origin) ?? viewHeight / 2;
+    const top = Math.min(
+      Math.max(center - expanded / 2, VIEW_MARGIN),
+      viewHeight - VIEW_MARGIN - expanded,
+    );
+    panel.style.top = `${top}px`;
+    geometry.current = { top, collapsed, expanded, paddingTop };
+
+    if (reduced.current || !from) {
+      card.style.height = `${expanded}px`;
+      card.style.paddingTop = `${paddingTop}px`;
+      setPhase("open");
       return;
     }
 
-    panel.style.transition = "none";
-    veil.style.transition = "none";
-    panel.style.transform = originTransform(origin, panel);
+    // Punto de partida: el clon, al alto del resumen, encima de su tarjeta.
+    card.style.height = `${collapsed}px`;
+    panel.style.transform = `translateY(${from.top - top}px)`;
     veil.style.opacity = "0";
+    // Se fija el punto de partida antes de soltar la transición; sin esta
+    // lectura el navegador funde las dos escrituras y no hay viaje.
+    panel.getBoundingClientRect();
 
-    // Un fotograma para que el navegador fije el punto de partida; sin él
-    // las dos escrituras se funden en una y no hay transición.
-    const frame = requestAnimationFrame(() => {
-      panel.style.transition = `transform ${OPEN_MS}ms ${EASE_OPEN}`;
-      veil.style.transition = `opacity ${OPEN_MS}ms ${EASE_OPEN}`;
-      panel.style.transform = "none";
+    // Fase 1: el viaje hasta el centro del grupo, con el alto del resumen.
+    frame.current = requestAnimationFrame(() => {
+      if (phaseRef.current !== "start") return;
+      setPhase("moving");
+      panel.style.transition = `transform ${MOVE_MS}ms ${EASE}`;
+      veil.style.transition = `opacity ${MOVE_MS}ms ${EASE}`;
+      const moved = (expanded - collapsed) / 2;
+      panel.style.transform = `translateY(${moved}px)`;
       veil.style.opacity = "1";
-      setState("open");
+      // La tarjeta del medio ya está en el centro: no hay viaje que esperar,
+      // y una transición sin cambio de valor nunca emite `transitionend`.
+      if (Math.abs(from.top - top - moved) < 1) after(0, grow);
+      else whenDone(panel, "transform", MOVE_MS, grow);
     });
-    return () => cancelAnimationFrame(frame);
-  }, [origin]);
+  }, [origin, after, grow, setPhase, whenDone]);
 
-  useEffect(() => () => window.clearTimeout(closeTimer.current), []);
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(frame.current);
+      cancelPending();
+    },
+    [cancelPending],
+  );
 
   useEffect(() => {
-    closeRef.current?.focus({ preventScroll: true });
+    panelRef.current?.focus({ preventScroll: true });
   }, []);
 
-  /** Cierre con el viaje de vuelta. Se desmonta al terminar. */
+  /** Cierre por el camino inverso, desde la fase en la que esté. */
   const requestClose = useCallback(() => {
-    if (closing.current) return;
-    closing.current = true;
+    const current = phaseRef.current;
+    if (current === "fading" || current === "shrinking" || current === "returning") return;
 
     const panel = panelRef.current;
+    const card = cardRef.current;
     const veil = veilRef.current;
-    if (reduced.current || !panel || !veil) {
+    const geo = geometry.current;
+    if (reduced.current || !origin || !panel || !card || !veil || !geo) {
       onClose();
       return;
     }
 
-    setState("closing");
-    const target = originTransform(origin, panel);
-    panel.style.transition = `transform ${CLOSE_MS}ms ${EASE_CLOSE}`;
-    veil.style.transition = `opacity ${CLOSE_MS}ms ${EASE_CLOSE}`;
-    panel.style.transform = target;
-    veil.style.opacity = "0";
-    closeTimer.current = window.setTimeout(onClose, CLOSE_MS);
-  }, [onClose, origin]);
+    cancelAnimationFrame(frame.current);
+    cancelPending();
+
+    // Paso 3: de vuelta a la tarjeta, y se desmonta al posarse.
+    const goBack = () => {
+      setPhase("returning");
+      const target = origin.getBoundingClientRect().top - geo.top;
+      // Dónde está ahora, leído antes de moverlo.
+      const current = new DOMMatrixReadOnly(getComputedStyle(panel).transform).m42;
+      panel.style.transition = `transform ${RETURN_MS}ms ${EASE}`;
+      veil.style.transition = `opacity ${RETURN_MS}ms ${EASE}`;
+      panel.style.transform = `translateY(${target}px)`;
+      veil.style.opacity = "0";
+      // Desde la tarjeta del medio no hay recorrido, y una transición sin
+      // cambio de valor no emite `transitionend`: basta con que se vaya el
+      // velo, que dura lo mismo.
+      if (Math.abs(current - target) < 1) after(RETURN_MS, onClose);
+      else whenDone(panel, "transform", RETURN_MS, onClose);
+    };
+
+    // Paso 2: encoge hasta el alto del resumen, alrededor del mismo centro.
+    const shrink = () => {
+      setPhase("shrinking");
+      card.style.overflowY = "";
+      card.scrollTop = 0;
+      panel.style.transition = `transform ${SHRINK_MS}ms ${EASE}`;
+      card.style.transition = `height ${SHRINK_MS}ms ${EASE}, padding-top ${SHRINK_MS}ms ${EASE}`;
+      // De vuelta al padding del resumen (el de la clase).
+      card.style.paddingTop = "";
+      panel.style.transform = `translateY(${(geo.expanded - geo.collapsed) / 2}px)`;
+      card.style.height = `${geo.collapsed}px`;
+      // SE ESPERA LA `transform`, NO EL `height`. Las dos transiciones duran
+      // lo mismo, pero la `transform` del envoltorio puede terminar un
+      // fotograma después que el alto. Esperando el alto, ese
+      // `transitionend` tardío llegaba cuando `goBack` ya escuchaba la
+      // `transform` del regreso, se tomaba por su final y el modal se cerraba
+      // sin volver a la tarjeta (medido en el G15). Esperando siempre la
+      // `transform` del envoltorio, cada fase consume su propio evento.
+      whenDone(panel, "transform", SHRINK_MS, goBack);
+    };
+
+    // Paso 1: se va el texto. Si todavía no había llegado, se salta.
+    if (current === "open") {
+      setPhase("fading");
+      after(TEXT_OUT_MS, shrink);
+    } else if (current === "growing") {
+      shrink();
+    } else {
+      goBack();
+    }
+  }, [after, cancelPending, onClose, origin, setPhase, whenDone]);
 
   // Si la pantalla pasa a `sm` con el modal abierto (girar una tableta), la
   // tarjeta ya enseña todo: el modal se cierra solo, sin viaje, porque la
@@ -448,8 +751,32 @@ function TrustCardDialog({ item, index, origin, onClose }: TrustCardDialogProps)
     }
   };
 
+  const closeButton = (
+    <button
+      ref={closeRef}
+      type="button"
+      onClick={requestClose}
+      aria-label="Cerrar"
+      // La chapa visible mide 36 px; el `after` amplía la zona táctil a 48.
+      className={cn(CHIP, "relative cursor-pointer after:absolute after:-inset-1.5 hover:border-line")}
+    >
+      {/* El `+` de la tarjeta, girado a `×` mientras el clon crece, y de
+          vuelta a `+` mientras encoge. */}
+      <span
+        aria-hidden="true"
+        className={cn(
+          "inline-block transition-transform duration-[420ms] ease-[cubic-bezier(0.45,0,0.2,1)] motion-reduce:transition-none",
+          "group-data-[state=growing]:rotate-45 group-data-[state=open]:rotate-45 group-data-[state=fading]:rotate-45",
+          "group-data-[state=shrinking]:duration-[380ms]",
+        )}
+      >
+        +
+      </span>
+    </button>
+  );
+
   return createPortal(
-    <div className="fixed inset-0 z-[44] flex items-center justify-center p-4" onKeyDown={onKeyDown}>
+    <div className="fixed inset-0 z-[44]" onKeyDown={onKeyDown}>
       {/* Velo. Pulsarlo cierra; para el teclado ya están Escape y el botón. */}
       <div
         ref={veilRef}
@@ -462,30 +789,25 @@ function TrustCardDialog({ item, index, origin, onClose }: TrustCardDialogProps)
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        data-state={state}
+        tabIndex={-1}
+        data-state={phase}
         className={cn(
-          "group relative w-full max-w-sm origin-center will-change-transform",
-          state === "closing" && "pointer-events-none",
+          "group fixed outline-none will-change-transform",
+          phase === "returning" && "pointer-events-none",
         )}
       >
-        <Surface
+        {/* El clon: la misma superficie que la tarjeta (`Surface` no pasa
+            refs, de ahí las clases a mano) con su padding y su sombra. El
+            recorte es lo que esconde las líneas mientras el alto es el del
+            resumen; el clon no se inclina, así que no le quita nada al 3D de
+            `.vp-card`. */}
+        <div
+          ref={cardRef}
           style={accentStyle(index)}
-          className="vp-card flex flex-col p-5 pr-16 shadow-[4px_4px_0_0_var(--vp-tb-accent)]"
+          className="vp-card vp-tb-card overflow-hidden rounded-vp border-2 border-muted bg-surface p-2.5 shadow-[4px_4px_0_0_var(--vp-tb-accent)]"
         >
-          <CardContent item={item} index={index} mode="dialog" titleId={titleId} />
-          <button
-            ref={closeRef}
-            type="button"
-            onClick={requestClose}
-            aria-label="Cerrar"
-            className={cn(
-              "absolute right-2 top-2 flex size-11 items-center justify-center rounded-vp border-2 border-muted bg-background hover:border-line",
-              REVEAL,
-            )}
-          >
-            <CloseIcon className="size-5" aria-hidden="true" />
-          </button>
-        </Surface>
+          <CardContent item={item} index={index} mode="clone" titleId={titleId} action={closeButton} />
+        </div>
       </div>
     </div>,
     document.body,
