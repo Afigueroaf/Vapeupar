@@ -46,10 +46,10 @@ export function Navbar() {
       <div className="mx-auto flex max-w-vp items-center justify-between gap-6 px-inline py-4">
         <Link href="/" className="flex items-center" aria-label="Vapeupar, inicio">
           <Image
-            src="/logo-detalle.svg"
+            src="/logo-vu-blanco.svg"
             alt="Vapeupar"
-            width={1319}
-            height={786}
+            width={1026}
+            height={549}
             priority
             className="h-10 w-auto sm:h-12"
           />
