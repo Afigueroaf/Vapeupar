@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
+import { getConsoleFunction, setConsoleFunction } from "three";
 import { Scene, type PointerState, type SceneAnchor, type SceneConfig } from "./scene";
 import { usePointCloud } from "./use-point-cloud";
 
@@ -14,6 +15,26 @@ import { usePointCloud } from "./use-point-cloud";
  * paquete inicial del cliente, y la portada sigue pintando su HTML sin esperar
  * a nada de esto.
  */
+
+/**
+ * AVISO DE `THREE.Clock` SILENCIADO. three 0.187 declara obsoleto `Clock` en
+ * favor de `Timer`, pero quien lo crea es `@react-three/fiber` (9.8.2, su
+ * última versión estable: `clock: new THREE.Clock()` en su store), no este
+ * código. No hay nada que cambiar de nuestro lado hasta que R3F lo sustituya, y
+ * el aviso solo ensuciaba la consola en cada carga de la portada.
+ *
+ * Se usa el gancho oficial de three (`setConsoleFunction`), que solo ve los
+ * mensajes de three, y se filtra ÚNICAMENTE ese aviso: cualquier otro sigue
+ * llegando a la consola como siempre. Se instala al cargar este módulo, antes
+ * de que `<Canvas>` cree el store. Quitarlo cuando R3F use `Timer`.
+ */
+const CLOCK_DEPRECATION = "THREE.Clock: This module has been deprecated";
+if (!getConsoleFunction()) {
+  setConsoleFunction((type, message, ...params) => {
+    if (type === "warn" && typeof message === "string" && message.startsWith(CLOCK_DEPRECATION)) return;
+    (console[type as "log" | "warn" | "error"] ?? console.log)(message, ...params);
+  });
+}
 
 export interface VaporizerCanvasProps extends SceneConfig {
   modelPath: string | null;
