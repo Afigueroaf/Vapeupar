@@ -254,7 +254,14 @@ export function TrustStage({ showcase, children }: TrustStageProps) {
           }
         />
 
-        <div className="relative flex flex-1 flex-col pb-10 sm:pb-16">
+        {/*
+          EN HORIZONTAL EL RELLENO ES SIMÉTRICO, y no solo abajo: el tirador
+          VOLVER se centra en el alto de este bloque (`top-1/2`), y las
+          tarjetas se centran en el del `CardField`. Con 64 px solo abajo, el
+          centro de la fila quedaba 32 px por encima del de VOLVER. Con el
+          mismo relleno arriba y abajo los dos centros coinciden.
+        */}
+        <div className="relative flex flex-1 flex-col portrait:pb-10 sm:portrait:pb-16 landscape:py-6">
           {/*
             Las tarjetas: apiladas en vertical, en fila en horizontal.
 
@@ -264,16 +271,22 @@ export function TrustStage({ showcase, children }: TrustStageProps) {
             que el campo ya hace solo. Ver `.vp-card` en `globals.css` y
             `ui/card-field.tsx`.
 
-            El margen interior deja sitio al tirador VOLVER: a la izquierda en
-            vertical, a los dos lados en horizontal para que la fila siga
-            centrada. Desde `xl` la columna de la página ya queda lejos del
-            borde y vuelve al margen de las demás secciones.
+            EN VERTICAL, EL ANCHO DEL PRISMA. La columna de tarjetas ocupa el
+            mismo ancho que el hueco del prisma de la vitrina —de borde a borde
+            de la pantalla—, con solo el margen de 16 px por lado que piden el
+            borde y la sombra dura para verse. Antes reservaba 64 px a la
+            izquierda para VOLVER, pero en vertical ese tirador vive en la
+            cabecera, no a la altura de las tarjetas: era hueco perdido y
+            descentraba la columna respecto al prisma.
+
+            En horizontal el margen sí deja sitio a VOLVER, a los dos lados
+            para que la fila siga centrada. Desde `xl` la columna de la página
+            ya queda lejos del borde y vuelve al margen de las demás secciones.
           */}
           <CardField
             className={cn(
               "mx-auto flex w-full max-w-vp flex-1 flex-col justify-center gap-2.5 px-4 sm:gap-4 sm:px-6",
-              "portrait:pl-16",
-              "landscape:grid landscape:grid-cols-3 landscape:content-center landscape:gap-6 landscape:px-16 xl:landscape:px-10",
+              "landscape:grid landscape:grid-cols-3 landscape:content-center landscape:gap-6 lg:landscape:gap-3 landscape:px-16 xl:landscape:px-10",
             )}
           >
             {children}
