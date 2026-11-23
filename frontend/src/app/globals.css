@@ -1433,6 +1433,12 @@ html[data-vp-cursor="on"] .vp-cursor-hint {
    `cubic-bezier(0.25, 0.1, 0.25, 1)`). Una «ease-out» más marcada subía la
    opacidad casi a la mitad con solo el borde de la pieza a la vista.
 
+   LA OPACIDAD VA APARTE (`vp-scroll-reveal-fade`), más rezagada que el
+   movimiento: a petición del dueño, la pieza aparece un 30% más transparente
+   (transparencia media del tramo 0,33 → 0,43). Es la curva `ease` elevada a
+   1,86, muestreada en un `linear()`: a mitad del tramo, opacidad 0,66 en vez
+   de 0,80, y sigue llegando a 1 justo al final, sin saltos.
+
    EL TRAMO NO ES EL DE LA REFERENCIA, y es a propósito. Allí va de
    `entry 10%` a `cover 30%`: la pieza solo se completa cuando ya ha subido un
    tercio de la pantalla, y lo que está al final de una página corta —la última
@@ -1462,13 +1468,20 @@ html[data-vp-cursor="on"] .vp-cursor-hint {
    porque nada animado es lo último del documento (el pie, que no se anima,
    va siempre después).
    ========================================================================= */
-@keyframes vp-scroll-reveal {
+@keyframes vp-scroll-reveal-fade {
   from {
     opacity: 0;
-    transform: translateY(var(--reveal-translate-y, 40px)) scale(var(--reveal-scale, 1));
   }
   to {
     opacity: 1;
+  }
+}
+
+@keyframes vp-scroll-reveal {
+  from {
+    transform: translateY(var(--reveal-translate-y, 40px)) scale(var(--reveal-scale, 1));
+  }
+  to {
     /* OJO: aunque aquí diga `none`, al interpolar con `both` el navegador deja
        una matriz identidad aplicada, y cualquier transform convierte la pieza
        en bloque contenedor de sus descendientes `position: fixed`. Por eso no
@@ -1481,8 +1494,11 @@ html[data-vp-cursor="on"] .vp-cursor-hint {
   @media (prefers-reduced-motion: no-preference) {
     .scroll-reveal,
     .reveal-stagger > * {
-      animation: vp-scroll-reveal cubic-bezier(0.25, 0.1, 0.25, 1) both;
-      /* Después del atajo `animation`, que lo devolvería a `auto`. */
+      animation:
+        vp-scroll-reveal cubic-bezier(0.25, 0.1, 0.25, 1) both,
+        vp-scroll-reveal-fade linear(0, 0.007 8.3%, 0.06 16.7%, 0.189 25%, 0.358 33.3%, 0.523 41.7%, 0.664 50%, 0.778 58.3%, 0.865 66.7%, 0.928 75%, 0.969 83.3%, 0.993 91.7%, 1) both;
+      /* Después del atajo `animation`, que lo devolvería a `auto`. Un solo
+         valor de `animation-timeline`/`-range` vale para las dos. */
       animation-timeline: view();
       animation-range: entry var(--reveal-start, 0%) entry calc(100% + 15vh);
     }
