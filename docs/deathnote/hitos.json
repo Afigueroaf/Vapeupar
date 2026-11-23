@@ -187,5 +187,12 @@
     "title": "Profundidad en las tarjetas y modal con scroll",
     "detail": "Sombra propia por etiqueta en el catálogo y proyección en las tarjetas de información (#41); el modal de las tarjetas deja hacer scroll, se cierra al desplazarse y queda bajo el header (#42).",
     "ref": "PR #41, #42 · PR #43 · f99de54 · run 45238264199"
+  },
+  {
+    "id": "h20261123-2",
+    "date": "2026-11-23",
+    "title": "Pantalla de arranque, fundido entre páginas y scroll reveal",
+    "detail": "Logo VU que se dibuja en 4 s en cada carga, sin el glitch de entrada y sin parpadeo de la puerta +18; fundido suave entre páginas con View Transitions (#46). Las piezas de la web pública y la vitrina 3D crecen y aparecen ligadas al scroll (#47).",
+    "ref": "PR #46, #47 · 291e33b · 50b350e"
   }
 ]

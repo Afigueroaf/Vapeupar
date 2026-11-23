@@ -1,20 +1,22 @@
 {
   "title": "Pantalla de arranque y fundido entre páginas",
-  "status": "en_curso",
+  "status": "hecho",
   "priority": "media",
   "area": "frontend",
   "summary": "Cada carga de la web pública arranca con el logo VU dibujándose (4 s, una pasada); se retira el glitch de entrada de 2,8 s; la puerta +18 (TTL 30 días) deja de parpadear al recargar; navegar entre páginas hace un fundido suave con View Transitions.",
   "origin": "usuario",
   "source": "Añadido desde la terminal",
   "createdAt": "2026-11-23T20:12:18.654Z",
-  "updatedAt": "2026-11-23T20:20:40.472Z",
+  "updatedAt": "2026-11-23T23:44:16.944Z",
   "claudeNote": "Implementado en la rama feat/arranque-y-transiciones (sin push ni PR). Diseño: docs/superpowers/specs/2026-11-23-arranque-y-transiciones-design.md; plan: docs/superpowers/plans/2026-11-23-arranque-y-transiciones.md. Hallazgos: el bloqueo de scroll pasa a contador (dos capas se liberaban entre sí); <ViewTransition> tiene que envolver la página entera, no el <main>, y Next 16.4 ya no necesita experimental.viewTransition. Revisión final hecha: corregidos la aceptación de la puerta +18 con el teclado bajo el arranque y el seguro si el JS falla. Menores diferidos: role=status sin texto, arranque al pasar de /admin a la tienda, scroll táctil antes de hidratar, clics durante el fundido final, docs de spec/plan desfasados, barra sobre la puerta durante una transición. Falta: PR y hito al fusionar.",
-  "evidence": "commits 2c3c2ac, 692ce0d, 671ac23, 7d6d0a0, f4d0929 · npm test (135/135) · next build OK · revisión final de la rama (2 importantes corregidos) · verificado en Chrome headless (escritorio, 360px, horizontal, movimiento reducido, /admin, sin verificar +18, teclado bajo el arranque, JS bloqueado)",
+  "evidence": "commits 2c3c2ac, 692ce0d, 671ac23, 7d6d0a0, f4d0929 · npm test (135/135) · next build OK · revisión final de la rama (2 importantes corregidos) · verificado en Chrome headless (escritorio, 360px, horizontal, movimiento reducido, /admin, sin verificar +18, teclado bajo el arranque, JS bloqueado) · Fusionado en dev: PR #46 (291e33b).",
   "suggestions": [
     {
       "label": "Abrir PR y fusionar",
       "detail": "Revisar la rama y abrir el PR contra main",
       "prompt": "Revisa la rama feat/arranque-y-transiciones contra main, corre npm test y npm run build desde la raíz, abre el PR y, al fusionar, marca este pendiente como hecho y añade el hito."
     }
-  ]
+  ],
+  "completedAt": "2026-11-23T23:44:16.943Z",
+  "queued": false
 }
