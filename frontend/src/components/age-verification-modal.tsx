@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { Button, buttonStyles } from "@/components/ui/button";
 import { PixelLabel } from "@/components/ui/pixel-label";
 import { VERIFICATION_KEY, needsVerification as computeNeedsVerification } from "@/lib/age-gate";
+import { whenBootDone } from "@/lib/boot-signal";
+import { useScrollLock } from "@/lib/use-scroll-lock";
 
 /**
  * `localStorage` es un sistema externo a React, así que se lee con
@@ -70,51 +72,27 @@ export function AgeVerificationModal() {
   const dialogRef = useRef<HTMLDivElement>(null);
   const isOpen = needsVerification && !confirmedNow;
 
+  // Bloqueo del scroll del body (§9.1). La técnica y por qué es compartida con
+  // la pantalla de arranque y el carrito están en `lib/use-scroll-lock.ts`.
+  useScrollLock(isOpen);
+
   useEffect(() => {
     if (!isOpen) return;
-
-    // POR QUÉ NO `document.body.style.overflow = "hidden"`: en iOS Safari el
-    // elemento que desplaza la página es `documentElement`, y el navegador
-    // ignora el `overflow` del `body`. El resultado era una puerta que en
-    // móvil no bloqueaba la navegación: el catálogo seguía desplazándose
-    // por detrás.
-    //
-    // El bloqueo que sí funciona en los dos sistemas es fijar el `body` y
-    // compensar el desplazamiento actual con `top` negativo. Al cerrar hay que
-    // devolverlo con `window.scrollTo`, o el visitante aparece de vuelta en el
-    // principio de la página.
-    const scrollY = window.scrollY;
-    const { style } = document.body;
-    const previous = {
-      position: style.position,
-      top: style.top,
-      left: style.left,
-      right: style.right,
-      width: style.width,
-      overflow: style.overflow,
-    };
-
-    style.position = "fixed";
-    style.top = `-${scrollY}px`;
-    style.left = "0";
-    style.right = "0";
-    style.width = "100%";
-    style.overflow = "hidden";
 
     // El foco inicial va al botón de confirmación (§9.1). El temporizador se
     // cancela en la limpieza: si la puerta se cierra antes de los 100ms, mover
     // el foco a un botón ya desmontado lo robaría a la página.
-    const focusTimer = setTimeout(() => confirmButtonRef.current?.focus(), 100);
+    // Si la pantalla de arranque está tapando la puerta, el foco espera a que se
+    // retire: con el botón enfocado debajo, Espacio o Intro aceptaban la
+    // declaración sin haberla visto (`lib/boot-signal.ts`).
+    let focusTimer = 0;
+    const cancelWait = whenBootDone(() => {
+      focusTimer = window.setTimeout(() => confirmButtonRef.current?.focus(), 100);
+    });
 
     return () => {
+      cancelWait();
       clearTimeout(focusTimer);
-      style.position = previous.position;
-      style.top = previous.top;
-      style.left = previous.left;
-      style.right = previous.right;
-      style.width = previous.width;
-      style.overflow = previous.overflow;
-      window.scrollTo(0, scrollY);
     };
   }, [isOpen]);
 

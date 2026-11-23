@@ -42,7 +42,12 @@ export function Navbar() {
   const closeMenu = () => setMobileMenuOpen(false);
 
   return (
-    <header className="vp-glitch sticky top-0 z-40 w-full border-b-2 border-line bg-background">
+    // `vp-navbar`: nombre de transición propio para que la barra NO se funda
+    // con la página al navegar (globals.css §TRANSICIONES DE PÁGINA).
+    <header
+      className="vp-glitch sticky top-0 z-40 w-full border-b-2 border-line bg-background"
+      style={{ viewTransitionName: "vp-navbar" }}
+    >
       <div className="mx-auto flex max-w-vp items-center justify-between gap-6 px-inline py-4">
         <Link href="/" className="flex items-center" aria-label="Vapeupar, inicio">
           <Image

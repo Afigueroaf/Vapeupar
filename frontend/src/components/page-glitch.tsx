@@ -31,7 +31,6 @@ const FILTER_ID = "vp-rgb-glitch";
 const CARD_FILTER_ID = "vp-rgb-glitch-card";
 const CHIP_FILTER_ID = "vp-rgb-glitch-chip";
 
-const INTRO_DECAY_MS = 2800;
 const BURST_DURATION_MS = 420;
 const BURST_PEAK = 0.42;
 const BURST_INTERVAL_MIN_MS = 5000;
@@ -74,7 +73,8 @@ const LINE_NOISE_MAX = 3;
  * Tope del desplazamiento cuantizado: el mayor múltiplo de `SHIFT_STEP` que no
  * pasa de `GLITCH_MAX_SHIFT` más el jitter (17 → 15). Sin el tope, redondear
  * 17 daría 18 y las copias se saldrían de la región de los filtros. Solo se
- * alcanza en los primeros fotogramas de la entrada; las ráfagas llegan a 6.
+ * alcanzaba con la antigua entrada de carga (retirada: ahora la carga la
+ * cubre la pantalla de arranque); las ráfagas llegan a 6.
  */
 const SHIFT_CEIL = Math.floor((GLITCH_MAX_SHIFT + LINE_NOISE_MAX) / SHIFT_STEP) * SHIFT_STEP;
 
@@ -189,7 +189,8 @@ export function PageGlitch() {
     let frame = 0;
     /** Temporizador que despierta el bucle antes de la siguiente ráfaga. */
     let timer = 0;
-    let start = 0;
+    /** Si el bucle ya arrancó: la primera ráfaga se programa en el primer fotograma. */
+    let started = false;
     let burstAt = 0;
     let burstStart = -1;
 
@@ -307,18 +308,15 @@ export function PageGlitch() {
     };
 
     const tick = (now: number) => {
-      if (!start) {
-        start = now;
-        burstAt = now + INTRO_DECAY_MS + nextBurstDelay();
+      // Sin entrada de carga: el glitch de 2,8 s al abrir la página se retiró
+      // porque la pantalla de arranque (`boot/boot-screen.tsx`) ya cubre ese
+      // momento. Solo quedan las ráfagas periódicas.
+      if (!started) {
+        started = true;
+        burstAt = now + nextBurstDelay();
       }
 
-      const sinceStart = now - start;
       let intensity = 0;
-
-      if (sinceStart < INTRO_DECAY_MS) {
-        // Caída de potencia: desplome inicial rápido y cola lenta.
-        intensity = (1 - sinceStart / INTRO_DECAY_MS) ** 2.4;
-      }
 
       if (burstStart < 0 && now >= burstAt) burstStart = now;
       if (burstStart >= 0) {
@@ -335,7 +333,7 @@ export function PageGlitch() {
       // El filtro se arma un poco ANTES de que haya algo que ver, no cuando ya
       // lo hay: ver §GLITCH RGB DE PÁGINA en `globals.css`. `burstAt` se conoce
       // de antemano, así que el adelanto sale gratis.
-      if (sinceStart < INTRO_DECAY_MS || burstStart >= 0 || now >= burstAt - ARM_LEAD_MS) {
+      if (burstStart >= 0 || now >= burstAt - ARM_LEAD_MS) {
         arm();
       } else {
         disarm();
@@ -343,13 +341,13 @@ export function PageGlitch() {
 
       apply(intensity, now);
 
-      // ENTRE RÁFAGAS EL BUCLE SE DUERME. Pasada la entrada, sin ráfaga en
+      // ENTRE RÁFAGAS EL BUCLE SE DUERME. Sin ráfaga en
       // curso y con el filtro ya en reposo, los fotogramas hasta la siguiente
       // no harían nada: `burstAt` se conoce de antemano, así que basta un
       // temporizador que despierte el rAF justo al empezar el precalentado.
       // Quita un `requestAnimationFrame` permanente (5-9 s de cada ~7,5).
       const idle =
-        sinceStart >= INTRO_DECAY_MS && burstStart < 0 && now < burstAt - ARM_LEAD_MS;
+        burstStart < 0 && now < burstAt - ARM_LEAD_MS;
       if (idle && appliedShift === 0) {
         frame = 0;
         timer = window.setTimeout(wake, burstAt - ARM_LEAD_MS - now);
@@ -379,16 +377,10 @@ export function PageGlitch() {
       if (frame || timer) return;
       const now = performance.now();
 
-      // EL RELOJ SE ADELANTA, NO SE REINICIA. Reiniciarlo volvería a meter
-      // `sinceStart` dentro de la caída de entrada, o sea que la entrada
-      // dramática de la carga se repetiría cada vez que se vuelve a la pestaña.
-      // Corriendo `start` y `burstAt` el hueco que ha durado la ausencia, la
-      // animación continúa donde estaba: la entrada ocurre una sola vez y la
-      // siguiente ráfaga conserva su cuenta atrás.
-      if (start) {
-        const gap = now - hiddenAt;
-        start += gap;
-        burstAt += gap;
+      // EL RELOJ SE ADELANTA, NO SE REINICIA. Corriendo `burstAt` el hueco que
+      // ha durado la ausencia, la siguiente ráfaga conserva su cuenta atrás.
+      if (started) {
+        burstAt += now - hiddenAt;
       }
 
       // Una ráfaga interrumpida no se reanuda por la mitad: se descarta y se

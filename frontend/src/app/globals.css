@@ -1287,3 +1287,133 @@ html[data-vp-cursor="on"] {
 html[data-vp-cursor="on"] .vp-cursor-hint {
   opacity: 0;
 }
+
+/* ============================================================================
+   PANTALLA DE ARRANQUE (`components/boot/boot-screen.tsx`)
+   ----------------------------------------------------------------------------
+   El logo ocupa clamp(260px, 58vw, 620px) con tope 84vw y alto intrínseco
+   (la proporción del logo es ~5:1, así que nunca se acerca al alto ni en
+   horizontal bajo). En teléfono, 84vw.
+
+   Los contornos se pintan OCULTOS desde el servidor (guion a longitud cero) y
+   transparentes, para que antes de hidratar no se vea ni el logo completo ni
+   los puntos de los extremos redondeados; el bucle les da opacidad al empezar
+   cada pieza.
+
+   Movimiento reducido: el servidor no sabe la preferencia, así que es este CSS
+   quien enseña el logo relleno desde el primer fotograma, sin dibujo.
+   ========================================================================= */
+/* SEGURO: si el JS no llega a arrancar —un chunk que no carga, un bloqueador,
+   un WebView viejo que no entiende el paquete—, nadie retiraría la pantalla y
+   la web quedaría tapada de negro. A los 8 s se oculta sola. En cuanto el
+   bucle arranca anula esta animación (`boot-screen.tsx`). `<noscript>` solo
+   cubre el JS desactivado, no el que falla. */
+.vp-boot {
+  animation: vp-boot-failsafe 0s linear 8s forwards;
+}
+
+@keyframes vp-boot-failsafe {
+  to {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+.vp-boot__logo {
+  width: min(clamp(260px, 58vw, 620px), 84vw);
+  height: auto;
+  overflow: visible;
+}
+
+@media (max-width: 500px) {
+  .vp-boot__logo {
+    width: 84vw;
+  }
+}
+
+.vp-boot__strokes path {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vp-boot__strokes {
+    display: none;
+  }
+
+  .vp-boot__fill {
+    opacity: 1;
+  }
+}
+
+/* ============================================================================
+   TRANSICIONES DE PÁGINA (`components/page-transition.tsx`)
+   ----------------------------------------------------------------------------
+   Fundido suave: el contenido del `<main>` sale hacia arriba en 150 ms y el
+   nuevo entra desde abajo en 300 ms, con 80 ms de solape para que no haya un
+   fotograma vacío ni los dos a la vez a plena opacidad.
+
+   La raíz (`root`) NO se anima: es el fondo, y sin esto el navegador lo
+   fundiría por su cuenta además de la página.
+
+   La barra (`vp-navbar`) y el botón de WhatsApp (`vp-fab`) tienen nombre
+   propio y se anulan: el viejo no se ve y el nuevo aparece en su sitio sin
+   animación, así parecen quietos mientras la página cambia por debajo. El
+   `z-index` los deja por encima del contenido que entra.
+
+   El overlay de la transición deja pasar los clics a la página viva: si no,
+   un clic durante esos 300 ms se perdería.
+   ========================================================================= */
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-group(vp-navbar),
+::view-transition-group(vp-fab) {
+  animation: none;
+  z-index: 100;
+}
+
+::view-transition-old(vp-navbar),
+::view-transition-old(vp-fab) {
+  display: none;
+}
+
+::view-transition-new(vp-navbar),
+::view-transition-new(vp-fab) {
+  animation: none;
+}
+
+::view-transition-old(.vp-page-out) {
+  animation: vp-page-out 150ms var(--ease-vp) both;
+}
+
+::view-transition-new(.vp-page-in) {
+  animation: vp-page-in 300ms var(--ease-vp) 80ms both;
+}
+
+@keyframes vp-page-out {
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes vp-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation: none !important;
+  }
+}

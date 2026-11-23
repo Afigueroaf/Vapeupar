@@ -1,6 +1,6 @@
 {
   "title": "Contenido del sitio editable: esquemas, lectura y barrido (A7.1, A7.2, A7.4)",
-  "status": "en_curso",
+  "status": "hecho",
   "priority": "alta",
   "area": "backend",
   "summary": "Esquemas Zod por clave (hero, trust-band, faq, seo, contact), endpoint público de contenido, lectura en Server Component con fallback y sacar FAQ, banda de confianza, hero y SEO de los componentes.",
@@ -15,13 +15,15 @@
     }
   ],
   "source": "docs/admin-console-execution-plan.md (Fase A7) + docs/decisions/002-consola-de-administracion-y-persistencia.md (Decisión 5)",
-  "evidence": "Rama feat/a7-contenido-editable · docs/admin-console-execution-plan.md «Registro A7»",
+  "evidence": "PR #19 · 485da00 · en main con PR #32 (0f41a42) · producción desde la release 0f41a42 (run 44812513817)",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-19T02:56:01.398Z",
+  "updatedAt": "2026-11-23T18:50:36.996Z",
   "choice": {
     "kind": "suggestion",
     "index": 0
   },
-  "claudeNote": "Rama feat/a7-contenido-editable (sin push). Hecho A7.1 (esquemas Zod estrictos por clave en backend/src/schemas/content/, validación por clave al publicar, 400 con value.<campo>), A7.2 (GET /api/content/:key público con valor por defecto; frontend/src/lib/content.ts con etiqueta contenido, safeParse, respaldo y tope de 3 s) y A7.4 (hero, trust-band, faq, footer y metadatos leen su clave; marcas aliadas por el marcador {marcas} desde GET /api/brands/partners). Espejo de esquemas en el frontend con prueba de paridad (forma, valores por defecto y recorte). Revisado por un agente independiente: sin hallazgos graves; aplicados sus 5 arreglos menores. 203 tests, lint y build en verde; con el backend apagado la portada sale con los textos por defecto. Cambios de copy: la FAQ deja de nombrar Lost Mary, Geekvape, OXVA, Elf Bar y Nasty Juice, y las keywords de SEO pierden esas marcas. Falta: verificar en el entorno vivo (publicar una FAQ, desmarcar una aliada) tras desplegar, y A7.3 (revalidación) para no esperar 60 s."
+  "claudeNote": "Rama feat/a7-contenido-editable (sin push). Hecho A7.1 (esquemas Zod estrictos por clave en backend/src/schemas/content/, validación por clave al publicar, 400 con value.<campo>), A7.2 (GET /api/content/:key público con valor por defecto; frontend/src/lib/content.ts con etiqueta contenido, safeParse, respaldo y tope de 3 s) y A7.4 (hero, trust-band, faq, footer y metadatos leen su clave; marcas aliadas por el marcador {marcas} desde GET /api/brands/partners). Espejo de esquemas en el frontend con prueba de paridad (forma, valores por defecto y recorte). Revisado por un agente independiente: sin hallazgos graves; aplicados sus 5 arreglos menores. 203 tests, lint y build en verde; con el backend apagado la portada sale con los textos por defecto. Cambios de copy: la FAQ deja de nombrar Lost Mary, Geekvape, OXVA, Elf Bar y Nasty Juice, y las keywords de SEO pierden esas marcas. Falta: verificar en el entorno vivo (publicar una FAQ, desmarcar una aliada) tras desplegar, y A7.3 (revalidación) para no esperar 60 s.\n\n2026-11-23 (sincronización): Fusionado en main con la PR #32 y en producción desde el 2026-11-20 (release 0f41a42, run 44812513817).",
+  "completedAt": "2026-11-23T18:50:02.508Z",
+  "queued": false
 }
