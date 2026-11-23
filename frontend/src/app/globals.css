@@ -1417,3 +1417,104 @@ html[data-vp-cursor="on"] .vp-cursor-hint {
     animation: none !important;
   }
 }
+
+/* ============================================================================
+   SCROLL REVEAL «SCALE UP» (`scroll-reveal reveal-scale`)
+   ----------------------------------------------------------------------------
+   El patrón «simple scale up» de scrollreveal.it, reescrito sin la librería
+   (`@toms15/scroll-reveal-animations`): solo CSS, ligado al scroll con
+   `animation-timeline: view()`. La pieza crece y aparece mientras entra en
+   pantalla y, si se vuelve a subir, se encoge otra vez.
+
+   Estado inicial y curva, los de la referencia: opacidad 0, `scale(0.7)` y
+   100px más abajo; `cubic-bezier(0, 0.69, 0.57, 0.56)`.
+
+   EL TRAMO NO ES EL DE LA REFERENCIA, y es a propósito. Allí va de
+   `entry 10%` a `cover 30%`: la pieza solo se completa cuando ya ha subido un
+   tercio de la pantalla, y lo que está al final de una página corta —la última
+   fila, la última sección— nunca llega porque no queda scroll; lo mismo lo
+   que está a la vista al cargar sin haber subido lo bastante. Aquí acaba en
+   `entry 100%`: completo en cuanto entra ENTERO. Por eso solo se pone en
+   piezas más bajas que la pantalla (tarjetas, títulos, bloques), nunca en
+   contenedores altos: uno más alto que la pantalla no entraría entero nunca.
+
+   Sin soporte (Firefox hoy) o con movimiento reducido no hay regla: todo se
+   ve quieto y completo, como antes.
+
+   `.reveal-stagger` aplica lo mismo a cada hijo de una rejilla de productos y
+   retrasa el inicio del tramo por columna (2, 3 o 4 según el ancho, como
+   `product-catalog.tsx`), así que una fila entra en cascada y termina a la vez.
+
+   LAS TARJETAS DEL CATÁLOGO se miden sin transforms (`<CardField
+   measure="layout">`): medidas a media animación descuadraban su fondo
+   continuo.
+
+   ALTURA DE LA PÁGINA: los 100px de lo que aún no ha entrado no la alargan,
+   porque nada animado es lo último del documento (el pie, que no se anima,
+   va siempre después).
+   ========================================================================= */
+@keyframes vp-scroll-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(var(--reveal-translate-y, 100px)) scale(var(--reveal-scale, 1));
+  }
+  to {
+    opacity: 1;
+    /* OJO: aunque aquí diga `none`, al interpolar con `both` el navegador deja
+       una matriz identidad aplicada, y cualquier transform convierte la pieza
+       en bloque contenedor de sus descendientes `position: fixed`. Por eso no
+       se pone nunca en algo que contenga un overlay fijo. */
+    transform: none;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .scroll-reveal,
+    .reveal-stagger > * {
+      animation: vp-scroll-reveal cubic-bezier(0, 0.69, 0.57, 0.56) both;
+      /* Después del atajo `animation`, que lo devolvería a `auto`. */
+      animation-timeline: view();
+      animation-range: entry var(--reveal-start, 0%) entry 100%;
+    }
+
+    .reveal-scale,
+    .reveal-stagger > * {
+      --reveal-scale: 0.7;
+    }
+
+    /* Escalonado por columna: 2 columnas en móvil… */
+    .reveal-stagger > :nth-child(2n) {
+      --reveal-start: 20%;
+    }
+
+    /* …3 en tablet… */
+    @media (min-width: 48rem) {
+      .reveal-stagger > :nth-child(3n + 1) {
+        --reveal-start: 0%;
+      }
+      .reveal-stagger > :nth-child(3n + 2) {
+        --reveal-start: 15%;
+      }
+      .reveal-stagger > :nth-child(3n) {
+        --reveal-start: 30%;
+      }
+    }
+
+    /* …y 4 en escritorio. */
+    @media (min-width: 64rem) {
+      .reveal-stagger > :nth-child(4n + 1) {
+        --reveal-start: 0%;
+      }
+      .reveal-stagger > :nth-child(4n + 2) {
+        --reveal-start: 12%;
+      }
+      .reveal-stagger > :nth-child(4n + 3) {
+        --reveal-start: 24%;
+      }
+      .reveal-stagger > :nth-child(4n) {
+        --reveal-start: 36%;
+      }
+    }
+  }
+}

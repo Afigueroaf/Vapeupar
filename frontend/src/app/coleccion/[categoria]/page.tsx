@@ -87,7 +87,7 @@ export default async function CollectionPage({ params }: PageProps<"/coleccion/[
         </header>
 
         {/* Las demás colecciones: navegación lateral sin volver a la portada. */}
-        <nav aria-label="Otras colecciones" className="vp-glitch mt-block">
+        <nav aria-label="Otras colecciones" className="vp-glitch mt-block scroll-reveal reveal-scale">
           <ul className="flex flex-wrap gap-3">
             {COLLECTIONS.map((c) => {
               const current = c.slug === collection.slug;
@@ -113,13 +113,13 @@ export default async function CollectionPage({ params }: PageProps<"/coleccion/[
 
         {products.length > 0 ? (
           // Misma rejilla que el catálogo de la portada (`product-catalog.tsx`).
-          <div className="mt-block grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
+          <div className="reveal-stagger mt-block grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-4">
             {products.map((product, index) => (
               <ProductCard key={product.id} product={product} eagerImage={index === 0} />
             ))}
           </div>
         ) : (
-          <Surface className="vp-glitch mt-block flex flex-col items-center p-12 text-center">
+          <Surface className="vp-glitch mt-block flex flex-col items-center p-12 text-center scroll-reveal reveal-scale">
             <PixelLabel variant="violet">[ PROXIMAMENTE ]</PixelLabel>
             <h2 className="mt-6 text-xl font-bold uppercase leading-tight sm:text-[1.375rem]">
               Esta colección está vacía por ahora

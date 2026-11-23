@@ -338,7 +338,7 @@ export function ProductDetail({ product, initialVariantSlug }: ProductDetailProp
         </div>
 
         {specs.length > 0 ? (
-          <section aria-labelledby="ficha-tecnica" className="mt-block">
+          <section aria-labelledby="ficha-tecnica" className="mt-block scroll-reveal reveal-scale">
             <h2 id="ficha-tecnica" className="text-sm font-semibold uppercase tracking-[0.04em] text-muted">
               Ficha técnica
             </h2>
@@ -354,7 +354,7 @@ export function ProductDetail({ product, initialVariantSlug }: ProductDetailProp
         ) : null}
 
         {product.description ? (
-          <section aria-labelledby="descripcion" className="mt-block">
+          <section aria-labelledby="descripcion" className="mt-block scroll-reveal reveal-scale">
             <h2 id="descripcion" className="text-sm font-semibold uppercase tracking-[0.04em] text-muted">
               Descripción
             </h2>
