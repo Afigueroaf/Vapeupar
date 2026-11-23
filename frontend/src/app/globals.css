@@ -1303,6 +1303,22 @@ html[data-vp-cursor="on"] .vp-cursor-hint {
    Movimiento reducido: el servidor no sabe la preferencia, así que es este CSS
    quien enseña el logo relleno desde el primer fotograma, sin dibujo.
    ========================================================================= */
+/* SEGURO: si el JS no llega a arrancar —un chunk que no carga, un bloqueador,
+   un WebView viejo que no entiende el paquete—, nadie retiraría la pantalla y
+   la web quedaría tapada de negro. A los 8 s se oculta sola. En cuanto el
+   bucle arranca anula esta animación (`boot-screen.tsx`). `<noscript>` solo
+   cubre el JS desactivado, no el que falla. */
+.vp-boot {
+  animation: vp-boot-failsafe 0s linear 8s forwards;
+}
+
+@keyframes vp-boot-failsafe {
+  to {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
 .vp-boot__logo {
   width: min(clamp(260px, 58vw, 620px), 84vw);
   height: auto;

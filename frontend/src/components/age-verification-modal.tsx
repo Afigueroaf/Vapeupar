@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useSyncExternalStore } from "react";
 import { Button, buttonStyles } from "@/components/ui/button";
 import { PixelLabel } from "@/components/ui/pixel-label";
 import { VERIFICATION_KEY, needsVerification as computeNeedsVerification } from "@/lib/age-gate";
+import { whenBootDone } from "@/lib/boot-signal";
 import { useScrollLock } from "@/lib/use-scroll-lock";
 
 /**
@@ -81,9 +82,16 @@ export function AgeVerificationModal() {
     // El foco inicial va al botón de confirmación (§9.1). El temporizador se
     // cancela en la limpieza: si la puerta se cierra antes de los 100ms, mover
     // el foco a un botón ya desmontado lo robaría a la página.
-    const focusTimer = setTimeout(() => confirmButtonRef.current?.focus(), 100);
+    // Si la pantalla de arranque está tapando la puerta, el foco espera a que se
+    // retire: con el botón enfocado debajo, Espacio o Intro aceptaban la
+    // declaración sin haberla visto (`lib/boot-signal.ts`).
+    let focusTimer = 0;
+    const cancelWait = whenBootDone(() => {
+      focusTimer = window.setTimeout(() => confirmButtonRef.current?.focus(), 100);
+    });
 
     return () => {
+      cancelWait();
       clearTimeout(focusTimer);
     };
   }, [isOpen]);

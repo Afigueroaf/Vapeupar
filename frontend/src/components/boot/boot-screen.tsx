@@ -8,6 +8,7 @@ import {
   LOGO_PATHS,
   LOGO_VIEWBOX,
 } from "@/components/boot/logo-paths";
+import { endBoot, inertSiblings, startBoot } from "@/lib/boot-signal";
 import { bootFrame, reducedFrame } from "@/lib/boot-timeline";
 import { lockScroll } from "@/lib/use-scroll-lock";
 
@@ -46,9 +47,29 @@ export function BootScreen() {
     const fill = fillRef.current;
     if (!root || !strokesGroup || !fill) return;
 
+    // SEGURO DE CSS: si el JS tardó tanto en arrancar que el seguro ya ocultó
+    // la pantalla (§PANTALLA DE ARRANQUE en `globals.css`), no se vuelve a
+    // tapar la página que el visitante ya está viendo.
+    if (getComputedStyle(root).visibility === "hidden") {
+      setVisible(false);
+      return;
+    }
+    // Con el JS en marcha el seguro sobra: lo retira el propio final.
+    root.style.animation = "none";
+
     const strokes = Array.from(strokesGroup.querySelectorAll("path"));
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const releaseScroll = lockScroll();
+    // Lo de debajo queda inerte mientras el arranque lo tapa: sin esto, la
+    // puerta +18 tenía el foco en su botón y Espacio o Intro la aceptaban sin
+    // verla. La puerta espera a `endBoot` para dar el foco (`lib/boot-signal.ts`).
+    startBoot();
+    const restoreInert = inertSiblings(root, document.body);
+    const release = () => {
+      restoreInert();
+      releaseScroll();
+      endBoot();
+    };
 
     // RELOJ ACTIVO: solo cuenta mientras la pestaña está a la vista. Si el
     // visitante cambia de pestaña a mitad del dibujo, al volver continúa donde
@@ -61,7 +82,7 @@ export function BootScreen() {
     const finish = () => {
       if (finished) return;
       finished = true;
-      releaseScroll();
+      release();
       setVisible(false);
     };
 
@@ -111,7 +132,7 @@ export function BootScreen() {
     return () => {
       cancelAnimationFrame(frame);
       document.removeEventListener("visibilitychange", onVisibility);
-      releaseScroll();
+      release();
     };
   }, [onConsole]);
 
