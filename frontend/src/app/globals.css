@@ -1098,6 +1098,36 @@ html.glitch-active .vp-glitch-scanlines {
   opacity: 0;
 }
 
+/* Y TAMPOCO SE LEVANTAN SUS CAPAS AL TOCARLA. El toque (`:active`) y el foco
+   que deja el botón encendían el 3D de la tarjeta: sus capas subían a 72px
+   con transición justo cuando nacía el clon, y al cerrar el foco volvía a la
+   tarjeta y las dejaba levantadas, así que el clon (plano) se posaba y la
+   tarjeta saltaba debajo. Medido con la CPU a ×4: un fotograma de 283ms al
+   abrir. En la tarjeta de información tocar es abrir, no inclinar.
+
+   El cursor táctil (`.vp-hot`, dedo mantenido) sí sigue levantándolas, y el
+   foco de teclado también. Más específicas que las reglas generales de
+   «3D SOLO EN LA TARJETA ACTIVA» (`.vp-card:active .vp-plano`). */
+@media (hover: none) {
+  :where(html:not([data-vp-cursor="on"])) .vp-card.vp-tb-card:active:not(.vp-hot),
+  :where(html:not([data-vp-cursor="on"])) .vp-card.vp-tb-card:active:not(.vp-hot) .vp-escena {
+    transform-style: flat;
+  }
+
+  :where(html:not([data-vp-cursor="on"])) .vp-card.vp-tb-card:active:not(.vp-hot) .vp-plano {
+    transform: none;
+  }
+}
+
+.vp-card.vp-tb-card:focus-within:not(:has(:focus-visible)):not(.vp-hot),
+.vp-card.vp-tb-card:focus-within:not(:has(:focus-visible)):not(.vp-hot) .vp-escena {
+  transform-style: flat;
+}
+
+.vp-card.vp-tb-card:focus-within:not(:has(:focus-visible)):not(.vp-hot) .vp-plano {
+  transform: none;
+}
+
 /* ============================================================================
    CONTORNO DE SILUETA
    ----------------------------------------------------------------------------
