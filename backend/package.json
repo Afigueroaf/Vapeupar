@@ -21,10 +21,10 @@
     "db:import-stock": "tsx scripts/import-initial-stock.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-cloudfront": "^3.1169.0",
-    "@aws-sdk/client-cognito-identity-provider": "^3.1169.0",
-    "@aws-sdk/client-s3": "^3.1169.0",
-    "@aws-sdk/s3-request-presigner": "^3.1169.0",
+    "@aws-sdk/client-cloudfront": "^3.1173.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.1173.0",
+    "@aws-sdk/client-s3": "^3.1173.0",
+    "@aws-sdk/s3-request-presigner": "^3.1173.0",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
     "aws-jwt-verify": "^5.2.1",
@@ -32,7 +32,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
-    "express-rate-limit": "^8.7.4",
+    "express-rate-limit": "^8.7.5",
     "helmet": "^8.3.0",
     "zod": "^4.6.7"
   },
@@ -44,6 +44,6 @@
     "prisma": "7.10.1",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.1"
   }
 }
