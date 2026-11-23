@@ -18,7 +18,6 @@ import { CashIcon, DeliveryIcon, SealIcon } from "@/components/ui/icons";
 import { PixelLabel, type PixelLabelVariant } from "@/components/ui/pixel-label";
 import { Surface } from "@/components/ui/surface";
 import { TRUST_BAND_ICONS, type TrustBandContent, type TrustBandIcon } from "@/lib/content/schemas";
-import { useScrollLock } from "@/lib/use-scroll-lock";
 import { cn } from "@/lib/utils";
 
 /**
@@ -72,7 +71,10 @@ const SM_QUERY = "(min-width: 40rem)";
  * `×`. Misma caja en los dos para que el clon arranque idéntico a la tarjeta.
  */
 const CHIP =
-  "vp-label col-start-3 row-span-2 row-start-1 grid size-9 place-items-center rounded-vp border-2 border-muted text-[var(--vp-tb-accent)]";
+  "vp-label vp-chip-signo col-start-3 row-span-2 row-start-1 grid size-9 place-items-center rounded-vp border-2 border-muted text-[var(--vp-tb-accent)]";
+
+/** La chapa es una capa con borde, como el botón del catálogo: sombra de caja. */
+const CHIP_LAYER = "vp-plano vp-plano-sombra [--vp-plano:60px]";
 
 type Item = TrustBandContent["items"][number];
 
@@ -129,34 +131,55 @@ function CardContent({ item, index, mode, titleId, action }: CardContentProps) {
   const clone = mode === "clone";
 
   return (
+    /* PROYECCIÓN Y SOMBRA, COMO EN EL CATÁLOGO (`product-card.tsx`). La
+       rejilla es la `.vp-escena` y cada pieza es una capa `.vp-plano` hija
+       DIRECTA suya, a su altura (`--vp-plano`): la proyección 3D solo alcanza
+       un nivel por debajo de la escena. En reposo cada capa ya proyecta su
+       sombra dura —de caja lo que tiene borde o fondo, de letra el texto
+       fuerte— y al activar la tarjeta (puntero, foco, cursor táctil o dedo
+       mantenido) se despegan en Z mientras la tarjeta se inclina. Alturas: icono,
+       etiqueta y texto principal comparten la más alta (72px, la de la foto
+       del producto) para que se lean como un mismo objeto; el subtítulo
+       queda a 56px y las viñetas a 38px. Los dos textos pequeños duplican su
+       sombra de letra (`--vp-texto`, en `globals.css`) para que se note. */
     <div
       className={cn(
-        "grid flex-1 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3",
+        "vp-escena grid flex-1 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3",
         clone
           ? // El clon fija el alto de la rejilla al desplegado (lo calcula
             // `TrustCardDialog`): la cabecera queda arriba, en el mismo sitio
             // que en la tarjeta, y la tercera fila se queda con todo lo que
             // sobra para repartir las líneas.
             "grid-rows-[auto_auto_1fr] content-start"
-          : "content-center sm:grid-cols-[auto_minmax(0,1fr)] sm:content-start lg:landscape:flex-none lg:landscape:gap-x-4",
+          : cn(
+              "content-center sm:grid-cols-[auto_minmax(0,1fr)] sm:content-start lg:landscape:flex-none lg:landscape:gap-x-4",
+              // En teléfono la tarjeta entera abre el modal con el botón
+              // transparente que la cubre. El contenido no lo intercepta: con
+              // el 3D encendido sus capas están por delante del botón (en una
+              // escena 3D manda la profundidad, no el `z-index`) y el toque
+              // sobre el icono o el texto no llegaba a abrir.
+              "max-sm:pointer-events-none",
+            ),
       )}
     >
       <span
         aria-hidden="true"
         className={cn(
-          "row-span-2 grid size-11 shrink-0 place-items-center rounded-vp",
+          "vp-plano vp-plano-sombra [--vp-plano:72px] row-span-2 grid size-11 shrink-0 place-items-center rounded-vp",
           !clone && "sm:row-span-1 sm:size-10 lg:size-12 lg:landscape:size-14",
           accent.tile,
         )}
       >
         <Icon className={cn("size-6", !clone && "sm:size-5 lg:size-6 lg:landscape:size-7")} />
       </span>
-      <div className="col-start-2 min-w-0">
-        <PixelLabel variant={accent.label}>{item.label}</PixelLabel>
+      <div className="vp-plano [--vp-plano:72px] col-start-2 min-w-0">
+        <PixelLabel variant={accent.label} className="vp-plano-sombra">
+          {item.label}
+        </PixelLabel>
         {highlight && (
           <p
             className={cn(
-              "mt-1 font-display text-lg font-bold uppercase leading-none tracking-[0.01em]",
+              "vp-plano-texto mt-1 font-display text-lg font-bold uppercase leading-none tracking-[0.01em]",
               !clone && "sm:mt-1.5 sm:text-xl lg:text-2xl lg:landscape:text-3xl",
             )}
           >
@@ -167,7 +190,7 @@ function CardContent({ item, index, mode, titleId, action }: CardContentProps) {
       <h3
         id={titleId}
         className={cn(
-          "col-start-2 mt-1 text-[0.9375rem] font-bold leading-tight",
+          "vp-plano vp-plano-texto [--vp-plano:56px] [--vp-texto:2] col-start-2 mt-1 text-[0.9375rem] font-bold leading-tight",
           !clone &&
             "sm:col-span-2 sm:col-start-1 sm:mt-3 sm:text-base lg:mt-4 lg:text-lg lg:landscape:mt-5 lg:landscape:text-xl",
         )}
@@ -177,7 +200,9 @@ function CardContent({ item, index, mode, titleId, action }: CardContentProps) {
       {lines.length > 0 && (
         <ul
           className={cn(
-            "text-muted",
+            // Las viñetas también proyectan sombra de letra: sin ella el
+            // texto pequeño se quedaba pegado a la tarjeta.
+            "vp-plano-texto [--vp-texto:2] text-muted",
             clone
               ? cn(
                   // Bajo el título, no bajo el icono: se lee como la
@@ -196,7 +221,11 @@ function CardContent({ item, index, mode, titleId, action }: CardContentProps) {
                   "opacity-0 transition-opacity duration-[180ms] ease-out motion-reduce:transition-none",
                   "group-data-[state=open]:opacity-100 group-data-[state=open]:duration-[280ms]",
                 )
-              : "col-span-full hidden text-sm leading-snug sm:mt-2 sm:block sm:space-y-1 lg:landscape:mt-3 lg:landscape:space-y-2 lg:landscape:text-base",
+              : // Capa baja y sin sombra, como las especificaciones del
+                // catálogo. En el clon no es capa: `.vp-plano` impone su
+                // propia `transition` y se comería el fundido de las líneas,
+                // y el clon no se inclina.
+                "vp-plano [--vp-plano:38px] col-span-full hidden text-sm leading-snug sm:mt-2 sm:block sm:space-y-1 lg:landscape:mt-3 lg:landscape:space-y-2 lg:landscape:text-base",
           )}
         >
           {lines.map((line, lineIndex) => (
@@ -213,7 +242,7 @@ function CardContent({ item, index, mode, titleId, action }: CardContentProps) {
         : lines.length > 0 && (
             /* La pista de que hay más, solo donde las líneas no se ven: una
                chapa `+` en el borde derecho, a media altura de la franja. */
-            <span aria-hidden="true" className={cn(CHIP, "sm:hidden")}>
+            <span aria-hidden="true" className={cn(CHIP, CHIP_LAYER, "sm:hidden")}>
               +
             </span>
           )}
@@ -355,10 +384,22 @@ const SHRINK_MS = 380;
 const RETURN_MS = 440;
 /** Entrada y salida suaves y simétricas: el clon arranca y se posa despacio. */
 const EASE = "cubic-bezier(0.45, 0, 0.2, 1)";
-/** Margen mínimo entre el clon desplegado y el borde de la pantalla. */
+/** Margen mínimo entre el clon desplegado y el borde de la pantalla (o el header). */
 const VIEW_MARGIN = 16;
+
+/**
+ * Borde inferior del header en pantalla, o 0 si no se ve. El modal vive por
+ * debajo del header (`z-[39]` frente a su `z-40`), así que el clon
+ * desplegado no debe colocarse detrás de él.
+ */
+function headerBottom(): number {
+  const header = document.querySelector("header");
+  return header ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
+}
 /** El desplegado mide un 30% más que su contenido: aire para repartir. */
 const EXPANDED_SCALE = 1.3;
+/** Desplazamiento de la página, en px, a partir del cual el modal se cierra. */
+const SCROLL_CLOSE_PX = 4;
 
 type Phase = "start" | "moving" | "growing" | "open" | "fading" | "shrinking" | "returning";
 
@@ -375,6 +416,10 @@ interface Geometry {
   expanded: number;
   /** Padding superior desplegado: el del resumen más el aire que lo iguala al de abajo. */
   paddingTop: number;
+  /** `window.scrollY` al abrir: `top` está en pantalla y el clon, en el documento. */
+  scrollY: number;
+  /** Borde superior de la tarjeta de origen en pantalla al abrir, para notar el scroll. */
+  originTop: number;
 }
 
 /**
@@ -421,16 +466,25 @@ interface TrustCardDialogProps {
  * (ver «LA ANIMACIÓN» arriba).
  *
  * Va por portal al `body`: la banda está dentro de un panel con `translate` y
- * de tarjetas con `filter` del glitch, y cualquiera de los dos anclaría un
- * `position: fixed` a ellos en vez de a la pantalla.
+ * de tarjetas con `filter` del glitch, y cualquiera de los dos anclaría el
+ * velo (`fixed`) y el clon (`absolute`) a ellos en vez de a la pantalla y al
+ * documento.
+ *
+ * NO BLOQUEA EL SCROLL. Bloquearlo fijaba el `body`, lo que recolocaba la
+ * página entera en el mismo fotograma en que nacía el clon. Ahora la página
+ * se puede desplazar con el modal abierto, y desplazarla lo cierra con su
+ * animación (ver el efecto de `scroll`).
  *
  * EL FOCO VA AL DIÁLOGO Y NO AL BOTÓN DE CERRAR. Con el foco dentro, el clon
  * tomaría el aspecto activo de `.vp-card` (borde lima, otra sombra, salto de
  * 2 px) y ya no sería idéntico a la tarjeta de la que sale. El lector de
  * pantalla anuncia el diálogo igual, y el tabulador lleva a cerrar.
  *
- * `z-[44]`, la capa del carrito: por encima del botón de WhatsApp (`z-40`) y
- * por debajo del cursor táctil (`z-[45]`) y de la puerta +18 (`z-50`).
+ * `z-[39]`: POR DEBAJO DEL HEADER (`z-40`, `navbar.tsx`), que sigue visible y
+ * usable con el modal abierto, y del botón de WhatsApp, que comparte su capa.
+ * Al desplazarse la página el clon pasa por debajo del header, como el resto
+ * del contenido. El clon desplegado se coloca bajo el borde del header
+ * (`headerBottom`).
  */
 function TrustCardDialog({ item, index, origin, onClose: dismiss }: TrustCardDialogProps) {
   /**
@@ -468,7 +522,6 @@ function TrustCardDialog({ item, index, origin, onClose: dismiss }: TrustCardDia
   const pending = useRef<(() => void)[]>([]);
   const frame = useRef(0);
   const reduced = useRef(false);
-  useScrollLock(true);
 
   const setPhase = useCallback((next: Phase) => {
     phaseRef.current = next;
@@ -500,7 +553,14 @@ function TrustCardDialog({ item, index, origin, onClose: dismiss }: TrustCardDia
     (element: HTMLElement, property: string, ms: number, run: () => void) => {
       let settled = false;
       const onEnd = (event: TransitionEvent) => {
-        if (event.target === element && event.propertyName === property) finish();
+        // `elapsedTime` 0 no es un final: con la página deslizándose por
+        // inercia, Chrome emite a veces un `transitionend` espurio en el
+        // mismo fotograma en que arranca la transición y la reinicia en el
+        // siguiente (reproducido aislado, sin nada de este componente). Ese
+        // evento falso adelantaba la fase siguiente y el clon se desmontaba
+        // sin volver a su tarjeta. Aquí ninguna transición dura cero: los
+        // casos sin recorrido ya van por temporizador.
+        if (event.target === element && event.propertyName === property && event.elapsedTime > 0) finish();
       };
       const cancel = () => {
         settled = true;
@@ -573,7 +633,8 @@ function TrustCardDialog({ item, index, origin, onClose: dismiss }: TrustCardDia
     const natural = card.offsetHeight;
     const gridNatural = grid?.offsetHeight ?? natural;
     const chrome = natural - gridNatural; // padding y borde del clon
-    const expanded = Math.min(Math.round(natural * EXPANDED_SCALE), viewHeight - 2 * VIEW_MARGIN);
+    const ceiling = headerBottom() + VIEW_MARGIN;
+    const expanded = Math.min(Math.round(natural * EXPANDED_SCALE), viewHeight - ceiling - VIEW_MARGIN);
     const gridExpanded = Math.max(gridNatural, expanded - chrome);
     if (grid) grid.style.height = `${gridExpanded}px`;
     const collapsed = from?.height || expanded;
@@ -612,12 +673,17 @@ function TrustCardDialog({ item, index, origin, onClose: dismiss }: TrustCardDia
     // página está desplazada y el grupo queda medio fuera, el clon se queda
     // en el trozo visible más cercano.
     const center = groupCenter(origin) ?? viewHeight / 2;
-    const top = Math.min(
-      Math.max(center - expanded / 2, VIEW_MARGIN),
-      viewHeight - VIEW_MARGIN - expanded,
+    const top = Math.max(
+      Math.min(center - expanded / 2, viewHeight - VIEW_MARGIN - expanded),
+      ceiling,
     );
-    panel.style.top = `${top}px`;
-    geometry.current = { top, collapsed, expanded, paddingTop };
+    // El clon vive en el DOCUMENTO (`absolute`), no en la pantalla: así el
+    // navegador lo desplaza con la página sin que nadie lo recoloque en cada
+    // fotograma, y al volver se posa sobre su tarjeta aunque el scroll siga.
+    const scrollY = window.scrollY;
+    panel.style.top = `${top + scrollY}px`;
+    panel.style.left = `${parseFloat(panel.style.left) + window.scrollX}px`;
+    geometry.current = { top, collapsed, expanded, paddingTop, scrollY, originTop: from?.top ?? top };
 
     if (reduced.current || !from) {
       card.style.height = `${expanded}px`;
@@ -682,7 +748,9 @@ function TrustCardDialog({ item, index, origin, onClose: dismiss }: TrustCardDia
     // Paso 3: de vuelta a la tarjeta, y se desmonta al posarse.
     const goBack = () => {
       setPhase("returning");
-      const target = origin.getBoundingClientRect().top - geo.top;
+      // En coordenadas del documento: la tarjeta y el clon se desplazan
+      // juntos con la página, así que el destino no cambia si hay scroll.
+      const target = origin.getBoundingClientRect().top + window.scrollY - (geo.top + geo.scrollY);
       // Dónde está ahora, leído antes de moverlo.
       const current = new DOMMatrixReadOnly(getComputedStyle(panel).transform).m42;
       panel.style.transition = `transform ${RETURN_MS}ms ${EASE}`;
@@ -728,6 +796,23 @@ function TrustCardDialog({ item, index, origin, onClose: dismiss }: TrustCardDia
     }
   }, [after, cancelPending, onClose, origin, setPhase, whenDone]);
 
+  // EL SCROLL SIGUE VIVO Y CIERRA EL MODAL. Sin bloqueo: la página se desplaza
+  // por debajo y, en cuanto lo hace, el clon emprende el camino de vuelta con
+  // su animación. Se compara la posición de la tarjeta de origen y no
+  // `scrollY`, así vale para cualquier contenedor que se desplace; el scroll
+  // de dentro del propio clon (cuando su contenido no cabe) no cuenta.
+  useEffect(() => {
+    const onScroll = (event: Event) => {
+      const panel = panelRef.current;
+      const geo = geometry.current;
+      if (!panel || !geo || !origin) return;
+      if (event.target instanceof Node && panel.contains(event.target)) return;
+      if (Math.abs(origin.getBoundingClientRect().top - geo.originTop) > SCROLL_CLOSE_PX) requestClose();
+    };
+    document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+    return () => document.removeEventListener("scroll", onScroll, { capture: true });
+  }, [origin, requestClose]);
+
   // Si la pantalla pasa a `sm` con el modal abierto (girar una tableta), la
   // tarjeta ya enseña todo: el modal se cierra solo, sin viaje, porque la
   // tarjeta de origen acaba de cambiar de forma.
@@ -758,7 +843,7 @@ function TrustCardDialog({ item, index, origin, onClose: dismiss }: TrustCardDia
       onClick={requestClose}
       aria-label="Cerrar"
       // La chapa visible mide 36 px; el `after` amplía la zona táctil a 48.
-      className={cn(CHIP, "relative cursor-pointer after:absolute after:-inset-1.5 hover:border-line")}
+      className={cn(CHIP, CHIP_LAYER, "relative cursor-pointer after:absolute after:-inset-1.5 hover:border-line")}
     >
       {/* El `+` de la tarjeta, girado a `×` mientras el clon crece, y de
           vuelta a `+` mientras encoge. */}
@@ -776,14 +861,19 @@ function TrustCardDialog({ item, index, origin, onClose: dismiss }: TrustCardDia
   );
 
   return createPortal(
-    <div className="fixed inset-0 z-[44]" onKeyDown={onKeyDown}>
-      {/* Velo. Pulsarlo cierra; para el teclado ya están Escape y el botón. */}
+    <>
+      {/* Velo, fijo a la pantalla. Pulsarlo cierra; para el teclado ya están
+          Escape y el botón. Arrastrar sobre él desplaza la página (no es
+          desplazable, así que el gesto pasa al documento), y eso también
+          cierra. */}
       <div
         ref={veilRef}
         aria-hidden="true"
         onClick={requestClose}
-        className="absolute inset-0 bg-background/80"
+        className="fixed inset-0 z-[39] bg-background/80"
       />
+      {/* El clon, en el documento (ver `geometry`). Misma capa que el velo y
+          detrás en el DOM: queda encima. */}
       <div
         ref={panelRef}
         role="dialog"
@@ -791,8 +881,9 @@ function TrustCardDialog({ item, index, origin, onClose: dismiss }: TrustCardDia
         aria-labelledby={titleId}
         tabIndex={-1}
         data-state={phase}
+        onKeyDown={onKeyDown}
         className={cn(
-          "group fixed outline-none will-change-transform",
+          "group absolute z-[39] outline-none will-change-transform",
           phase === "returning" && "pointer-events-none",
         )}
       >
@@ -809,7 +900,7 @@ function TrustCardDialog({ item, index, origin, onClose: dismiss }: TrustCardDia
           <CardContent item={item} index={index} mode="clone" titleId={titleId} action={closeButton} />
         </div>
       </div>
-    </div>,
+    </>,
     document.body,
   );
 }

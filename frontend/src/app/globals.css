@@ -297,6 +297,17 @@ html {
   text-transform: uppercase;
 }
 
+/* El `+` de la chapa de las tarjetas de información (y el `×` en que se
+   convierte al abrir el modal). A 10px se perdía dentro de su recuadro de
+   36px: va al doble. Sin interletra, que lo descentraba hacia la izquierda,
+   y con interlineado 1 para que el giro sea sobre su centro. Aquí y no con
+   utilidades porque `.vp-label` está fuera de capa y les gana. */
+.vp-label.vp-chip-signo {
+  font-size: 1.25rem; /* 20px */
+  line-height: 1;
+  letter-spacing: 0;
+}
+
 /* Variante del reclamo bajo el logotipo de la portada.
    Mismo tipo y las mismas restricciones —tres palabras, una línea—, pero a
    10px debajo de un logotipo de 640px el reclamo se perdía. El tamaño va aquí
@@ -1001,14 +1012,18 @@ html.glitch-active .vp-glitch-scanlines {
    altura y con el puntero en la esquina, el desplazamiento máximo es de
    3.9px horizontales y 2.5px verticales.
 
-   SOLO PARA EL TEXTO FUERTE —nombre y precio—, nunca para el gris
-   `--color-muted` de la descripción, las especificaciones y el tachado: ese
-   gris mide 4.67:1 sobre la lámina encendida (AA pide 4.5) y no tiene margen
-   para que le oscurezcan los bordes. */
+   Empezó solo para el texto fuerte —nombre y precio— por prudencia con el
+   gris `--color-muted`, que mide 4.67:1 sobre la lámina encendida (AA pide
+   4.5). Ahora lo lleva todo el texto de las tarjetas: la sombra es negra y
+   cae detrás de la letra, así que donde toca la letra oscurece el fondo en
+   vez de aclararlo, y sin ella esos textos se quedaban pegados a la tarjeta. */
+/* `--vp-texto` multiplica el desplazamiento (1 por defecto). Lo suben los
+   textos pequeños de las tarjetas de información: a 14-15px la sombra del
+   catálogo se quedaba en 1.7-2.5px y no se leía como relieve. */
 .vp-plano-texto {
   text-shadow:
-    calc(var(--vp-plano, 0px) * var(--vp-rx) * -0.07)
-    calc(var(--vp-plano, 0px) * var(--vp-ry) * -0.07 + var(--vp-plano, 0px) * 0.045)
+    calc(var(--vp-plano, 0px) * var(--vp-rx) * -0.07 * var(--vp-texto, 1))
+    calc((var(--vp-plano, 0px) * var(--vp-ry) * -0.07 + var(--vp-plano, 0px) * 0.045) * var(--vp-texto, 1))
     0 rgb(0 0 0 / 0.75);
 }
 
@@ -1081,6 +1096,36 @@ html.glitch-active .vp-glitch-scanlines {
 
 .vp-tb-card:focus-within:not(:has(:focus-visible))::after {
   opacity: 0;
+}
+
+/* Y TAMPOCO SE LEVANTAN SUS CAPAS AL TOCARLA. El toque (`:active`) y el foco
+   que deja el botón encendían el 3D de la tarjeta: sus capas subían a 72px
+   con transición justo cuando nacía el clon, y al cerrar el foco volvía a la
+   tarjeta y las dejaba levantadas, así que el clon (plano) se posaba y la
+   tarjeta saltaba debajo. Medido con la CPU a ×4: un fotograma de 283ms al
+   abrir. En la tarjeta de información tocar es abrir, no inclinar.
+
+   El cursor táctil (`.vp-hot`, dedo mantenido) sí sigue levantándolas, y el
+   foco de teclado también. Más específicas que las reglas generales de
+   «3D SOLO EN LA TARJETA ACTIVA» (`.vp-card:active .vp-plano`). */
+@media (hover: none) {
+  :where(html:not([data-vp-cursor="on"])) .vp-card.vp-tb-card:active:not(.vp-hot),
+  :where(html:not([data-vp-cursor="on"])) .vp-card.vp-tb-card:active:not(.vp-hot) .vp-escena {
+    transform-style: flat;
+  }
+
+  :where(html:not([data-vp-cursor="on"])) .vp-card.vp-tb-card:active:not(.vp-hot) .vp-plano {
+    transform: none;
+  }
+}
+
+.vp-card.vp-tb-card:focus-within:not(:has(:focus-visible)):not(.vp-hot),
+.vp-card.vp-tb-card:focus-within:not(:has(:focus-visible)):not(.vp-hot) .vp-escena {
+  transform-style: flat;
+}
+
+.vp-card.vp-tb-card:focus-within:not(:has(:focus-visible)):not(.vp-hot) .vp-plano {
+  transform: none;
 }
 
 /* ============================================================================

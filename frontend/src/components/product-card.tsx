@@ -63,9 +63,16 @@ export function ProductCard({ product, eagerImage = false }: ProductCardProps) {
   const isOnSale = Boolean(product.compareAtPrice && product.compareAtPrice > product.price);
 
   const detailHref = `/producto/${product.slug}`;
-  const flavorCount = product.variants.length;
-  const ctaLong =
-    !isAvailable ? "Ver detalle" : flavorCount > 1 ? `Ver ${flavorCount} sabores` : "Ver producto";
+  // Sabores que se pueden pedir hoy, no los registrados: uno agotado no se
+  // puede elegir en la ficha, así que prometerlo en el botón engaña. Mismo
+  // criterio de disponibilidad que la tarjeta.
+  const hasFlavors = product.variants.length > 1;
+  const flavorCount = product.variants.filter((variant) => variant.inStock && variant.stock > 0).length;
+  const ctaLong = !isAvailable
+    ? "Ver detalle"
+    : hasFlavors && flavorCount > 0
+      ? `Ver ${flavorCount} ${flavorCount === 1 ? "sabor" : "sabores"}`
+      : "Ver producto";
 
   // Ficha técnica como una línea de especificaciones, no como pills: el
   // separador lima hace de marca HUD y evita bordes de 2px alrededor de
@@ -178,11 +185,18 @@ export function ProductCard({ product, eagerImage = false }: ProductCardProps) {
             El producto viene recortado y centrado, de modo que las esquinas
             quedan libres. */}
           {(isOnSale || product.isBestSeller) && (
-            <div className="vp-plano-sombra [--vp-plano:108px] absolute left-2 top-2 flex flex-col items-start gap-1.5 sm:left-3 sm:top-3">
+            /* CADA ETIQUETA LLEVA SU PROPIA SOMBRA. Antes la llevaba este
+               contenedor, y una `box-shadow` sigue la caja de quien la lleva:
+               con «Oferta» y «Top Ventas» apiladas salía UN solo rectángulo
+               negro bajo las dos, que rellenaba el hueco entre ellas y el
+               trozo vacío junto a la más corta. El contenedor solo coloca; la
+               altura (`--vp-plano`) la heredan las etiquetas, que es de donde
+               sale el desplazamiento de su sombra. */
+            <div className="[--vp-plano:108px] absolute left-2 top-2 flex flex-col items-start gap-1.5 sm:left-3 sm:top-3">
               {isOnSale && (
                 <PixelLabel
                   variant="lime"
-                  className="whitespace-normal px-1.5 sm:whitespace-nowrap sm:px-2.5"
+                  className="vp-plano-sombra whitespace-normal px-1.5 sm:whitespace-nowrap sm:px-2.5"
                 >
                   Oferta
                 </PixelLabel>
@@ -191,7 +205,7 @@ export function ProductCard({ product, eagerImage = false }: ProductCardProps) {
               {product.isBestSeller && (
                 <PixelLabel
                   variant="lime"
-                  className="whitespace-normal px-1.5 sm:whitespace-nowrap sm:px-2.5"
+                  className="vp-plano-sombra whitespace-normal px-1.5 sm:whitespace-nowrap sm:px-2.5"
                 >
                   Top Ventas
                 </PixelLabel>
@@ -243,7 +257,7 @@ export function ProductCard({ product, eagerImage = false }: ProductCardProps) {
           `mt-auto`, así que un nombre de dos líneas crece hacia el hueco
           elástico del medio sin mover ni la imagen ni el filete. Reservar aquí
           solo dejaba 27px en blanco en los nombres de una línea. */}
-        <h3 className="vp-plano vp-plano-texto [--vp-plano:56px] mt-4 text-lg font-bold uppercase leading-tight line-clamp-2 sm:mt-5 sm:text-[1.375rem]">
+        <h3 className="vp-plano vp-plano-texto [--vp-plano:64px] [--vp-texto:2] mt-4 text-lg font-bold uppercase leading-tight line-clamp-2 sm:mt-5 sm:text-[1.375rem]">
           {/* El nombre es el enlace principal: es lo que se lee primero y lo
               que un lector de pantalla anuncia en la lista de enlaces. */}
           <Link href={detailHref} className="transition-colors hover:text-action">
@@ -254,7 +268,7 @@ export function ProductCard({ product, eagerImage = false }: ProductCardProps) {
         {/* La descripción es opcional en el catálogo y hoy ningún producto la
           trae. Sin la guarda se pintaba un párrafo vacío con su margen. */}
         {product.shortDescription && (
-          <p className="vp-plano [--vp-plano:44px] mt-2 text-sm leading-relaxed text-muted line-clamp-2 sm:text-base">
+          <p className="vp-plano vp-plano-texto [--vp-plano:52px] [--vp-texto:2] mt-2 text-sm leading-relaxed text-muted line-clamp-2 sm:text-base">
             {product.shortDescription}
           </p>
         )}
@@ -263,7 +277,7 @@ export function ProductCard({ product, eagerImage = false }: ProductCardProps) {
           del hueco muerto entre el nombre y el filete. No hace falta para
           alinear, por lo mismo que el nombre: vive en el hueco elástico. */}
         {specs.length > 0 && (
-          <p className="vp-plano [--vp-plano:38px] mt-3 text-xs text-muted sm:mt-4 sm:text-sm">
+          <p className="vp-plano vp-plano-texto [--vp-plano:48px] [--vp-texto:2] mt-3 text-xs text-muted sm:mt-4 sm:text-sm">
             {specs.map((spec, index) => (
               <span key={spec.label}>
                 {index > 0 && (
@@ -280,58 +294,54 @@ export function ProductCard({ product, eagerImage = false }: ProductCardProps) {
         {/* `mt-auto` fija el bloque de precio y acción al pie, de modo que las
           tarjetas de una misma fila alinean sus botones aunque el nombre o la
           descripción ocupen distinto número de líneas. */}
-        {/* EL PIE SUBE A 44px: dentro va el precio, y el texto también tiene que
-          proyectarse. A esa altura se dibuja un 2.2% más grande
-          (2000 / (2000 - 44)): relieve suficiente sin deformar la cifra. El
-          CTA ya no lleva altura propia porque está anidado aquí dentro y ahí
-          no surte efecto (ver la nota de las banderas); viaja en este plano.
+        {/* EL PIE SON TRES CAPAS HERMANAS, NO UN BLOQUE: tachado (con el
+          filete), precio y disponibilidad. Iban dentro de un mismo `div`, y
+          ahí el precio no podía tener altura propia: la proyección 3D solo
+          alcanza a los hijos DIRECTOS de `.vp-escena` (ver la nota del
+          botón). Separadas, el precio sube a 72px —la altura de la foto, las
+          dos piezas que se miran primero— y el texto pequeño se queda más
+          bajo, a 52px, donde sigue nítido. La maquetación es la misma: el
+          filete, el `pt` y los márgenes no se han movido.
 
-          Sin `vp-plano-sombra`: una sombra dura detrás de un párrafo se lee
-          como texto mal impreso, no como relieve. La sombra se reserva para
-          las piezas con borde —etiquetas y chapas— y para el producto, que
-          proyecta la suya con su propia silueta.
+          Sin `vp-plano-sombra`: una sombra dura de caja detrás de un párrafo
+          se lee como texto mal impreso. Todo el texto de la tarjeta lleva
+          sombra de letra (`vp-plano-texto`) al doble de desplazamiento
+          (`--vp-texto:2`): con la del sistema, de 2-3px, los textos no se
+          despegaban de la tarjeta.
 
-          El pie vuela más bajo que el nombre (44 contra 56) porque aquí
-          dentro viven el tachado y la disponibilidad, que son texto pequeño:
-          medido, a 44px el borde de las letras pierde un 4.7% de nitidez y
-          0.15 de contraste, y a 120px la caída ya es del 39% y la cifra se ve
-          blanda. 44 es el techo con el que el precio sigue limpio. */}
-        <div className="vp-plano [--vp-plano:44px] mt-auto border-t-2 border-muted pt-3 sm:pt-4">
-          {/* PIE DE TRES LÍNEAS FIJAS: tachado, precio y disponibilidad.
-            Antes era una fila `flex-wrap` con `justify-between`, y el envoltorio
-            dependía de los datos: un producto con precio anterior y otro sin él
-            rompían por sitios distintos, así que el pie medía diferente y el
-            filete superior aparecía a tres alturas distintas en la misma fila
-            (454 / 478 / 444px medidos). Reservando las tres líneas, el pie mide
-            igual en todas las tarjetas, con oferta o sin ella. */}
-          <p className="min-h-[1lh] text-sm font-normal text-muted line-through sm:text-base">
+          PIE DE TRES LÍNEAS FIJAS. Antes era una fila `flex-wrap` con
+          `justify-between`, y el envoltorio dependía de los datos: un
+          producto con precio anterior y otro sin él rompían por sitios
+          distintos, así que el pie medía diferente y el filete superior
+          aparecía a tres alturas distintas en la misma fila (454 / 478 /
+          444px medidos). Reservando las tres líneas, el pie mide igual en
+          todas las tarjetas, con oferta o sin ella. */}
+        <div className="vp-plano [--vp-plano:52px] mt-auto border-t-2 border-muted pt-3 sm:pt-4">
+          <p className="vp-plano-texto [--vp-texto:2] min-h-[1lh] text-sm font-normal text-muted line-through sm:text-base">
             {product.compareAtPrice
               ? formatPriceCOP(product.compareAtPrice)
               : null}
           </p>
+        </div>
 
-          {/* La sombra dura va en el precio y en el nombre, no en el resto
-              del pie: el tachado y la disponibilidad son texto gris pequeño y
-              oscurecerles el borde se los come. */}
-          <p className="vp-plano-texto text-xl font-bold sm:text-[1.75rem]">
-            {formatPriceCOP(product.price)}
-          </p>
+        <p className="vp-plano vp-plano-texto [--vp-plano:72px] [--vp-texto:2] text-2xl font-bold leading-tight sm:text-[2.25rem]">
+          {formatPriceCOP(product.price)}
+        </p>
 
-          {/* `min-h-8`: la etiqueta pixel "Agotado" mide 30px (10px de fuente a
-            1.8 de interlineado, más `py-1` y 2px de borde) y el texto de stock
-            28px. Con `min-h-7` esa diferencia de 2px dejaba el filete de una
-            tarjeta 2px por debajo del de sus vecinas. */}
-          <div className="mt-2 flex min-h-8 items-center">
-            {isAvailable ? (
-              <span className="text-xs font-semibold text-action sm:text-sm">
-                {formatNumberCO(product.stock)} disponibles
-              </span>
-            ) : (
-              <PixelLabel variant="outline" className="px-1.5 sm:px-2.5">
-                Agotado
-              </PixelLabel>
-            )}
-          </div>
+        {/* `min-h-8`: la etiqueta pixel "Agotado" mide 30px (10px de fuente a
+          1.8 de interlineado, más `py-1` y 2px de borde) y el texto de stock
+          28px. Con `min-h-7` esa diferencia de 2px dejaba el filete de una
+          tarjeta 2px por debajo del de sus vecinas. */}
+        <div className="vp-plano [--vp-plano:52px] mt-2 flex min-h-8 items-center">
+          {isAvailable ? (
+            <span className="vp-plano-texto [--vp-texto:2] text-xs font-semibold text-action sm:text-sm">
+              {formatNumberCO(product.stock)} disponibles
+            </span>
+          ) : (
+            <PixelLabel variant="outline" className="px-1.5 sm:px-2.5">
+              Agotado
+            </PixelLabel>
+          )}
         </div>
 
       {/* EL BOTÓN ES HIJO DIRECTO DE LA ESCENA, NO DEL PIE.
