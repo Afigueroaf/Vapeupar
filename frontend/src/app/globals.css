@@ -1287,3 +1287,44 @@ html[data-vp-cursor="on"] {
 html[data-vp-cursor="on"] .vp-cursor-hint {
   opacity: 0;
 }
+
+/* ============================================================================
+   PANTALLA DE ARRANQUE (`components/boot/boot-screen.tsx`)
+   ----------------------------------------------------------------------------
+   El logo ocupa clamp(260px, 58vw, 620px) con tope 84vw y alto intrínseco
+   (la proporción del logo es ~5:1, así que nunca se acerca al alto ni en
+   horizontal bajo). En teléfono, 84vw.
+
+   Los contornos se pintan OCULTOS desde el servidor (guion a longitud cero) y
+   transparentes, para que antes de hidratar no se vea ni el logo completo ni
+   los puntos de los extremos redondeados; el bucle les da opacidad al empezar
+   cada pieza.
+
+   Movimiento reducido: el servidor no sabe la preferencia, así que es este CSS
+   quien enseña el logo relleno desde el primer fotograma, sin dibujo.
+   ========================================================================= */
+.vp-boot__logo {
+  width: min(clamp(260px, 58vw, 620px), 84vw);
+  height: auto;
+  overflow: visible;
+}
+
+@media (max-width: 500px) {
+  .vp-boot__logo {
+    width: 84vw;
+  }
+}
+
+.vp-boot__strokes path {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vp-boot__strokes {
+    display: none;
+  }
+
+  .vp-boot__fill {
+    opacity: 1;
+  }
+}

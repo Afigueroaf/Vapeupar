@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Oxanium, Press_Start_2P } from "next/font/google";
+import { BootScreen } from "@/components/boot/boot-screen";
 import { PageGlitch } from "@/components/page-glitch";
 import { SmoothScroll } from "@/components/smooth-scroll";
 import { VP_BLACK } from "@/lib/brand";
@@ -110,6 +111,10 @@ export default function RootLayout({
     >
       {/* Fondo y color de texto se declaran una sola vez en globals.css sobre tokens */}
       <body className="min-h-full flex flex-col">
+        {/* Pantalla de arranque: la pinta el servidor y tapa la hidratación,
+            que es lo que quita el parpadeo de la puerta +18. Solo en la web
+            pública y solo en cargas completas (el layout raíz no se remonta). */}
+        <BootScreen />
         <PageGlitch />
         {/* Desplazamiento suavizado (Lenis). Como `<PageGlitch />`: singleton,
             solo en la web pública y sin marcado propio. */}
