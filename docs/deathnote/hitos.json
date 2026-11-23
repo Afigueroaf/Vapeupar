@@ -159,5 +159,33 @@
     "title": "Cadena de pendientes ejecutada sin intervención del dueño (sin fusionar ni desplegar)",
     "detail": "Ramas apiladas, cada una revisada por un agente independiente y corregida: feat/a7-3-revalidacion → test/frontend-vitest → feat/a5-4-consola-contenido → feat/tarjetas-info → perf/glitch-saltos-guardas → infra/f6-alarmas → infra/f7-perimetro → feat/importador-conteo → feat/pedidos-backend → feat/pedidos-frontend → docs/barrido-obsoletos → fix/pedidos-revision. Pedidos detrás de ORDERS_ENABLED y política en borrador.",
     "ref": "fix/pedidos-revision"
+  },
+  {
+    "id": "h20261120-2",
+    "date": "2026-11-20",
+    "title": "Cadena de pendientes fusionada y en producción",
+    "detail": "Contenido editable (A7.1/2/4), revalidación (A7.3), consola de contenido (A5.4), tests del frontend, tarjetas de información, guardas de rendimiento, F6, F7, conteo físico, pedidos (cerrados hasta la revisión legal) y documentación al día.",
+    "ref": "PR #19–#31 y #33 · PR #32 · 0f41a42 · run 44812513817"
+  },
+  {
+    "id": "h20261121-1",
+    "date": "2026-11-21",
+    "title": "Vigilancia y perímetro desplegados (F6, F7)",
+    "detail": "cdk deploy de Data, Network, App y Monitoring: 10 alarmas en OK, contraseña de RDS gestionada con rotación cada 7 días. El tema de alertas se quedó sin suscriptor (ver f6-vigilancia-alarmas).",
+    "ref": "cdk deploy Vapeupar-dev-{Data,Network,App,Monitoring}"
+  },
+  {
+    "id": "h20261121-2",
+    "date": "2026-11-21",
+    "title": "Portada: tarjetas como clon desplegable, monograma VU e ISR",
+    "detail": "Lenis vuelve a medir el límite cuando crece la página (#34), tarjetas con resumen y modal en móvil y portada con ISR (#35), clon desplegable y monograma VU (#37), imagen para compartir con el logo completo (#39).",
+    "ref": "PR #34, #35, #37, #39 · PR #36, #38, #40 · 469fcc5 · run 44961456495"
+  },
+  {
+    "id": "h20261123-1",
+    "date": "2026-11-23",
+    "title": "Profundidad en las tarjetas y modal con scroll",
+    "detail": "Sombra propia por etiqueta en el catálogo y proyección en las tarjetas de información (#41); el modal de las tarjetas deja hacer scroll, se cierra al desplazarse y queda bajo el header (#42).",
+    "ref": "PR #41, #42 · PR #43 · f99de54 · run 45238264199"
   }
 ]

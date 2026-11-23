@@ -11,10 +11,10 @@
     }
   ],
   "source": "docs/performance-optimization-plan.md (Fase 5 y «Pendiente de explicar» de la fase 1)",
-  "evidence": "docs/frontend.md no tiene presupuesto de rendimiento; no hay bundle analyzer",
+  "evidence": "PR #24 · 27ae349 · en main con PR #32 (0f41a42) · producción desde la release 0f41a42",
   "origin": "docs",
   "createdAt": "2026-11-16T21:41:14.151Z",
-  "updatedAt": "2026-11-20T07:13:56.516Z",
+  "updatedAt": "2026-11-23T18:50:36.996Z",
   "plan": [
     "Añade a docs/frontend.md una sección «Presupuesto de rendimiento» con lo que es cierto hoy: cero filtros SVG fuera de ráfaga, ningún filter ni backdrop-filter sobre los lienzos WebGL, 3D y lámina solo en la tarjeta activa, MAX_DRAW_PIXELS 2,6 M en escritorio y 1,4 M en táctil, three.js fuera del chunk inicial, y el objetivo en el Moto G15 en caliente. «Un bucle WebGL a la vez» solo si se aprueba.",
     "Análisis de bundle: Next 16 compila con Turbopack y @next/bundle-analyzer solo ve builds de webpack. Usa el analizador de Turbopack si la 16.4.6 lo trae, o compila con --webpack solo para el análisis. Si hay que instalar algo, desde la raíz con -w frontend.",
@@ -42,5 +42,5 @@
     "dec-glitch-cuantizado-a-pasos-de-3-px",
     "dec-objetivo-de-rendimiento-en-el-moto-g15"
   ],
-  "claudeNote": "Plan 2026-11-18: El prompt antiguo dice cuantizar en lib/glitch.ts, pero el redondeo está en page-glitch.tsx (apply). Pide @next/bundle-analyzer sin contar con Turbopack. El comentario de globals.css sobre las .vp-card de la banda está desfasado.\n\n2026-11-20: implementado en la rama perf/glitch-saltos-guardas (sin fusionar). Falta: medición A/B en el Moto G15 y visto bueno del dueño al glitch a saltos (revertir 54edf7a si no)."
+  "claudeNote": "Plan 2026-11-18: El prompt antiguo dice cuantizar en lib/glitch.ts, pero el redondeo está en page-glitch.tsx (apply). Pide @next/bundle-analyzer sin contar con Turbopack. El comentario de globals.css sobre las .vp-card de la banda está desfasado.\n\n2026-11-20: implementado en la rama perf/glitch-saltos-guardas (sin fusionar). Falta: medición A/B en el Moto G15 y visto bueno del dueño al glitch a saltos (revertir 54edf7a si no).\n\n2026-11-23 (sincronización): Fusionado en main (PR #24, vía #32) y en producción, con el glitch a saltos de 3 px. Sigue faltando el A/B en caliente en el Moto G15 y tu visto bueno al glitch a saltos (si no, se revierte 54edf7a)."
 }
