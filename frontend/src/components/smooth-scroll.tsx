@@ -101,24 +101,40 @@ export function SmoothScroll() {
        * ellos, porque cada uno escribe en cosas distintas.
        */
       autoRaf: true,
-    });
 
-    /* --- Límite del desplazamiento -----------------------------------------
-     *
-     * LENIS NO SE ENTERA DE QUE LA PÁGINA CRECE. Mide el alto desplazable al
-     * crearse y luego solo cuando su observador ve cambiar `content`, que por
-     * defecto es `<html>`. Pero `<html>` lleva `h-full` (`layout.tsx`):
-     * mide siempre una ventana, así que el observador no salta nunca. Si la
-     * portada termina de crecer después de montar esto —la vitrina 3D, el
-     * catálogo, las imágenes—, Lenis se queda con el límite viejo y la rueda se
-     * frena en seco a mitad de página, a la altura del prisma. Pasaba solo en
-     * algunas cargas, según lo que hubiera pintado ya al medir.
-     *
-     * Se observa el `<body>`, que sí crece con el contenido, y se pide a Lenis
-     * que vuelva a medir. Su `resize` es barato, solo lee dos alturas.
-     */
-    const bodyObserver = new ResizeObserver(() => lenis.resize());
-    bodyObserver.observe(document.body);
+      /**
+       * EL LÍMITE SE LEE EN VIVO, NUNCA DE UNA MEDIDA GUARDADA.
+       *
+       * Por defecto Lenis guarda `scrollHeight` y el alto de la ventana y solo
+       * los renueva cuando sus observadores ven cambiar `<html>` o la ventana.
+       * Esa caché fallaba por dos lados en esta página:
+       *
+       *   1. `<html>` lleva `h-full` (`layout.tsx`) y mide siempre una ventana,
+       *      así que el observador no salta cuando la portada crece —vitrina 3D,
+       *      catálogo, imágenes—: la rueda se frenaba en seco a mitad de página.
+       *
+       *   2. EL BLOQUEO DE SCROLL ENVENENA LA CACHÉ. La puerta +18 y el carrito
+       *      (`use-scroll-lock.ts`) fijan el `body`; un `body` fijo no aporta
+       *      desplazamiento al documento, así que cualquier medida tomada
+       *      durante el bloqueo da límite 0. Al soltarlo, el `body` recupera
+       *      exactamente el tamaño que tenía, ningún observador salta y Lenis
+       *      se queda con el 0: toda rueda acaba en `clamp(0, destino, 0)` y la
+       *      página no se mueve. Con la puerta pasaba en la PRIMERA visita: el
+       *      observador mide nada más montar, con la puerta ya cerrada. Con el
+       *      carrito, si la ventana cambiaba de tamaño mientras estaba abierto
+       *      (zoom, consola de desarrollo). SOLO EN ESCRITORIO porque el dedo no
+       *      pasa por Lenis (`syncTouch: false`), y el teclado se salvaba porque
+       *      con límite 0 se deja al navegador (ver `--- Teclado ---`).
+       *
+       * Antes se parcheaba (1) observando el `<body>`, lo que no cubría (2).
+       * Con `naiveDimensions` el límite es `scrollHeight - clientHeight` de
+       * `<html>` en cada lectura, y no hay nada que pueda quedarse viejo. El
+       * coste es mínimo: Lenis solo lo lee al recibir un evento de rueda o de
+       * teclado, no en cada fotograma de la animación (verificado en
+       * `dist/lenis.mjs`).
+       */
+      naiveDimensions: true,
+    });
 
     /* --- Teclado ---------------------------------------------------------
      *
@@ -214,7 +230,6 @@ export function SmoothScroll() {
 
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      bodyObserver.disconnect();
       lenis.destroy();
     };
   }, [onConsole]);
