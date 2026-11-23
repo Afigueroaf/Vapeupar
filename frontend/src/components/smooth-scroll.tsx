@@ -12,7 +12,7 @@ import { useEffect } from "react";
  * instancia) y el teclado (cada `scrollTo`), y tienen que valer lo mismo o los
  * dos frenarían distinto.
  */
-const SUAVIZADO = 0.07;
+const SUAVIZADO = 0.054;
 
 /**
  * Desplazamiento suavizado de la página pública (Lenis 1.3.27).
@@ -70,10 +70,11 @@ export function SmoothScroll() {
     const lenis = new Lenis({
       /**
        * CUANTO MÁS BAJO, MÁS SUAVE: el `lerp` es la fracción de la distancia
-       * que falta que se recorre en cada fotograma, así que 0.07 persigue el
+       * que falta que se recorre en cada fotograma, así que 0.054 persigue el
        * destino más despacio que el 0.1 por defecto de la librería y alarga la
-       * cola del frenado (de ~0.45s a ~0.65s en recorrer el 95% de un salto de
-       * rueda).
+       * cola del frenado (de ~0.47s a ~0.9s en recorrer el 95% de un salto de
+       * rueda a 60 fps). Era 0.07 (~0.7s); el dueño pidió un 30% más de
+       * suavizado, y 0.054 es justo eso: la cola dura un 30% más.
        *
        * No baja más por una razón concreta: por debajo de ~0.05 la página se
        * queda "nadando" detrás de la rueda y el texto pasa demasiado tiempo en
