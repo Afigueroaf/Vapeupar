@@ -66,6 +66,8 @@ export function WhatsappFab() {
       //
       // Los márgenes suman `env(safe-area-inset-*)`: en un iPhone sin botón de
       // inicio, 20px fijos lo dejarían pisando la barra gestual.
+      // `vp-fab`: se queda quieto al navegar (globals.css §TRANSICIONES DE PÁGINA).
+      style={{ viewTransitionName: "vp-fab" }}
       className="vp-glitch-chip fixed bottom-[calc(1.25rem+env(safe-area-inset-bottom))] right-[calc(1.25rem+env(safe-area-inset-right))] z-40 flex size-14 items-center justify-center rounded-vp border-2 border-action bg-action text-action-ink shadow-[4px_4px_0_0_var(--color-accent)] transition-[translate,box-shadow] duration-150 ease-vp hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0_0_var(--color-accent)] active:translate-x-0 active:translate-y-0 active:shadow-[2px_2px_0_0_var(--color-accent)]"
     >
       <WhatsAppGlyph className="size-7" />

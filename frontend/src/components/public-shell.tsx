@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { AgeVerificationModal } from "@/components/age-verification-modal";
 import { Footer } from "@/components/footer";
 import { Navbar } from "@/components/navbar";
+import { PageTransition } from "@/components/page-transition";
 import { TouchCursor } from "@/components/touch-cursor";
 import { WhatsappFab } from "@/components/whatsapp-fab";
 
@@ -17,14 +18,19 @@ import { WhatsappFab } from "@/components/whatsapp-fab";
  */
 export function PublicShell({ children }: { children: ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col">
-      <AgeVerificationModal />
-      <WhatsappFab />
-      <TouchCursor />
+    // Fundido suave al entrar y salir (`page-transition.tsx`). Envuelve la
+    // página ENTERA: React solo anima un `<ViewTransition>` que esté por encima
+    // de todo elemento del bloque que entra o sale.
+    <PageTransition>
+      <div className="flex min-h-screen flex-col">
+        <AgeVerificationModal />
+        <WhatsappFab />
+        <TouchCursor />
 
-      <Navbar />
-      <main className="flex-1">{children}</main>
-      <Footer />
-    </div>
+        <Navbar />
+        <main className="flex-1">{children}</main>
+        <Footer />
+      </div>
+    </PageTransition>
   );
 }

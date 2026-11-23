@@ -1328,3 +1328,76 @@ html[data-vp-cursor="on"] .vp-cursor-hint {
     opacity: 1;
   }
 }
+
+/* ============================================================================
+   TRANSICIONES DE PÁGINA (`components/page-transition.tsx`)
+   ----------------------------------------------------------------------------
+   Fundido suave: el contenido del `<main>` sale hacia arriba en 150 ms y el
+   nuevo entra desde abajo en 300 ms, con 80 ms de solape para que no haya un
+   fotograma vacío ni los dos a la vez a plena opacidad.
+
+   La raíz (`root`) NO se anima: es el fondo, y sin esto el navegador lo
+   fundiría por su cuenta además de la página.
+
+   La barra (`vp-navbar`) y el botón de WhatsApp (`vp-fab`) tienen nombre
+   propio y se anulan: el viejo no se ve y el nuevo aparece en su sitio sin
+   animación, así parecen quietos mientras la página cambia por debajo. El
+   `z-index` los deja por encima del contenido que entra.
+
+   El overlay de la transición deja pasar los clics a la página viva: si no,
+   un clic durante esos 300 ms se perdería.
+   ========================================================================= */
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-group(vp-navbar),
+::view-transition-group(vp-fab) {
+  animation: none;
+  z-index: 100;
+}
+
+::view-transition-old(vp-navbar),
+::view-transition-old(vp-fab) {
+  display: none;
+}
+
+::view-transition-new(vp-navbar),
+::view-transition-new(vp-fab) {
+  animation: none;
+}
+
+::view-transition-old(.vp-page-out) {
+  animation: vp-page-out 150ms var(--ease-vp) both;
+}
+
+::view-transition-new(.vp-page-in) {
+  animation: vp-page-in 300ms var(--ease-vp) 80ms both;
+}
+
+@keyframes vp-page-out {
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes vp-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation: none !important;
+  }
+}

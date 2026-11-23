@@ -1,4 +1,5 @@
 import { AgeVerificationModal } from "@/components/age-verification-modal";
+import { PageTransition } from "@/components/page-transition";
 import { Navbar } from "@/components/navbar";
 import { Hero } from "@/components/hero";
 import { TrustBand } from "@/components/trust-band";
@@ -60,6 +61,10 @@ export default async function HomePage() {
   const showcase = chosen && chosen.length > 0 ? chosen : products;
 
   return (
+    // Fundido suave al entrar y salir (`page-transition.tsx`). Envuelve la
+    // página ENTERA: React solo anima un `<ViewTransition>` que esté por
+    // encima de todo elemento del bloque que entra o sale.
+    <PageTransition>
     <div className="min-h-screen flex flex-col">
       {/* Fuera de todo bloque `.vp-glitch`: un `filter` en un ancestro se
           convierte en bloque contenedor de sus descendientes `position: fixed`,
@@ -185,5 +190,6 @@ export default async function HomePage() {
         <Footer />
       </div>
     </div>
+    </PageTransition>
   );
 }
