@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isCursorMode, subscribeCursorMode } from "@/lib/touch-cursor";
 import { cn } from "@/lib/utils";
+import { layoutOffset, type OffsetNode } from "@/lib/layout-offset";
 
 /**
  * Condiciones para seguir el cursor:
@@ -26,6 +27,14 @@ interface CardFieldProps extends React.HTMLAttributes<HTMLDivElement> {
    * una nueva medición del campo. Es barato: tres rectos y seis variables.
    */
   watch?: unknown;
+  /**
+   * Cómo se mide la posición de cada tarjeta. `"rect"` (por defecto) usa
+   * `getBoundingClientRect`, que INCLUYE los transforms: es lo que necesita el
+   * cajón de `trust-stage.tsx`, que mueve las tarjetas con `transform`.
+   * `"layout"` los ignora (`lib/layout-offset.ts`): lo usa el catálogo, cuyas
+   * tarjetas se encogen y desplazan con el scroll reveal mientras entran.
+   */
+  measure?: "rect" | "layout";
 }
 
 /**
@@ -50,7 +59,7 @@ interface CardFieldProps extends React.HTMLAttributes<HTMLDivElement> {
  * `--vp-fx/--vp-fy` (desplazamiento dentro del campo) en cada tarjeta. El
  * dibujo lo hace `globals.css`; aquí solo se publican las medidas.
  */
-export function CardField({ watch, className, children, ...props }: CardFieldProps) {
+export function CardField({ watch, measure = "rect", className, children, ...props }: CardFieldProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [trackPointer, setTrackPointer] = useState(false);
 
@@ -95,12 +104,20 @@ export function CardField({ watch, className, children, ...props }: CardFieldPro
       root.style.setProperty("--vp-fh", `${Math.round(base.height)}px`);
 
       root.querySelectorAll<HTMLElement>(".vp-card").forEach((card) => {
-        const box = card.getBoundingClientRect();
-        card.style.setProperty("--vp-fx", `${Math.round(box.left - base.left)}px`);
-        card.style.setProperty("--vp-fy", `${Math.round(box.top - base.top)}px`);
+        let x: number;
+        let y: number;
+        if (measure === "layout") {
+          ({ x, y } = layoutOffset(card as unknown as OffsetNode, root as unknown as OffsetNode));
+        } else {
+          const box = card.getBoundingClientRect();
+          x = box.left - base.left;
+          y = box.top - base.top;
+        }
+        card.style.setProperty("--vp-fx", `${Math.round(x)}px`);
+        card.style.setProperty("--vp-fy", `${Math.round(y)}px`);
       });
     });
-  }, []);
+  }, [measure]);
 
   // El observador se monta UNA VEZ, y la medición que pide `watch` va en su
   // propio efecto. Antes los dos compartían efecto y cada cambio de `watch`

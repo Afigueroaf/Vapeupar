@@ -1417,3 +1417,113 @@ html[data-vp-cursor="on"] .vp-cursor-hint {
     animation: none !important;
   }
 }
+
+/* ============================================================================
+   SCROLL REVEAL «SCALE UP» (`scroll-reveal reveal-scale`)
+   ----------------------------------------------------------------------------
+   El patrón «simple scale up» de scrollreveal.it, reescrito sin la librería
+   (`@toms15/scroll-reveal-animations`): solo CSS, ligado al scroll con
+   `animation-timeline: view()`. La pieza crece y aparece mientras entra en
+   pantalla y, si se vuelve a subir, se encoge otra vez.
+
+   SUAVIZADO respecto a la referencia (que parte de `scale(0.7)`, 100px más
+   abajo y con `cubic-bezier(0, 0.69, 0.57, 0.56)`, una curva que arranca de
+   golpe): aquí parte de opacidad 0, `scale(0.88)` y 40px más abajo, con una
+   curva de arranque gradual que desacelera al llegar (`ease`,
+   `cubic-bezier(0.25, 0.1, 0.25, 1)`). Una «ease-out» más marcada subía la
+   opacidad casi a la mitad con solo el borde de la pieza a la vista.
+
+   EL TRAMO NO ES EL DE LA REFERENCIA, y es a propósito. Allí va de
+   `entry 10%` a `cover 30%`: la pieza solo se completa cuando ya ha subido un
+   tercio de la pantalla, y lo que está al final de una página corta —la última
+   fila, la última sección— nunca llega porque no queda scroll; lo mismo lo
+   que está a la vista al cargar sin haber subido lo bastante. Aquí acaba
+   15vh después de que la pieza entre ENTERA (`entry calc(100% + 15vh)`):
+   esos 15vh son lo que suaviza la aparición —sin ellos, una pieza baja como
+   una pregunta del FAQ hacía toda la animación en 60px de scroll— y caben
+   siempre, porque debajo de la última pieza animada queda como poco el pie
+   (medido: 705px en escritorio, 1270 en horizontal, 1496 en teléfono). Por
+   eso solo se pone en piezas más bajas que la pantalla (tarjetas, títulos,
+   bloques, la vitrina 3D), nunca en contenedores altos: uno más alto que la
+   pantalla no entraría entero nunca.
+
+   Sin soporte (Firefox hoy) o con movimiento reducido no hay regla: todo se
+   ve quieto y completo, como antes.
+
+   `.reveal-stagger` aplica lo mismo a cada hijo de una rejilla de productos y
+   retrasa el inicio del tramo por columna (2, 3 o 4 según el ancho, como
+   `product-catalog.tsx`), así que una fila entra en cascada y termina a la vez.
+
+   LAS TARJETAS DEL CATÁLOGO se miden sin transforms (`<CardField
+   measure="layout">`): medidas a media animación descuadraban su fondo
+   continuo.
+
+   ALTURA DE LA PÁGINA: los 40px de lo que aún no ha entrado no la alargan,
+   porque nada animado es lo último del documento (el pie, que no se anima,
+   va siempre después).
+   ========================================================================= */
+@keyframes vp-scroll-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(var(--reveal-translate-y, 40px)) scale(var(--reveal-scale, 1));
+  }
+  to {
+    opacity: 1;
+    /* OJO: aunque aquí diga `none`, al interpolar con `both` el navegador deja
+       una matriz identidad aplicada, y cualquier transform convierte la pieza
+       en bloque contenedor de sus descendientes `position: fixed`. Por eso no
+       se pone nunca en algo que contenga un overlay fijo. */
+    transform: none;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .scroll-reveal,
+    .reveal-stagger > * {
+      animation: vp-scroll-reveal cubic-bezier(0.25, 0.1, 0.25, 1) both;
+      /* Después del atajo `animation`, que lo devolvería a `auto`. */
+      animation-timeline: view();
+      animation-range: entry var(--reveal-start, 0%) entry calc(100% + 15vh);
+    }
+
+    .reveal-scale,
+    .reveal-stagger > * {
+      --reveal-scale: 0.88;
+    }
+
+    /* Escalonado por columna: 2 columnas en móvil… */
+    .reveal-stagger > :nth-child(2n) {
+      --reveal-start: 20%;
+    }
+
+    /* …3 en tablet… */
+    @media (min-width: 48rem) {
+      .reveal-stagger > :nth-child(3n + 1) {
+        --reveal-start: 0%;
+      }
+      .reveal-stagger > :nth-child(3n + 2) {
+        --reveal-start: 15%;
+      }
+      .reveal-stagger > :nth-child(3n) {
+        --reveal-start: 30%;
+      }
+    }
+
+    /* …y 4 en escritorio. */
+    @media (min-width: 64rem) {
+      .reveal-stagger > :nth-child(4n + 1) {
+        --reveal-start: 0%;
+      }
+      .reveal-stagger > :nth-child(4n + 2) {
+        --reveal-start: 12%;
+      }
+      .reveal-stagger > :nth-child(4n + 3) {
+        --reveal-start: 24%;
+      }
+      .reveal-stagger > :nth-child(4n) {
+        --reveal-start: 36%;
+      }
+    }
+  }
+}
