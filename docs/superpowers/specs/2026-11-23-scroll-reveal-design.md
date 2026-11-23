@@ -51,8 +51,10 @@ navegadores, pero no sigue al scroll y el dueño prefiere A.
 - Nosotros: pilares y sección de mayores de edad.
 - ~~Contacto: sus bloques.~~ Vive dentro del pie de página, que no se anima.
 
+- Vitrina 3D de productos destacados (añadida después a petición del dueño).
+
 **No se aplica:** hero (el vaporizador 3D se ancla midiendo su posición y ya
-está a la vista al cargar), banda de confianza (escena 3D), barra de
+está a la vista al cargar), tarjetas de la banda de confianza, barra de
 navegación, pie de página, puerta +18, carrito, botón de WhatsApp.
 
 ## No-objetivos
@@ -75,3 +77,10 @@ el reparto fino de clases dentro de cada componente.
   portada y colección) porque el pie, que no se anima, va siempre al final.
 - Al terminar queda una matriz identidad aplicada: no poner `scroll-reveal` en
   nada que contenga un overlay `position: fixed`.
+- Suavizado (petición del dueño, tras la primera versión): `scale(0.88)` y 40px
+  en vez de 0.7 y 100px, curva `ease` en vez de la de la referencia, y el
+  tramo sigue 15vh después de que la pieza entre entera. Debajo de la última
+  pieza animada siempre quedan ≥705px (el pie), así que nada queda a medias.
+- La vitrina 3D no se descuadra al escalar: el lienzo se dimensiona con un
+  `ResizeObserver` (layout, sin transforms; medido 1280px de lienzo para
+  1280px de layout) y el puntero se calcula sobre la caja visible.

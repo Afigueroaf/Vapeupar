@@ -185,7 +185,11 @@ export function TrustStage({ showcase, children }: TrustStageProps) {
             con los eventos de puntero desactivados. Los dos se superponen con
             fondo transparente y se ven a la vez.
           */}
-          <div className="absolute inset-x-0 top-0 bottom-10 mx-auto max-w-vp sm:bottom-16">
+          {/* Scroll reveal (`globals.css`): la vitrina crece al entrar. El motor no se
+              descuadra: dimensiona el lienzo con un `ResizeObserver`, que mide
+              el layout y no ve el transform, y el puntero se calcula sobre la
+              caja visible, que es la escalada. */}
+          <div className="scroll-reveal reveal-scale absolute inset-x-0 top-0 bottom-10 mx-auto max-w-vp sm:bottom-16">
             <ProductPrism
               products={showcase}
               label="Vitrina 3D de productos destacados"
