@@ -297,6 +297,17 @@ html {
   text-transform: uppercase;
 }
 
+/* El `+` de la chapa de las tarjetas de información (y el `×` en que se
+   convierte al abrir el modal). A 10px se perdía dentro de su recuadro de
+   36px: va al doble. Sin interletra, que lo descentraba hacia la izquierda,
+   y con interlineado 1 para que el giro sea sobre su centro. Aquí y no con
+   utilidades porque `.vp-label` está fuera de capa y les gana. */
+.vp-label.vp-chip-signo {
+  font-size: 1.25rem; /* 20px */
+  line-height: 1;
+  letter-spacing: 0;
+}
+
 /* Variante del reclamo bajo el logotipo de la portada.
    Mismo tipo y las mismas restricciones —tres palabras, una línea—, pero a
    10px debajo de un logotipo de 640px el reclamo se perdía. El tamaño va aquí
@@ -1001,14 +1012,18 @@ html.glitch-active .vp-glitch-scanlines {
    altura y con el puntero en la esquina, el desplazamiento máximo es de
    3.9px horizontales y 2.5px verticales.
 
-   SOLO PARA EL TEXTO FUERTE —nombre y precio—, nunca para el gris
-   `--color-muted` de la descripción, las especificaciones y el tachado: ese
-   gris mide 4.67:1 sobre la lámina encendida (AA pide 4.5) y no tiene margen
-   para que le oscurezcan los bordes. */
+   Empezó solo para el texto fuerte —nombre y precio— por prudencia con el
+   gris `--color-muted`, que mide 4.67:1 sobre la lámina encendida (AA pide
+   4.5). Ahora lo lleva todo el texto de las tarjetas: la sombra es negra y
+   cae detrás de la letra, así que donde toca la letra oscurece el fondo en
+   vez de aclararlo, y sin ella esos textos se quedaban pegados a la tarjeta. */
+/* `--vp-texto` multiplica el desplazamiento (1 por defecto). Lo suben los
+   textos pequeños de las tarjetas de información: a 14-15px la sombra del
+   catálogo se quedaba en 1.7-2.5px y no se leía como relieve. */
 .vp-plano-texto {
   text-shadow:
-    calc(var(--vp-plano, 0px) * var(--vp-rx) * -0.07)
-    calc(var(--vp-plano, 0px) * var(--vp-ry) * -0.07 + var(--vp-plano, 0px) * 0.045)
+    calc(var(--vp-plano, 0px) * var(--vp-rx) * -0.07 * var(--vp-texto, 1))
+    calc((var(--vp-plano, 0px) * var(--vp-ry) * -0.07 + var(--vp-plano, 0px) * 0.045) * var(--vp-texto, 1))
     0 rgb(0 0 0 / 0.75);
 }
 
