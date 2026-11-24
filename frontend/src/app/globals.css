@@ -1482,10 +1482,10 @@ html[data-vp-cursor="on"] .vp-cursor-hint {
     transform: translateY(var(--reveal-translate-y, 40px)) scale(var(--reveal-scale, 1));
   }
   to {
-    /* OJO: aunque aquí diga `none`, al interpolar con `both` el navegador deja
-       una matriz identidad aplicada, y cualquier transform convierte la pieza
-       en bloque contenedor de sus descendientes `position: fixed`. Por eso no
-       se pone nunca en algo que contenga un overlay fijo. */
+    /* Mientras dura el tramo hay un transform aplicado, y cualquier transform
+       convierte la pieza en bloque contenedor de sus descendientes
+       `position: fixed`: no se pone nunca en algo que contenga un overlay fijo.
+       Fuera del tramo no queda nada: ver `backwards` abajo. */
     transform: none;
   }
 }
@@ -1495,9 +1495,15 @@ html[data-vp-cursor="on"] .vp-cursor-hint {
     .scroll-reveal,
     .reveal-stagger > * {
       animation:
-        vp-scroll-reveal cubic-bezier(0.25, 0.1, 0.25, 1) both,
-        vp-scroll-reveal-fade linear(0, 0.007 8.3%, 0.06 16.7%, 0.189 25%, 0.358 33.3%, 0.523 41.7%, 0.664 50%, 0.778 58.3%, 0.865 66.7%, 0.928 75%, 0.969 83.3%, 0.993 91.7%, 1) both;
-      /* Después del atajo `animation`, que lo devolvería a `auto`. Un solo
+        vp-scroll-reveal cubic-bezier(0.25, 0.1, 0.25, 1) backwards,
+        vp-scroll-reveal-fade linear(0, 0.007 8.3%, 0.06 16.7%, 0.189 25%, 0.358 33.3%, 0.523 41.7%, 0.664 50%, 0.778 58.3%, 0.865 66.7%, 0.928 75%, 0.969 83.3%, 0.993 91.7%, 1) backwards;
+      /* `backwards` Y NO `both`: antes del tramo la pieza espera oculta, y al
+         acabarlo la animación deja de aplicarse. Con `both` el estado final
+         (un transform) se quedaba pegado y pisaba el `transform` propio de la
+         pieza: las tarjetas `.vp-card` perdían su inclinación 3D al pasar el
+         puntero. El estado final es el de reposo, así que el relevo no se ve.
+
+         Después del atajo `animation`, que lo devolvería a `auto`. Un solo
          valor de `animation-timeline`/`-range` vale para las dos. */
       animation-timeline: view();
       animation-range: entry var(--reveal-start, 0%) entry calc(100% + 15vh);
@@ -1506,6 +1512,16 @@ html[data-vp-cursor="on"] .vp-cursor-hint {
     .reveal-scale,
     .reveal-stagger > * {
       --reveal-scale: 0.88;
+    }
+
+    /* PIE DE PÁGINA (`.reveal-footer`). Es lo último del documento, así que no
+       caben los 15vh de cola: el tramo acaba justo cuando la pieza ha entrado
+       entera, y al final del scroll el pie entero está a la vista. Y sin
+       desplazamiento vertical, solo escala: 40px hacia abajo en lo último de
+       la página alargarían el documento mientras se desplaza. */
+    .reveal-footer .scroll-reveal {
+      --reveal-translate-y: 0px;
+      animation-range: entry 0% entry 100%;
     }
 
     /* Escalonado por columna: 2 columnas en móvil… */

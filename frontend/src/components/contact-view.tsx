@@ -24,12 +24,15 @@ export function ContactView({
   preview?: boolean;
 }) {
   const phoneHref = telLink();
+  // Cada columna entra con el scroll reveal del pie (`.reveal-footer` en
+  // `globals.css`); en la vista previa de la consola, quieta.
+  const reveal = preview ? "" : "scroll-reveal reveal-scale";
 
   return (
     <div className="mx-auto mt-12 grid max-w-vp grid-cols-1 gap-block border-b-2 border-muted px-inline pb-10 md:grid-cols-4">
       {/* Col 1: marca. Era el destino de «Nosotros» hasta V8; el id se
           conserva para los enlaces `/#nosotros` ya compartidos. */}
-      <div id={preview ? undefined : "nosotros"} className="scroll-mt-24">
+      <div id={preview ? undefined : "nosotros"} className={`scroll-mt-24 ${reveal}`}>
         <Image
           src="/logo-vu-blanco.svg"
           alt="Vapeupar"
@@ -44,7 +47,7 @@ export function ContactView({
       </div>
 
       {/* Col 2: Location & Hours */}
-      <div>
+      <div className={reveal || undefined}>
         <h3 className={COL_HEADING}>Ubicación y cobertura</h3>
         <ul className={COL_LIST}>
           <li>{contact.location}</li>
@@ -55,7 +58,7 @@ export function ContactView({
       </div>
 
       {/* Col 3: Customer Care & Ordering */}
-      <div>
+      <div className={reveal || undefined}>
         <h3 className={COL_HEADING}>Atención al cliente</h3>
         <ul className={COL_LIST}>
           {/* Sin teléfono configurado, la fila no se inventa (decisión V0.3) */}
@@ -73,7 +76,7 @@ export function ContactView({
       </div>
 
       {/* Col 4: Quick Links */}
-      <div>
+      <div className={reveal || undefined}>
         <h3 className={COL_HEADING}>Categorías rápidas</h3>
         <ul className={COL_LIST}>
           {COLLECTIONS.slice(0, 3).map((c) => (
