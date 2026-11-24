@@ -84,3 +84,7 @@ el reparto fino de clases dentro de cada componente.
 - La vitrina 3D no se descuadra al escalar: el lienzo se dimensiona con un
   `ResizeObserver` (layout, sin transforms; medido 1280px de lienzo para
   1280px de layout) y el puntero se calcula sobre la caja visible.
+- Opacidad un 30% más transparente (petición del dueño): va en su propia
+  animación, `vp-scroll-reveal-fade`, con la curva `ease` elevada a 1,86
+  (`linear()`): transparencia media del tramo 0,33 → 0,43; a mitad, opacidad
+  0,66 en vez de 0,80. El movimiento no cambia y sigue terminando en 1.
