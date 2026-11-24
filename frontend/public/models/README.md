@@ -3,29 +3,33 @@
 `vaporizer.glb` es el modelo que dibuja la nube de puntos del hero
 (`src/components/vaporizer-point-cloud.tsx`, ruta pública `/models/vaporizer.glb`).
 
-**No se edita a mano.** La fuente es `assets/3d_components/vape.blend` y el GLB
+**No se edita a mano.** La fuente es `assets/3d_components/Vape_2.fbx` y el GLB
 se genera desde ahí:
 
 ```bash
-blender -b assets/3d_components/vape.blend \
-        --python assets/3d_components/export-vaporizer.py \
-        -- frontend/public/models/vaporizer.glb
+blender -b --python assets/3d_components/export-vape2.py \
+        -- assets/3d_components/Vape_2.fbx frontend/public/models/vaporizer.glb
 ```
 
 En Windows, `blender` suele estar en
 `C:\Program Files\Blender Foundation\Blender <versión>\blender.exe`.
 
-El script descarta el plató de render, la segunda copia del dispositivo que hay
-en la escena y todo lo oculto en el render; aplica los modificadores y exporta
-solo geometría, sin materiales ni texturas. Sus motivos están comentados ahí.
+El FBX es un modelo de render de ~928.000 triángulos. El script descarta los
+splines (llegan como vacíos), reduce las mallas con `Decimate` a ~50.000
+triángulos en total —sin bajar ninguna pieza de 600, para no perder botón y
+ranuras— y exporta solo geometría, sin materiales ni texturas. Sus motivos
+están comentados ahí.
 
-Estado actual: 12 mallas, 4.900 triángulos, 185 KB.
+Estado actual: 13 mallas, 50.000 triángulos, 937 KB.
 
-## Si cambia el .blend
+Hasta noviembre de 2026 la fuente era `assets/3d_components/vape.blend`, con
+`export-vaporizer.py` (12 mallas, 4.900 triángulos, 185 KB).
 
-Vuelve a ejecutar el comando y revisa el hero. Si el resultado sale hueco o con
-piezas flotando, lo más probable es que los nombres de `STUDIO` en el script ya
-no coincidan con los objetos del archivo.
+## Si cambia el modelo
+
+Vuelve a ejecutar el comando y revisa el hero. Si la nube sale demasiado
+ruidosa en los bordes o la carga se nota lenta en móvil, baja `BUDGET` en el
+script; si se pierde detalle, súbelo sin pasar de los 2 MB.
 
 ## Sustituir por otro modelo
 
