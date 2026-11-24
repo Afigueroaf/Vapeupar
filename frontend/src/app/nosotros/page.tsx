@@ -62,7 +62,7 @@ export default function AboutPage() {
 
         <ul className="vp-glitch mt-block grid gap-block md:grid-cols-3">
           {PILLARS.map((pillar) => (
-            <li key={pillar.tag}>
+            <li key={pillar.tag} className="scroll-reveal reveal-scale">
               <Surface className="h-full p-6 sm:p-8">
                 <PixelLabel variant="violet">{pillar.tag}</PixelLabel>
                 <h2 className="mt-5 text-xl font-bold uppercase leading-tight">{pillar.title}</h2>
@@ -72,7 +72,7 @@ export default function AboutPage() {
           ))}
         </ul>
 
-        <section aria-labelledby="mayores" className="vp-glitch mt-block max-w-3xl border-t-2 border-muted pt-block">
+        <section aria-labelledby="mayores" className="vp-glitch mt-block max-w-3xl border-t-2 border-muted pt-block scroll-reveal reveal-scale">
           <PixelLabel variant="lime">[ +18 ]</PixelLabel>
           <h2 id="mayores" className="mt-4 text-xl font-bold uppercase leading-tight">
             Solo para mayores de edad

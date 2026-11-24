@@ -180,7 +180,7 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
       <div id="pods" className="scroll-mt-24" />
       <div id="liquidos" className="scroll-mt-24" />
 
-      <div className="vp-glitch flex flex-col gap-8 md:flex-row md:items-end md:justify-between">
+      <div className="vp-glitch flex flex-col gap-8 md:flex-row md:items-end md:justify-between scroll-reveal reveal-scale">
         <div>
           <PixelLabel variant="outline">[ CATALOGO ]</PixelLabel>
 
@@ -216,7 +216,7 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
         id="colecciones"
         role="group"
         aria-label="Filtro de categorías"
-        className="vp-glitch mt-block flex flex-wrap gap-3 scroll-mt-24"
+        className="vp-glitch mt-block flex flex-wrap gap-3 scroll-mt-24 scroll-reveal reveal-scale"
       >
         {categories.map((cat) => (
           <button
@@ -245,7 +245,7 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
         El `ml-auto` pasa a `sm:ml-auto`: en columna no tiene nada que empujar y
         solo servía para desalinear.
       */}
-      <div className="vp-glitch mt-6 flex flex-col gap-4 border-t-2 border-muted pt-6 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <div className="vp-glitch mt-6 flex flex-col gap-4 border-t-2 border-muted pt-6 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between scroll-reveal reveal-scale">
         {brands.length > 1 && (
           <div className="flex items-center gap-3">
             {/* `shrink-0`: en la fila de móvil el selector se lleva el espacio
@@ -292,20 +292,23 @@ export function ProductCatalog({ initialProducts }: ProductCatalogProps) {
           // El array entero, no su longitud: ordenar o cambiar a otro filtro
           // con el mismo número de tarjetas también las mueve de sitio.
           watch={filteredProducts}
+          // Sin transforms: las tarjetas se encogen y desplazan con el scroll
+          // reveal mientras entran (`.reveal-stagger`, globals.css).
+          measure="layout"
           // 2 columnas en móvil y 4 en escritorio, con un paso de 3 en tablet
           // para no saltar de 2 tarjetas anchas a 4 estrechas de golpe.
           // El `gap` baja a 12px en móvil: con 2 columnas sobre 328px útiles,
           // cada 12px de hueco son 6px que se le quitan a cada tarjeta.
           // `product-card.tsx` entra en modo compacto por debajo de `sm` para
           // acompañar este ancho.
-          className="mt-block grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-4"
+          className="reveal-stagger mt-block grid grid-cols-2 gap-3 sm:gap-6 md:grid-cols-3 lg:grid-cols-4"
         >
           {filteredProducts.map((product, index) => (
             <ProductCard key={product.id} product={product} eagerImage={index === 0} />
           ))}
         </CardField>
       ) : (
-        <Surface className="vp-glitch mt-12 flex flex-col items-center p-12 text-center">
+        <Surface className="vp-glitch mt-12 flex flex-col items-center p-12 text-center scroll-reveal reveal-scale">
           {/* Sin tilde ni eñe a propósito: Press Start 2P no garantiza esos
               glifos, y una etiqueta mal escrita es peor que una neutra. */}
           <PixelLabel variant="violet">[ 0 RESULTADOS ]</PixelLabel>

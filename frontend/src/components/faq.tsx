@@ -66,7 +66,8 @@ export function FAQ({
       className="vp-glitch border-t-2 border-line scroll-mt-20"
     >
       <div className="mx-auto grid max-w-vp gap-block px-inline py-section lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
-        <div>
+        {/* Scroll reveal solo en la web: la vista previa de la consola no lo lleva. */}
+        <div className={preview ? undefined : "scroll-reveal reveal-scale"}>
           <PixelLabel variant="outline">[ FAQ ]</PixelLabel>
 
           <h2 className="mt-4 text-[1.75rem] font-bold uppercase leading-[0.95] tracking-[-0.01em] sm:text-[2.5rem]">
@@ -91,7 +92,10 @@ export function FAQ({
                 // romper la reconciliación.
                 key={index}
                 border={isOpen ? "line" : "muted"}
-                className="overflow-hidden transition-colors duration-150 ease-vp"
+                className={cn(
+                  "overflow-hidden transition-colors duration-150 ease-vp",
+                  !preview && "scroll-reveal reveal-scale",
+                )}
               >
                 <h3>
                   <button

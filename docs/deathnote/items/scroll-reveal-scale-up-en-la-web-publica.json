@@ -1,0 +1,15 @@
+{
+  "title": "Scroll reveal «scale up» en la web pública",
+  "status": "hecho",
+  "priority": "media",
+  "area": "frontend",
+  "summary": "Las piezas de la página aparecen y crecen ligadas al scroll (patrón simple scale up de scrollreveal.it, solo CSS con animation-timeline: view()); tramo ajustado para que nada quede a medias; sin animación en Firefox ni con movimiento reducido.",
+  "origin": "usuario",
+  "source": "Añadido desde la terminal",
+  "createdAt": "2026-11-23T22:07:47.565Z",
+  "updatedAt": "2026-11-23T23:44:18.427Z",
+  "claudeNote": "Implementado en la rama feat/scroll-reveal (parte de feat/arranque-y-transiciones; sin push ni PR). Diseño: docs/superpowers/specs/2026-11-23-scroll-reveal-design.md. Falta: PR y hito al fusionar.",
+  "evidence": "npm test (138/138) · next build OK · Chrome headless: altura constante al hacer scroll, todo completo al final en portada, colección, ficha y nosotros (escritorio y 360px), movimiento reducido sin animación · Fusionado en dev: PR #47 (50b350e).",
+  "completedAt": "2026-11-23T23:44:18.425Z",
+  "queued": false
+}

@@ -1287,3 +1287,259 @@ html[data-vp-cursor="on"] {
 html[data-vp-cursor="on"] .vp-cursor-hint {
   opacity: 0;
 }
+
+/* ============================================================================
+   PANTALLA DE ARRANQUE (`components/boot/boot-screen.tsx`)
+   ----------------------------------------------------------------------------
+   El logo ocupa clamp(260px, 58vw, 620px) con tope 84vw y alto intrínseco
+   (la proporción del logo es ~5:1, así que nunca se acerca al alto ni en
+   horizontal bajo). En teléfono, 84vw.
+
+   Los contornos se pintan OCULTOS desde el servidor (guion a longitud cero) y
+   transparentes, para que antes de hidratar no se vea ni el logo completo ni
+   los puntos de los extremos redondeados; el bucle les da opacidad al empezar
+   cada pieza.
+
+   Movimiento reducido: el servidor no sabe la preferencia, así que es este CSS
+   quien enseña el logo relleno desde el primer fotograma, sin dibujo.
+   ========================================================================= */
+/* SEGURO: si el JS no llega a arrancar —un chunk que no carga, un bloqueador,
+   un WebView viejo que no entiende el paquete—, nadie retiraría la pantalla y
+   la web quedaría tapada de negro. A los 8 s se oculta sola. En cuanto el
+   bucle arranca anula esta animación (`boot-screen.tsx`). `<noscript>` solo
+   cubre el JS desactivado, no el que falla. */
+.vp-boot {
+  animation: vp-boot-failsafe 0s linear 8s forwards;
+}
+
+@keyframes vp-boot-failsafe {
+  to {
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+.vp-boot__logo {
+  width: min(clamp(260px, 58vw, 620px), 84vw);
+  height: auto;
+  overflow: visible;
+}
+
+@media (max-width: 500px) {
+  .vp-boot__logo {
+    width: 84vw;
+  }
+}
+
+.vp-boot__strokes path {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vp-boot__strokes {
+    display: none;
+  }
+
+  .vp-boot__fill {
+    opacity: 1;
+  }
+}
+
+/* ============================================================================
+   TRANSICIONES DE PÁGINA (`components/page-transition.tsx`)
+   ----------------------------------------------------------------------------
+   Fundido suave: el contenido del `<main>` sale hacia arriba en 150 ms y el
+   nuevo entra desde abajo en 300 ms, con 80 ms de solape para que no haya un
+   fotograma vacío ni los dos a la vez a plena opacidad.
+
+   La raíz (`root`) NO se anima: es el fondo, y sin esto el navegador lo
+   fundiría por su cuenta además de la página.
+
+   La barra (`vp-navbar`) y el botón de WhatsApp (`vp-fab`) tienen nombre
+   propio y se anulan: el viejo no se ve y el nuevo aparece en su sitio sin
+   animación, así parecen quietos mientras la página cambia por debajo. El
+   `z-index` los deja por encima del contenido que entra.
+
+   El overlay de la transición deja pasar los clics a la página viva: si no,
+   un clic durante esos 300 ms se perdería.
+   ========================================================================= */
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+
+::view-transition-group(vp-navbar),
+::view-transition-group(vp-fab) {
+  animation: none;
+  z-index: 100;
+}
+
+::view-transition-old(vp-navbar),
+::view-transition-old(vp-fab) {
+  display: none;
+}
+
+::view-transition-new(vp-navbar),
+::view-transition-new(vp-fab) {
+  animation: none;
+}
+
+::view-transition-old(.vp-page-out) {
+  animation: vp-page-out 150ms var(--ease-vp) both;
+}
+
+::view-transition-new(.vp-page-in) {
+  animation: vp-page-in 300ms var(--ease-vp) 80ms both;
+}
+
+@keyframes vp-page-out {
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes vp-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation: none !important;
+  }
+}
+
+/* ============================================================================
+   SCROLL REVEAL «SCALE UP» (`scroll-reveal reveal-scale`)
+   ----------------------------------------------------------------------------
+   El patrón «simple scale up» de scrollreveal.it, reescrito sin la librería
+   (`@toms15/scroll-reveal-animations`): solo CSS, ligado al scroll con
+   `animation-timeline: view()`. La pieza crece y aparece mientras entra en
+   pantalla y, si se vuelve a subir, se encoge otra vez.
+
+   SUAVIZADO respecto a la referencia (que parte de `scale(0.7)`, 100px más
+   abajo y con `cubic-bezier(0, 0.69, 0.57, 0.56)`, una curva que arranca de
+   golpe): aquí parte de opacidad 0, `scale(0.88)` y 40px más abajo, con una
+   curva de arranque gradual que desacelera al llegar (`ease`,
+   `cubic-bezier(0.25, 0.1, 0.25, 1)`). Una «ease-out» más marcada subía la
+   opacidad casi a la mitad con solo el borde de la pieza a la vista.
+
+   LA OPACIDAD VA APARTE (`vp-scroll-reveal-fade`), más rezagada que el
+   movimiento: a petición del dueño, la pieza aparece un 30% más transparente
+   (transparencia media del tramo 0,33 → 0,43). Es la curva `ease` elevada a
+   1,86, muestreada en un `linear()`: a mitad del tramo, opacidad 0,66 en vez
+   de 0,80, y sigue llegando a 1 justo al final, sin saltos.
+
+   EL TRAMO NO ES EL DE LA REFERENCIA, y es a propósito. Allí va de
+   `entry 10%` a `cover 30%`: la pieza solo se completa cuando ya ha subido un
+   tercio de la pantalla, y lo que está al final de una página corta —la última
+   fila, la última sección— nunca llega porque no queda scroll; lo mismo lo
+   que está a la vista al cargar sin haber subido lo bastante. Aquí acaba
+   15vh después de que la pieza entre ENTERA (`entry calc(100% + 15vh)`):
+   esos 15vh son lo que suaviza la aparición —sin ellos, una pieza baja como
+   una pregunta del FAQ hacía toda la animación en 60px de scroll— y caben
+   siempre, porque debajo de la última pieza animada queda como poco el pie
+   (medido: 705px en escritorio, 1270 en horizontal, 1496 en teléfono). Por
+   eso solo se pone en piezas más bajas que la pantalla (tarjetas, títulos,
+   bloques, la vitrina 3D), nunca en contenedores altos: uno más alto que la
+   pantalla no entraría entero nunca.
+
+   Sin soporte (Firefox hoy) o con movimiento reducido no hay regla: todo se
+   ve quieto y completo, como antes.
+
+   `.reveal-stagger` aplica lo mismo a cada hijo de una rejilla de productos y
+   retrasa el inicio del tramo por columna (2, 3 o 4 según el ancho, como
+   `product-catalog.tsx`), así que una fila entra en cascada y termina a la vez.
+
+   LAS TARJETAS DEL CATÁLOGO se miden sin transforms (`<CardField
+   measure="layout">`): medidas a media animación descuadraban su fondo
+   continuo.
+
+   ALTURA DE LA PÁGINA: los 40px de lo que aún no ha entrado no la alargan,
+   porque nada animado es lo último del documento (el pie, que no se anima,
+   va siempre después).
+   ========================================================================= */
+@keyframes vp-scroll-reveal-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes vp-scroll-reveal {
+  from {
+    transform: translateY(var(--reveal-translate-y, 40px)) scale(var(--reveal-scale, 1));
+  }
+  to {
+    /* OJO: aunque aquí diga `none`, al interpolar con `both` el navegador deja
+       una matriz identidad aplicada, y cualquier transform convierte la pieza
+       en bloque contenedor de sus descendientes `position: fixed`. Por eso no
+       se pone nunca en algo que contenga un overlay fijo. */
+    transform: none;
+  }
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .scroll-reveal,
+    .reveal-stagger > * {
+      animation:
+        vp-scroll-reveal cubic-bezier(0.25, 0.1, 0.25, 1) both,
+        vp-scroll-reveal-fade linear(0, 0.007 8.3%, 0.06 16.7%, 0.189 25%, 0.358 33.3%, 0.523 41.7%, 0.664 50%, 0.778 58.3%, 0.865 66.7%, 0.928 75%, 0.969 83.3%, 0.993 91.7%, 1) both;
+      /* Después del atajo `animation`, que lo devolvería a `auto`. Un solo
+         valor de `animation-timeline`/`-range` vale para las dos. */
+      animation-timeline: view();
+      animation-range: entry var(--reveal-start, 0%) entry calc(100% + 15vh);
+    }
+
+    .reveal-scale,
+    .reveal-stagger > * {
+      --reveal-scale: 0.88;
+    }
+
+    /* Escalonado por columna: 2 columnas en móvil… */
+    .reveal-stagger > :nth-child(2n) {
+      --reveal-start: 20%;
+    }
+
+    /* …3 en tablet… */
+    @media (min-width: 48rem) {
+      .reveal-stagger > :nth-child(3n + 1) {
+        --reveal-start: 0%;
+      }
+      .reveal-stagger > :nth-child(3n + 2) {
+        --reveal-start: 15%;
+      }
+      .reveal-stagger > :nth-child(3n) {
+        --reveal-start: 30%;
+      }
+    }
+
+    /* …y 4 en escritorio. */
+    @media (min-width: 64rem) {
+      .reveal-stagger > :nth-child(4n + 1) {
+        --reveal-start: 0%;
+      }
+      .reveal-stagger > :nth-child(4n + 2) {
+        --reveal-start: 12%;
+      }
+      .reveal-stagger > :nth-child(4n + 3) {
+        --reveal-start: 24%;
+      }
+      .reveal-stagger > :nth-child(4n) {
+        --reveal-start: 36%;
+      }
+    }
+  }
+}
