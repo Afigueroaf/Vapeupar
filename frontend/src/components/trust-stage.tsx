@@ -287,8 +287,12 @@ export function TrustStage({ showcase, children }: TrustStageProps) {
             para que la fila siga centrada. Desde `xl` la columna de la página
             ya queda lejos del borde y vuelve al margen de las demás secciones.
           */}
+          {/* Las tarjetas entran en cascada con el scroll reveal
+              (`.reveal-stagger`), así que el campo las mide sin transforms. */}
           <CardField
+            measure="layout"
             className={cn(
+              "reveal-stagger",
               "mx-auto flex w-full max-w-vp flex-1 flex-col justify-center gap-8 pl-3.5 pr-[1.125rem] sm:gap-4 sm:pl-[1.375rem] sm:pr-[1.625rem]",
               "landscape:grid landscape:grid-cols-3 landscape:content-center landscape:gap-6 lg:landscape:gap-3 landscape:px-16 xl:landscape:px-10",
             )}
@@ -334,7 +338,7 @@ interface StageHeaderProps {
 function StageHeader({ id, tag, title, side, tab }: StageHeaderProps) {
   return (
     <div className="vp-glitch pt-10 sm:pt-16">
-      <div className="relative flex min-h-28 items-center">
+      <div className="scroll-reveal reveal-scale relative flex min-h-28 items-center">
         <div
           className={cn(
             "mx-auto w-full max-w-vp px-inline",
@@ -395,8 +399,11 @@ function StageTab({ side, label, onClick, placement, ...aria }: StageTabProps) {
         "absolute z-20 flex w-11 items-center justify-center border-2 border-line bg-surface text-action",
         "transition-colors duration-200 ease-vp hover:bg-action hover:text-action-ink",
         side === "right" ? "right-0 border-r-0" : "left-0 border-l-0",
+        // El del cuerpo entra con el scroll reveal; el de la cabecera ya entra
+        // con ella. `-translate-y-1/2` es la propiedad `translate`, aparte del
+        // `transform` que anima el reveal.
         placement === "body"
-          ? "top-1/2 h-28 -translate-y-1/2 portrait:hidden"
+          ? "scroll-reveal reveal-scale top-1/2 h-28 -translate-y-1/2 portrait:hidden"
           : "inset-y-0 landscape:hidden",
       )}
     >

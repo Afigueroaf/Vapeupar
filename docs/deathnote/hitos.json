@@ -193,13 +193,13 @@
     "date": "2026-11-23",
     "title": "Pantalla de arranque, fundido entre páginas y scroll reveal",
     "detail": "Logo VU que se dibuja en 4 s en cada carga, sin el glitch de entrada y sin parpadeo de la puerta +18; fundido suave entre páginas con View Transitions (#46). Las piezas de la web pública y la vitrina 3D crecen y aparecen ligadas al scroll (#47).",
-    "ref": "PR #46, #47 · 291e33b · 50b350e"
+    "ref": "PR #46, #47 · 291e33b · 50b350e · PR #52 · aebf364 · run 45294457071"
   },
   {
     "id": "h20261123-3",
     "date": "2026-11-23",
     "title": "Ajustes de sensación: reveal, Lenis y glitch",
     "detail": "Las piezas del scroll reveal aparecen un 30% más transparentes (#48), el scroll con Lenis es un 30% más suave (#49) y el glitch aleatorio ya no salta mientras la página se desplaza (#50).",
-    "ref": "PR #48, #49, #50"
+    "ref": "PR #48, #49, #50 · PR #52 · aebf364 · run 45294457071"
   }
 ]
