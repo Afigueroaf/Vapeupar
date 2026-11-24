@@ -49,13 +49,17 @@ navegadores, pero no sigue al scroll y el dueño prefiere A.
 - Colección: cabecera, pestañas y tarjetas de producto.
 - Ficha de producto: secciones «ficha técnica» y «descripción».
 - Nosotros: pilares y sección de mayores de edad.
-- ~~Contacto: sus bloques.~~ Vive dentro del pie de página, que no se anima.
 
 - Vitrina 3D de productos destacados (añadida después a petición del dueño).
 
+- Banda de confianza entera (petición del dueño): cabeceras de «Vitrina» e
+  «Información», tirador INFO lateral y tarjetas de información en cascada.
+- Pie de página (petición del dueño): advertencia +18, las cuatro columnas de
+  contacto y la línea final; en la vista previa de la consola, quietas.
+
 **No se aplica:** hero (el vaporizador 3D se ancla midiendo su posición y ya
-está a la vista al cargar), tarjetas de la banda de confianza, barra de
-navegación, pie de página, puerta +18, carrito, botón de WhatsApp.
+está a la vista al cargar), barra de navegación, puerta +18, carrito, botón de
+WhatsApp.
 
 ## No-objetivos
 
@@ -88,3 +92,11 @@ el reparto fino de clases dentro de cada componente.
   animación, `vp-scroll-reveal-fade`, con la curva `ease` elevada a 1,86
   (`linear()`): transparencia media del tramo 0,33 → 0,43; a mitad, opacidad
   0,66 en vez de 0,80. El movimiento no cambia y sigue terminando en 1.
+- Relleno `backwards`, no `both`: con `both` el estado final se quedaba
+  aplicado y pisaba el `transform` propio de `.vp-card`, así que las tarjetas
+  del catálogo (#47) perdieron la inclinación 3D al pasar el puntero. Ahora la
+  animación deja de aplicarse al acabar su tramo.
+- El pie no tiene los 15vh de cola (es lo último del documento): su tramo
+  acaba en `entry 100%`, justo cuando entra entero, y solo escala, sin
+  desplazamiento, para no alargar la página. Medido: altura constante y nada a
+  medias al final de portada, Nosotros, colección y ficha (1280 y 360).

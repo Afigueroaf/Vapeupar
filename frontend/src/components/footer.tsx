@@ -29,10 +29,10 @@ export async function Footer() {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="vp-glitch border-t-2 border-line pb-10 pt-12">
+    <footer className="reveal-footer vp-glitch border-t-2 border-line pb-10 pt-12">
       {/* Obligatory health and legal warning for nicotine products */}
       <div className="mx-auto max-w-vp px-inline">
-        <div className="border-2 border-accent bg-surface p-5 rounded-vp sm:p-6">
+        <div className="scroll-reveal reveal-scale border-2 border-accent bg-surface p-5 rounded-vp sm:p-6">
           <PixelLabel variant="violet">[ +18 ]</PixelLabel>
 
           <h3 className={`mt-4 ${COL_HEADING}`}>Advertencia legal y de salud</h3>
@@ -46,7 +46,7 @@ export async function Footer() {
       {/* Marca, horario, atención y enlaces: la misma vista que la previa de /admin/content. */}
       <ContactView contact={contact} />
 
-      <div className="mx-auto mt-6 flex max-w-vp flex-col items-center justify-between gap-3 px-inline text-sm text-muted sm:flex-row">
+      <div className="scroll-reveal reveal-scale mx-auto mt-6 flex max-w-vp flex-col items-center justify-between gap-3 px-inline text-sm text-muted sm:flex-row">
         <p>© {currentYear} Vapeupar. Todos los derechos reservados. Valledupar, Colombia.</p>
         <p>Solo para mayores de 18 años (+18). Consume con responsabilidad.</p>
         {/* Solo cuando el carrito puede pedir datos: antes, la política no aplica a nada. */}
