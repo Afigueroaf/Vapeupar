@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { holdForScroll } from "@/lib/glitch-scroll";
 import { GLITCH_MAX_SHIFT } from "@/lib/glitch";
 
 const FILTER_ID = "vp-rgb-glitch";
@@ -193,6 +194,11 @@ export function PageGlitch() {
     let started = false;
     let burstAt = 0;
     let burstStart = -1;
+    /** Último evento `scroll` (también la cola de Lenis): ver `lib/glitch-scroll.ts`. */
+    let lastScrollAt = -Infinity;
+    const onScroll = () => {
+      lastScrollAt = performance.now();
+    };
 
     root.classList.add("glitch-ready");
 
@@ -316,6 +322,16 @@ export function PageGlitch() {
         burstAt = now + nextBurstDelay();
       }
 
+      // NADA DE RÁFAGAS CON LA PÁGINA EN MOVIMIENTO: se aplazan hasta que se
+      // quede quieta, y la que está en curso se corta si empieza el scroll.
+      ({ burstAt, burstStart } = holdForScroll(
+        { burstAt, burstStart },
+        now,
+        lastScrollAt,
+        ARM_LEAD_MS,
+        nextBurstDelay,
+      ));
+
       let intensity = 0;
 
       if (burstStart < 0 && now >= burstAt) burstStart = now;
@@ -416,10 +432,12 @@ export function PageGlitch() {
     };
 
     document.addEventListener("visibilitychange", syncVisibility);
+    window.addEventListener("scroll", onScroll, { passive: true });
     syncVisibility();
 
     return () => {
       document.removeEventListener("visibilitychange", syncVisibility);
+      window.removeEventListener("scroll", onScroll);
       cancelAnimationFrame(frame);
       window.clearTimeout(timer);
       disarm();
